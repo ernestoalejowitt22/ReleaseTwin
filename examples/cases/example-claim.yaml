@@ -1,0 +1,17 @@
+id: CLM-042
+oracle:
+  locator: tickets/CLM-042
+fixture:
+  locator: example-claim.json
+  sha256: 4d548f4d7d3f6a6a037746184f6c1a0fe92af7e357e181f850aa1e8ba77cce62
+requires:
+  - http:azure-devops
+preconditions:
+  - check: azdo.areaPathExists
+    owner: QA claims fixtures
+pipeline:
+  - operation: azdo.createWorkItem
+  - operation: azdo.getWorkItem
+cleanup:
+  - operation: azdo.deleteWorkItem
+resource_key: TeamProject\Area

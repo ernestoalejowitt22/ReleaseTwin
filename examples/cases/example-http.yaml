@@ -1,0 +1,19 @@
+id: HTTP-DEMO-1
+oracle:
+  locator: docs/customer-pilot-guide.md
+fixture:
+  locator: example-http.json
+  sha256: ca3d163bab055381827226140568f3bef7eaac187cebd76878e0b63e9e442356
+pipeline:
+  - operation: http.request
+    with:
+      method: GET
+      url: https://jsonplaceholder.typicode.com/posts/1
+  - operation: http.assertJsonPath
+    with:
+      path: $.id
+      expected: 1
+  - operation: http.assertJsonPath
+    with:
+      path: $.userId
+      expected: 1

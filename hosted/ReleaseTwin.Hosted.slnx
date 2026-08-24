@@ -1,0 +1,4 @@
+<Solution>
+  <Project Path="ReleaseTwin.Hosted.Api.Tests/ReleaseTwin.Hosted.Api.Tests.csproj" />
+  <Project Path="ReleaseTwin.Hosted.Api/ReleaseTwin.Hosted.Api.csproj" />
+</Solution>

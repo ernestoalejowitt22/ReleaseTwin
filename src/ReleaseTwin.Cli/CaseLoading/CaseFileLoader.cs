@@ -1,0 +1,240 @@
+using System.Security.Cryptography;
+using System.Text.RegularExpressions;
+using ReleaseTwin.Core;
+using YamlDotNet.Core;
+using YamlDotNet.Serialization;
+using YamlDotNet.Serialization.NamingConventions;
+
+namespace ReleaseTwin.Cli.CaseLoading;
+
+/// <summary>
+/// Loads every *.yaml/*.yml case file in a directory into ReleaseTwin.Core.TestCase, per
+/// design.md D1 (trimmed case-file format) and D3 (fixture root + path containment).
+/// </summary>
+public sealed class CaseFileLoader
+{
+    private static readonly Regex EnvVarPattern = new(@"\$\{([A-Z0-9_]+)\}", RegexOptions.Compiled);
+
+    private readonly string _casesDirectory;
+    private readonly string _fixturesRoot;
+    private readonly IDeserializer _deserializer;
+
+    public CaseFileLoader(string casesDirectory, string? fixturesRoot = null)
+    {
+        _casesDirectory = casesDirectory;
+        _fixturesRoot = fixturesRoot ?? Path.Combine(casesDirectory, "..", "fixtures");
+        _deserializer = new DeserializerBuilder()
+            .WithNamingConvention(UnderscoredNamingConvention.Instance)
+            .IgnoreUnmatchedProperties()
+            .Build();
+    }
+
+    public IReadOnlyList<LoadedCase> LoadAll()
+    {
+        if (!Directory.Exists(_casesDirectory))
+        {
+            throw new CaseFileException(_casesDirectory, "cases directory does not exist");
+        }
+
+        var files = Directory.EnumerateFiles(_casesDirectory, "*.yaml", SearchOption.TopDirectoryOnly)
+            .Concat(Directory.EnumerateFiles(_casesDirectory, "*.yml", SearchOption.TopDirectoryOnly))
+            .OrderBy(f => f, StringComparer.Ordinal)
+            .ToList();
+
+        return files.Select(LoadOne).ToList();
+    }
+
+    private LoadedCase LoadOne(string filePath)
+    {
+        var fileName = Path.GetFileName(filePath);
+
+        CaseFileDto? dto;
+        try
+        {
+            dto = _deserializer.Deserialize<CaseFileDto>(File.ReadAllText(filePath));
+        }
+        catch (YamlException ex)
+        {
+            throw new CaseFileException(fileName, $"invalid YAML: {ex.Message}");
+        }
+
+        if (dto is null)
+        {
+            throw new CaseFileException(fileName, "file is empty");
+        }
+
+        if (string.IsNullOrWhiteSpace(dto.Id))
+        {
+            throw new CaseFileException(fileName, "missing required field 'id'");
+        }
+
+        if (string.IsNullOrWhiteSpace(dto.Oracle?.Locator))
+        {
+            throw new CaseFileException(fileName, "missing required field 'oracle.locator'");
+        }
+
+        if (string.IsNullOrWhiteSpace(dto.Fixture?.Locator))
+        {
+            throw new CaseFileException(fileName, "missing required field 'fixture.locator'");
+        }
+
+        var fixture = ResolveFixture(fileName, dto.Fixture);
+
+        var prerequisites = (dto.Preconditions ?? new List<PreconditionDto>())
+            .Select(p =>
+            {
+                if (string.IsNullOrWhiteSpace(p.Check))
+                {
+                    throw new CaseFileException(fileName, "a precondition is missing 'check'");
+                }
+
+                if (string.IsNullOrWhiteSpace(p.Owner))
+                {
+                    throw new CaseFileException(fileName, "a precondition is missing 'owner'");
+                }
+
+                return new PrerequisiteDeclaration(p.Check, p.Owner);
+            })
+            .ToList();
+
+        var pipeline = (dto.Pipeline ?? new List<PipelineStepDto>())
+            .Select(p =>
+            {
+                if (string.IsNullOrWhiteSpace(p.Operation))
+                {
+                    throw new CaseFileException(fileName, "a pipeline step is missing 'operation'");
+                }
+
+                var parameters = ConvertParameters(p.With) is { } converted
+                    ? (IReadOnlyDictionary<string, object?>)InterpolateEnvVars(fileName, converted)!
+                    : null;
+
+                return new PipelineStep(p.Operation, With: parameters);
+            })
+            .ToList();
+
+        var cleanup = (dto.Cleanup ?? new List<CleanupDto>())
+            .Select(c =>
+            {
+                if (string.IsNullOrWhiteSpace(c.Operation))
+                {
+                    throw new CaseFileException(fileName, "a cleanup step is missing 'operation'");
+                }
+
+                return new CleanupDeclaration(c.Operation);
+            })
+            .ToList();
+
+        var requiredCapabilities = (dto.Requires ?? new List<string>())
+            .Select(r => new CapabilityRequirement(r))
+            .ToList();
+
+        var testCase = new TestCase(
+            dto.Id,
+            new OracleReference(dto.Oracle!.Locator!),
+            fixture,
+            prerequisites,
+            pipeline,
+            cleanup,
+            string.IsNullOrWhiteSpace(dto.ResourceKey) ? null : new ResourceKey(dto.ResourceKey),
+            requiredCapabilities);
+
+        return new LoadedCase(testCase, ResolveFlagProof(fileName, dto.FlagProof));
+    }
+
+    private static FlagProofDeclaration? ResolveFlagProof(string fileName, FlagProofDto? dto)
+    {
+        if (dto is null)
+        {
+            return null;
+        }
+
+        if (string.IsNullOrWhiteSpace(dto.FeatureKey))
+        {
+            throw new CaseFileException(fileName, "flag_proof is missing 'feature_key'");
+        }
+
+        if (string.IsNullOrWhiteSpace(dto.BuildIdentity))
+        {
+            throw new CaseFileException(fileName, "flag_proof is missing 'build_identity'");
+        }
+
+        return new FlagProofDeclaration(dto.FeatureKey, dto.BuildIdentity);
+    }
+
+    private static Dictionary<string, object?>? ConvertParameters(object? node) => ConvertYamlNode(node) as Dictionary<string, object?>;
+
+    private static object? ConvertYamlNode(object? node)
+    {
+        switch (node)
+        {
+            case Dictionary<object, object> map:
+                return map.ToDictionary(kv => kv.Key.ToString()!, kv => ConvertYamlNode(kv.Value));
+            case List<object> list:
+                return list.Select(ConvertYamlNode).ToList();
+            default:
+                return node;
+        }
+    }
+
+    private object? InterpolateEnvVars(string fileName, object? value)
+    {
+        switch (value)
+        {
+            case string s:
+                return EnvVarPattern.Replace(s, match =>
+                {
+                    var varName = match.Groups[1].Value;
+                    var resolved = Environment.GetEnvironmentVariable(varName);
+                    if (resolved is null)
+                    {
+                        throw new CaseFileException(fileName, $"a parameter references undefined environment variable '{varName}'");
+                    }
+
+                    return resolved;
+                });
+            case Dictionary<string, object?> dict:
+                return dict.ToDictionary(kv => kv.Key, kv => InterpolateEnvVars(fileName, kv.Value));
+            case List<object?> list:
+                return list.Select(v => InterpolateEnvVars(fileName, v)).ToList();
+            default:
+                return value;
+        }
+    }
+
+    private FixtureReference ResolveFixture(string fileName, FixtureDto dto)
+    {
+        var locator = dto.Locator!;
+
+        if (Path.IsPathRooted(locator) || locator.Replace('\\', '/').Split('/').Any(segment => segment == ".."))
+        {
+            throw new CaseFileException(fileName, $"fixture locator '{locator}' must be a relative path with no '..' and no absolute path");
+        }
+
+        var fixturesRootFull = Path.GetFullPath(_fixturesRoot);
+        var candidate = Path.GetFullPath(Path.Combine(fixturesRootFull, locator));
+        var prefix = fixturesRootFull.EndsWith(Path.DirectorySeparatorChar)
+            ? fixturesRootFull
+            : fixturesRootFull + Path.DirectorySeparatorChar;
+
+        if (!candidate.StartsWith(prefix, StringComparison.OrdinalIgnoreCase))
+        {
+            throw new CaseFileException(fileName, $"fixture locator '{locator}' escapes the fixtures root");
+        }
+
+        if (!File.Exists(candidate))
+        {
+            throw new CaseFileException(fileName, $"fixture file not found: {candidate}");
+        }
+
+        var content = File.ReadAllBytes(candidate);
+        var actualHash = Convert.ToHexString(SHA256.HashData(content)).ToLowerInvariant();
+
+        if (!string.IsNullOrWhiteSpace(dto.Sha256) && !string.Equals(actualHash, dto.Sha256.Trim(), StringComparison.OrdinalIgnoreCase))
+        {
+            throw new CaseFileException(fileName, $"fixture hash mismatch: declared={dto.Sha256.Trim()} actual={actualHash}");
+        }
+
+        return new FixtureReference(locator, string.IsNullOrWhiteSpace(dto.Sha256) ? actualHash : dto.Sha256.Trim(), content);
+    }
+}
