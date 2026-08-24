@@ -140,7 +140,18 @@ cd hosted
 dotnet test ReleaseTwin.Hosted.slnx
 ```
 
-31 tests, all against a real (in-memory or SQLite) database and the real ASP.NET Core pipeline — no live Clerk application is needed to run them. The frontend (`web/`) has no automated tests yet — see `docs/installation-model.md`'s note on why Playwright/Cypress wasn't added speculatively.
+31 tests, all against a real (in-memory or SQLite) database and the real ASP.NET Core pipeline — no live Clerk application is needed to run them.
+
+The frontend (`web/`) has real Cypress e2e coverage as of `web-cypress-e2e` — one spec automating the actual sign-in → dashboard → create project → issue token → sign out walkthrough against a **real, live Clerk instance** (not mocked). This is local-only for now — no CI wiring exists yet for it, same as the rest of this project has no CI pipeline at all. To run it:
+
+```bash
+cd web
+cp cypress.env.json.example cypress.env.json   # E2E_TEST_USER_EMAIL — must use Clerk's "+clerk_test@" convention
+export Clerk__Domain=your-app.clerk.accounts.dev   # same value ReleaseTwin.Hosted.Api needs, see below
+npm run e2e
+```
+
+`npm run e2e` boots both services (`dotnet run` for the API, `next dev` for the frontend) and tears them down after. Prerequisites: password sign-in enabled as an auth method on the Clerk instance (verified — the scripted test user still needs a password set at creation time even though it signs in passwordlessly via `email_code`), and the same Clerk/`web/.env.local` credentials already required for `web/` generally (see "Self-serve signup" below).
 
 ## Self-serve signup (Stage 1, free-only)
 

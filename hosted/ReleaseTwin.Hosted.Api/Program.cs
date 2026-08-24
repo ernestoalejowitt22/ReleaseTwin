@@ -73,6 +73,11 @@ builder.Services
         // to a hand-built OpenIdConnectConfiguration pointing directly at
         // https://{clerkDomain}/.well-known/jwks.json instead of relying on discovery.
         options.MetadataAddress = $"https://{clerkDomain}/.well-known/oauth-authorization-server";
+        // Verified against a real Clerk JWT (web-cypress-e2e): without this, ASP.NET Core's default
+        // inbound claim mapping silently renames short claim names like "sub"/"email" to legacy
+        // XML-namespaced ClaimTypes URIs, so FindFirst("sub") below never matches even though the
+        // token genuinely has that claim — this keeps claim types exactly as they appear in the JWT.
+        options.MapInboundClaims = false;
         options.TokenValidationParameters = new TokenValidationParameters
         {
             ValidIssuer = $"https://{clerkDomain}",
