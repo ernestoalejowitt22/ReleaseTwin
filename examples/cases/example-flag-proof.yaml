@@ -1,0 +1,13 @@
+id: FLAGPROOF-DEMO-1
+oracle:
+  locator: tickets/FLAGPROOF-DEMO-1
+fixture:
+  locator: example-flag-proof.json
+  sha256: a213eab461999a18e79f8ca7065da4436d0715c0333149774f53838285b20f97
+requires:
+  - http:azure-devops
+pipeline:
+  - operation: azdo.readFeatureVariable
+flag_proof:
+  feature_key: release-proof-feature
+  build_identity: build-demo-1
