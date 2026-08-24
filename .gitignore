@@ -1,0 +1,24 @@
+# .NET
+bin/
+obj/
+*.user
+*.suo
+
+# Node / Next.js
+node_modules/
+.next/
+out/
+web/.env.local
+web/.env*.local
+!web/.env.local.example
+
+# General env/secrets
+.env
+.env.local
+
+# OS
+.DS_Store
+
+# IDE
+.vs/
+.idea/
