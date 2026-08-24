@@ -8,7 +8,7 @@ This is pure test tooling — no product behavior changes, so no spec deltas (`s
 
 - Add `@clerk/testing` (Clerk's official first-party Cypress integration) and `cypress` as dev dependencies in `web/`.
 - `web/cypress.config.ts` wired with `clerkSetup()`; `cypress/support/e2e.ts` wired with `addClerkCommands()`.
-- A dedicated, scripted test user (not anyone's personal account) provisioned via Clerk's Backend API, idempotently, using `password` sign-in strategy — the only strategy that doesn't depend on real email/SMS delivery during a CI run.
+- A dedicated, scripted test user (not anyone's personal account) provisioned via Clerk's Backend API, idempotently, signing in via `email_code` strategy with Clerk's `+clerk_test@` test-address convention — a fixed, known verification code, no real email delivery. (Originally planned as `password` strategy; revised during implementation once Clerk's Device Trust feature — a second-factor challenge for password sign-ins from any new device, with no supported bypass — made that impossible for automated runs. See design.md.)
 - One initial spec covering the walkthrough already verified by hand this session: sign in → dashboard loads → create a project → issue a token (confirm the "shown once" banner) → sign out. GitHub connections excluded (still no registered OAuth App for that flow — same deferral as everywhere else in this project).
 - `start-server-and-test` (or equivalent) to boot both the hosted API (.NET) and the Next.js dev/build server before Cypress runs, and tear them down after — this is genuinely two different runtimes needing to be up together, not something `npm test` alone can express.
 
