@@ -23,7 +23,7 @@
 ## 5. Create the `releasetwin-bootstrap` IAM user (the one MFA'd action in this whole plan — cannot be done by an agent)
 
 - [ ] 5.1 In the AWS Console (`ealejo` account, logged in normally — MFA here is just your regular login, not a CLI session dance): IAM → Users → Create user `releasetwin-bootstrap`, no console access, access-key-only credential type.
-- [ ] 5.2 Attach an inline policy with exactly this — S3/DynamoDB for the state backend, IAM/OIDC-provider actions for the trust and role, nothing else:
+- [ ] 5.2 Attach an inline policy scoped by *resource*, not by an enumerated verb list — S3/DynamoDB for the state backend (each pinned to exactly the one bucket/table, no broader blast radius), IAM/OIDC-provider actions for the trust and role, nothing else. (Confirmed empirically that a narrower, verb-enumerated policy fails partway through `terraform apply`: the AWS provider makes extra read-back calls after creating a resource — e.g. `s3:GetBucketPolicy`, `dynamodb:DescribeContinuousBackups` — beyond the obvious create/read verbs, so resource-level scoping is the more reliable least-privilege boundary here than trying to enumerate every verb the provider might call.)
   ```json
   {
     "Version": "2012-10-17",
@@ -31,12 +31,7 @@
       {
         "Sid": "StateBucket",
         "Effect": "Allow",
-        "Action": [
-          "s3:CreateBucket", "s3:GetBucketLocation", "s3:GetBucketVersioning",
-          "s3:PutBucketVersioning", "s3:GetBucketPublicAccessBlock",
-          "s3:PutBucketPublicAccessBlock", "s3:GetEncryptionConfiguration",
-          "s3:GetBucketAcl", "s3:ListBucket", "s3:GetObject", "s3:PutObject"
-        ],
+        "Action": "s3:*",
         "Resource": [
           "arn:aws:s3:::releasetwin-terraform-state-846136340491",
           "arn:aws:s3:::releasetwin-terraform-state-846136340491/*"
@@ -45,10 +40,7 @@
       {
         "Sid": "StateLockTable",
         "Effect": "Allow",
-        "Action": [
-          "dynamodb:CreateTable", "dynamodb:DescribeTable",
-          "dynamodb:GetItem", "dynamodb:PutItem", "dynamodb:DeleteItem"
-        ],
+        "Action": "dynamodb:*",
         "Resource": "arn:aws:dynamodb:us-east-1:846136340491:table/releasetwin-terraform-state-lock"
       },
       {
@@ -57,8 +49,10 @@
         "Action": [
           "iam:CreateOpenIDConnectProvider", "iam:GetOpenIDConnectProvider",
           "iam:ListOpenIDConnectProviders", "iam:TagOpenIDConnectProvider",
-          "iam:CreateRole", "iam:GetRole", "iam:PutRolePolicy",
-          "iam:GetRolePolicy", "iam:DeleteRolePolicy", "iam:TagRole"
+          "iam:DeleteOpenIDConnectProvider",
+          "iam:CreateRole", "iam:GetRole", "iam:DeleteRole",
+          "iam:PutRolePolicy", "iam:GetRolePolicy", "iam:DeleteRolePolicy",
+          "iam:ListRolePolicies", "iam:ListAttachedRolePolicies", "iam:TagRole"
         ],
         "Resource": "*"
       }
