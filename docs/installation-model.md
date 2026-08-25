@@ -6,7 +6,7 @@ Cross-phase reference. Not scoped to any single change — every phase's design 
 
 As of `hosted-self-serve-platform` (Stage 1), all three installation types below are real, not aspirational:
 
-- **Local CLI**: `ReleaseTwin.Cli` (`dotnet run` from source, still not packaged — no npm/NuGet/Docker/GitHub Action) loads YAML case files, composes whichever adapters are configured (the generic HTTP adapter always; Azure DevOps only if its 5 env vars are present — resolved in `phase4-generic-http-adapter`, no longer hardcoded to one adapter), executes them, and exits non-zero on any failure.
+- **Local CLI**: `ReleaseTwin.Cli` — runnable from source (`dotnet run`) or, as of `cli-packaging`, as a published Docker image (`ghcr.io/ernestoalejowitt22/releasetwin/cli`, tag-triggered release workflow) requiring no local .NET SDK. `dotnet tool`/NuGet and a GitHub Action wrapper are still deferred. Loads YAML case files, composes whichever adapters are configured (the generic HTTP adapter always; Azure DevOps only if its 5 env vars are present — resolved in `phase4-generic-http-adapter`, no longer hardcoded to one adapter), executes them, and exits non-zero on any failure.
 - **CI runner**: the same CLI, scriptable into any CI pipeline — still the recommended default, per the assessment's own reasoning (lowest infra cost, fewest security objections).
 - **Hosted control plane**: two services as of `hosted-react-frontend` — `hosted/ReleaseTwin.Hosted.Api` (JSON-only .NET API: self-serve Clerk-backed signup, provider-neutral, not tied to a GitHub account; project/token management; ingest) and `web/` (Next.js/React/Tailwind/shadcn-ui, owning all UI, calling the API server-side only — a BFF, never exposing the API to the browser directly). Execution still happens entirely in the customer's own infra (CLI, local or CI); only report *metadata* is ever uploaded (case ID, oracle reference, fixture hash, pass/fail, classification — never fixture content, response bodies, or secrets). Stage 1 is **free-only** — no billing, no Stripe integration, no paid tiers exist yet (deliberately deferred to a future change once Stage 1 has real self-serve usage to monetize).
 
@@ -61,7 +61,7 @@ The pattern that matters going forward: **any future flag-state backend is a new
 
 ## What stays deferred
 
-- **Packaging/distribution** for the CLI: Docker image, GitHub Action, npm wrapper. Still `dotnet run` from source only.
+- **Packaging/distribution** for the CLI: a Docker image is now published (`cli-packaging`); `dotnet tool`/NuGet and a GitHub Action wrapper are still deferred.
 - **Billing** (Stage 2 of `hosted-self-serve-platform`): Stripe integration, paid tiers, usage enforcement. Deliberately deferred until Stage 1 has real self-serve usage to monetize.
 - **Config-driven adapter selection** in the CLI beyond the current two (HTTP unconditional, Azure DevOps conditional) — still code-level, not a config file naming arbitrary adapters.
 - **A non-REST adapter** (message queue, database, vendor SDK without a REST surface) — the HTTP adapter covers anything with a REST surface; nothing else has needed a bespoke adapter yet.

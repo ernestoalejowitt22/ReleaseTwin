@@ -45,6 +45,23 @@ PASS HTTP-DEMO-1
 1 passed, 2 failed
 ```
 
+### 2b. Or run it via Docker (no .NET SDK required)
+
+The CLI is also published as a container image — useful for CI systems (or machines) without the .NET SDK installed:
+
+```bash
+docker pull ghcr.io/ernestoalejowitt22/releasetwin/cli:<version>   # pin a version, e.g. 0.1.0 — avoid :latest in CI
+docker run --rm \
+  -v $(pwd)/examples:/workspace:ro \
+  ghcr.io/ernestoalejowitt22/releasetwin/cli:<version>
+```
+
+The container expects the same layout the CLI already assumes: a `cases/` directory with a sibling `fixtures/` directory, both under whatever host path you mount to `/workspace`. Running with no arguments executes `/workspace/cases`; pass a different path as an argument to override it (`docker run ... ghcr.io/ernestoalejowitt22/releasetwin/cli:<version> /workspace/some-other-dir`). The mount is read-only — the CLI only ever reads case/fixture files, never writes to them.
+
+Credentials/env vars work the same way as the plain CLI, just passed into the container: either `--env-file .env` (handy if you already keep a local `.env` next to your case files) or `-e SOME_VAR` (bare, no `=value` — passes through the host's own value, useful when a CI system already exports secrets as environment variables). Exit code behavior is unchanged — `docker run` propagates the container's exit code, so the same `... || exit 1`-style CI gating works without adaptation.
+
+**Pin a version tag in CI.** `:latest` is published for convenience/local smoke-checking, but an unannounced image update silently changing your CI gate would defeat the point of a reliable regression check — pin an explicit version (e.g. `:0.1.0`) in any real CI pipeline.
+
 (If you *do* set the Azure DevOps variables below, all three examples pass together.)
 
 A non-zero exit code means at least one case failed — safe to wire directly into a CI step (`dotnet run --project src/ReleaseTwin.Cli -- cases/ || exit 1`).
@@ -201,7 +218,7 @@ Uploads happen automatically after each case; a failed upload prints a warning b
 
 Deliberately deferred, not forgotten — each was a scoped decision, not an oversight:
 
-- **Packaging/distribution** — no npm, NuGet, Docker image, or GitHub Action for the CLI. Today it's `dotnet build` from source only.
+- **Packaging/distribution** — a Docker image is now published (`cli-packaging`, see "Or run it via Docker" above), tag-triggered via a GitHub Actions release workflow. `dotnet tool`/NuGet and a GitHub Action wrapper are still deferred.
 - **Config-driven adapter selection** — the CLI still decides which adapters to install in code (HTTP always, Azure DevOps conditionally), not from a config file naming arbitrary adapters.
 - **Azure DevOps operation parameters** — its operations are still fixed-shape; only the HTTP adapter is data-driven from case files.
 - **A non-REST adapter** — the HTTP adapter covers anything with a REST surface; a message queue, database, or vendor SDK without one still needs bespoke adapter code.
