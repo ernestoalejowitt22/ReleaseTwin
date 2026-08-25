@@ -73,9 +73,9 @@
 
 ## 7. `web/` on Vercel
 
-- [ ] 7.1 Create a new Vercel project pointed at `web/` (or the repo, with `web/` as the root directory).
-- [ ] 7.2 Set Vercel environment variables: `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY`, `CLERK_SECRET_KEY` (same values as `web/.env.local`), `RELEASETWIN_API_URL` = the Function URL from 6.2.
-- [ ] 7.3 Deploy; confirm the app loads on its default `*.vercel.app` domain and `/sign-in` renders (Clerk widget reachable).
+- [x] 7.1 Create a new Vercel project pointed at `web/` (or the repo, with `web/` as the root directory). (`https://releasetwin.vercel.app`)
+- [x] 7.2 Set Vercel environment variables: `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY`, `CLERK_SECRET_KEY` (same values as `web/.env.local`), `RELEASETWIN_API_URL` = the Function URL from 6.2.
+- [x] 7.3 Deploy; confirm the app loads on its default `*.vercel.app` domain and `/sign-in` renders (Clerk widget reachable). (Verified: `/` and `/sign-in` both 200, real Clerk widget renders in-browser.)
 
 ## 8. GitHub OAuth App + terraform pass 2, via CI
 
