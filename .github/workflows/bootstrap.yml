@@ -1,0 +1,82 @@
+name: Bootstrap AWS Infra
+
+# hosted-platform-deployment design.md: the one-time (or rare) layer everything else depends on —
+# the GitHub Actions OIDC trust, the CI role deploy-hosted.yml assumes, and the S3/DynamoDB remote
+# state backend both terraform roots below and hosted/terraform itself use. Can't authenticate via
+# OIDC (that's what job 2 creates) — instead uses a short-lived AWS session you mint locally with
+# your own MFA and paste into these repo secrets for this one run:
+#   AWS_BOOTSTRAP_ACCESS_KEY_ID, AWS_BOOTSTRAP_SECRET_ACCESS_KEY, AWS_BOOTSTRAP_SESSION_TOKEN
+# Safe to remove those secrets again once this workflow succeeds — nothing else ever reads them.
+on:
+  workflow_dispatch:
+    inputs:
+      region:
+        description: "AWS region"
+        default: "us-east-1"
+
+permissions:
+  contents: read
+
+jobs:
+  # hosted/terraform-state-backend: the one truly irreducible piece — its own state has nowhere
+  # else to live yet, so it stays local (ephemeral, lost when this job ends). Small and static
+  # (an S3 bucket + a DynamoDB table) enough that this is an accepted tradeoff, not a real risk —
+  # see design.md Risks.
+  state-backend:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_BOOTSTRAP_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_BOOTSTRAP_SECRET_ACCESS_KEY }}
+          aws-session-token: ${{ secrets.AWS_BOOTSTRAP_SESSION_TOKEN }}
+          aws-region: ${{ inputs.region }}
+
+      - uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: "~> 1.5"
+
+      - name: Terraform init
+        working-directory: hosted/terraform-state-backend
+        run: terraform init
+
+      - name: Terraform apply
+        working-directory: hosted/terraform-state-backend
+        run: terraform apply -auto-approve -var="region=${{ inputs.region }}"
+
+  # hosted/terraform-bootstrap: OIDC provider + the CI role deploy-hosted.yml assumes. Uses the
+  # bucket/table state-backend just created as its own remote backend — unlike that job, this
+  # config's state is durable from its very first apply, since it's the piece more likely to
+  # actually need a future update (permissions, another repo, etc.).
+  oidc-and-role:
+    needs: state-backend
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_BOOTSTRAP_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_BOOTSTRAP_SECRET_ACCESS_KEY }}
+          aws-session-token: ${{ secrets.AWS_BOOTSTRAP_SESSION_TOKEN }}
+          aws-region: ${{ inputs.region }}
+
+      - uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: "~> 1.5"
+
+      - name: Terraform init
+        working-directory: hosted/terraform-bootstrap
+        run: terraform init
+
+      - name: Terraform apply
+        working-directory: hosted/terraform-bootstrap
+        run: terraform apply -auto-approve -var="region=${{ inputs.region }}"
+
+      - name: Deploy role ARN
+        working-directory: hosted/terraform-bootstrap
+        run: |
+          echo "Set this as the AWS_DEPLOY_ROLE_ARN repo variable:" >> "$GITHUB_STEP_SUMMARY"
+          echo "$(terraform output -raw github_actions_role_arn)" >> "$GITHUB_STEP_SUMMARY"

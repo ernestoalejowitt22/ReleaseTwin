@@ -14,9 +14,26 @@ terraform {
 
   required_providers {
     aws = {
-      source  = "hashicorp/aws"
-      version = "~> 5.0"
+      source = "hashicorp/aws"
+      # hosted-platform-deployment: bumped from ~> 5.0 — the "dotnet10" Lambda runtime identifier
+      # (lambda.tf) isn't recognized by the AWS provider's schema until 6.x (verified empirically:
+      # 5.100.0, the latest 5.x release, rejects it; 6.x accepts it). Safe to bump here since no
+      # state has ever been applied against the 5.x provider — nothing to migrate.
+      version = "~> 6.0"
     }
+  }
+
+  # hosted-platform-deployment design.md: remote state, because `terraform apply` runs from
+  # ephemeral GitHub Actions runners with no memory of a local state file between runs. Bucket and
+  # lock table are provisioned by hosted/terraform-bootstrap (applied once, manually, under MFA —
+  # see that directory) — this block assumes they already exist rather than creating them itself,
+  # avoiding a circular dependency on its own bootstrap.
+  backend "s3" {
+    bucket         = "releasetwin-terraform-state-846136340491"
+    key            = "hosted/terraform.tfstate"
+    region         = "us-east-1"
+    dynamodb_table = "releasetwin-terraform-state-lock"
+    encrypt        = true
   }
 }
 
