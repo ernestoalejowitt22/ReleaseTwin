@@ -142,37 +142,20 @@ resource "aws_iam_role" "github_actions_deploy" {
 # both together if that ever changes), plus the state backend this role also needs for hosted/
 # terraform's own remote state.
 data "aws_iam_policy_document" "github_actions_deploy_permissions" {
+  # design.md Risks: verb-enumerated policies are fragile — the AWS provider makes read-back calls
+  # after creating/reading a resource (e.g. `dynamodb:DescribeContinuousBackups`,
+  # `lambda:ListVersionsByFunction`) beyond the obvious CRUD verbs, confirmed empirically on the
+  # bootstrap state-backend's own policy first and now here too. Scoped by resource instead, same
+  # fix, same rationale: the resource-ARN pinning is what actually bounds blast radius.
   statement {
-    sid = "DynamoDbTable"
-    actions = [
-      "dynamodb:CreateTable",
-      "dynamodb:DeleteTable",
-      "dynamodb:DescribeTable",
-      "dynamodb:UpdateTable",
-      "dynamodb:TagResource",
-      "dynamodb:UntagResource",
-      "dynamodb:ListTagsOfResource",
-    ]
+    sid       = "DynamoDbTable"
+    actions   = ["dynamodb:*"]
     resources = ["arn:aws:dynamodb:${var.region}:846136340491:table/releasetwin-dev-*"]
   }
 
   statement {
-    sid = "LambdaFunction"
-    actions = [
-      "lambda:CreateFunction",
-      "lambda:DeleteFunction",
-      "lambda:GetFunction",
-      "lambda:GetFunctionConfiguration",
-      "lambda:UpdateFunctionCode",
-      "lambda:UpdateFunctionConfiguration",
-      "lambda:TagResource",
-      "lambda:UntagResource",
-      "lambda:ListTags",
-      "lambda:CreateFunctionUrlConfig",
-      "lambda:DeleteFunctionUrlConfig",
-      "lambda:GetFunctionUrlConfig",
-      "lambda:UpdateFunctionUrlConfig",
-    ]
+    sid       = "LambdaFunction"
+    actions   = ["lambda:*"]
     resources = ["arn:aws:lambda:${var.region}:846136340491:function:releasetwin-dev-*"]
   }
 
