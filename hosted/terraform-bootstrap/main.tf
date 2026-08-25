@@ -106,12 +106,24 @@ data "aws_iam_policy_document" "github_actions_assume_role" {
       values   = ["sts.amazonaws.com"]
     }
 
-    # Confirmed empirically (repos/.../actions/oidc/customization/sub) that this account's actual
-    # `sub` claim embeds internal owner/repo IDs (`repo:owner@<id>/repo@<id>:...`), not the plain
-    # `repo:OWNER/REPO:...` format the AWS/GitHub OIDC docs default to — a `sub`-based StringLike
-    # match silently never matched, which is what caused every AssumeRoleWithWebIdentity call to be
-    # rejected. `repository` is a separate, stable claim GitHub's OIDC tokens always include
-    # (plain `owner/repo`, unaffected by any sub-claim customization), so condition on that instead.
+    # AWS itself rejects a trust policy for this OIDC provider unless it's scoped on `sub` or
+    # `job_workflow_ref` specifically (confirmed via a MalformedPolicyDocument error — conditioning
+    # on `repository` alone, however well-scoped, isn't accepted). Matches both candidate `sub`
+    # formats: the classic `repo:OWNER/REPO:...` documented default, and this account's own
+    # `repos/.../actions/oidc/customization/sub` response, which reports an ID-embedded prefix
+    # (`repo:owner@<ownerId>/repo@<repoId>:...`) — kept both rather than guess a third time which
+    # one is actually live, since StringLike matches on any value in the list.
+    condition {
+      test     = "StringLike"
+      variable = "token.actions.githubusercontent.com:sub"
+      values = [
+        "repo:${var.github_repo}:*",
+        "repo:ernestoalejowitt22@153939083/ReleaseTwin@1345467255:*",
+      ]
+    }
+
+    # Extra precision alongside the required `sub` condition above — narrows to exactly this repo
+    # regardless of which `sub` format turns out to be the one actually in effect.
     condition {
       test     = "StringEquals"
       variable = "token.actions.githubusercontent.com:repository"
