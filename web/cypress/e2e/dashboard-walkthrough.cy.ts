@@ -43,6 +43,12 @@ describe("dashboard walkthrough", () => {
     cy.contains("button", "Issue new token").click();
     cy.contains("New token (shown once, copy it now):").should("be.visible");
     cy.get("code").contains(/^rtw_/).should("be.visible");
+    // token-onboarding: install/run instructions and the free-vs-linked optionality statement now
+    // ship alongside the token itself, not just the bare value.
+    cy.contains("Set it and run a first case:").should("be.visible");
+    cy.contains("export RELEASETWIN_API_TOKEN=").should("be.visible");
+    cy.contains("dotnet run --project src/ReleaseTwin.Cli -- examples/cases").should("be.visible");
+    cy.contains("keeps everything fully local and free").should("be.visible");
     cy.screenshot("dashboard-walkthrough/03-token-issued");
 
     cy.clerkSignOut();
