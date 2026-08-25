@@ -79,6 +79,16 @@ resource "aws_iam_openid_connect_provider" "github_actions" {
   url             = "https://token.actions.githubusercontent.com"
   client_id_list  = ["sts.amazonaws.com"]
   thumbprint_list = [data.tls_certificate.github_actions.certificates[0].sha1_fingerprint]
+
+  # This provider is imported, not created here — it's shared with another existing project in
+  # this account, whose thumbprint_list (multiple legacy entries) differs from whatever this
+  # config's own `data "tls_certificate"` fetch happens to compute today. AWS validates GitHub's
+  # OIDC certs against its own trusted root CAs, not the configured thumbprint, for well-known
+  # issuers like this one — thumbprint_list is effectively vestigial here, so don't fight over it
+  # (or need extra IAM permissions to update someone else's shared resource for no real benefit).
+  lifecycle {
+    ignore_changes = [thumbprint_list]
+  }
 }
 
 data "aws_iam_policy_document" "github_actions_assume_role" {
