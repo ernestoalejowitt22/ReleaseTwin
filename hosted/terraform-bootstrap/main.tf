@@ -106,12 +106,16 @@ data "aws_iam_policy_document" "github_actions_assume_role" {
       values   = ["sts.amazonaws.com"]
     }
 
-    # Any branch/tag/PR of this one repo — the workflow itself is workflow_dispatch-only (design.md
-    # Non-Goals: no auto-deploy on push), so this doesn't grant deploy-on-push by itself.
+    # Confirmed empirically (repos/.../actions/oidc/customization/sub) that this account's actual
+    # `sub` claim embeds internal owner/repo IDs (`repo:owner@<id>/repo@<id>:...`), not the plain
+    # `repo:OWNER/REPO:...` format the AWS/GitHub OIDC docs default to — a `sub`-based StringLike
+    # match silently never matched, which is what caused every AssumeRoleWithWebIdentity call to be
+    # rejected. `repository` is a separate, stable claim GitHub's OIDC tokens always include
+    # (plain `owner/repo`, unaffected by any sub-claim customization), so condition on that instead.
     condition {
-      test     = "StringLike"
-      variable = "token.actions.githubusercontent.com:sub"
-      values   = ["repo:${var.github_repo}:*"]
+      test     = "StringEquals"
+      variable = "token.actions.githubusercontent.com:repository"
+      values   = [var.github_repo]
     }
   }
 }
