@@ -17,6 +17,7 @@ public class DashboardServiceTests
     {
         var table = new InMemoryHostedTable();
         var users = new UserRepository(table);
+        var organizations = new OrganizationRepository(table);
         var projects = new ProjectRepository(table);
         var tokens = new ApiTokenRepository(table);
         var connections = new ConnectionRepository(table);
@@ -24,8 +25,8 @@ public class DashboardServiceTests
         var flagProofReports = new FlagProofReportRepository(table);
         var usage = new UsageCounterRepository(table);
 
-        var provisioning = new ProvisioningService(users, projects, tokens, new TokenService());
-        var dashboard = new DashboardService(projects, connections, tokens, caseReports, flagProofReports, usage);
+        var provisioning = new ProvisioningService(users, organizations, projects, tokens, new TokenService());
+        var dashboard = new DashboardService(organizations, projects, connections, tokens, caseReports, flagProofReports, usage);
         return new Fixture(provisioning, dashboard, connections, caseReports);
     }
 

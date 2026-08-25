@@ -11,13 +11,15 @@ namespace ReleaseTwin.Hosted.Api.Services;
 public sealed class ProvisioningService
 {
     private readonly IUserRepository _users;
+    private readonly IOrganizationRepository _organizations;
     private readonly IProjectRepository _projects;
     private readonly IApiTokenRepository _tokens;
     private readonly ITokenService _tokenService;
 
-    public ProvisioningService(IUserRepository users, IProjectRepository projects, IApiTokenRepository tokens, ITokenService tokenService)
+    public ProvisioningService(IUserRepository users, IOrganizationRepository organizations, IProjectRepository projects, IApiTokenRepository tokens, ITokenService tokenService)
     {
         _users = users;
+        _organizations = organizations;
         _projects = projects;
         _tokens = tokens;
         _tokenService = tokenService;
@@ -37,6 +39,7 @@ public sealed class ProvisioningService
             Id = Guid.NewGuid(),
             Name = $"{displayName}'s organization",
             CreatedAt = DateTimeOffset.UtcNow,
+            PlanTier = PlanTier.Free,
         };
 
         var user = new AppUser
@@ -64,8 +67,32 @@ public sealed class ProvisioningService
         }
     }
 
-    public async Task<Project> CreateProjectAsync(Guid organizationId, string name, CancellationToken cancellationToken = default) =>
-        await _projects.CreateAsync(organizationId, name, cancellationToken);
+    /// <summary>
+    /// plan-tier-gating: Free-tier organizations are limited to one project. Reads the organization
+    /// and, only if Free, its current project count before creating — two extra reads on an already
+    /// low-frequency operation (project creation, not ingest), avoiding a maintained counter that
+    /// could drift from the actual project list (design.md).
+    /// </summary>
+    public async Task<Project> CreateProjectAsync(Guid organizationId, string name, CancellationToken cancellationToken = default)
+    {
+        var organization = await _organizations.GetAsync(organizationId, cancellationToken)
+            ?? throw new InvalidOperationException($"Cannot create a project: organization {organizationId} not found.");
+
+        if (organization.PlanTier == PlanTier.Free)
+        {
+            var existingProjects = await _projects.ListByOrganizationAsync(organizationId, cancellationToken);
+            if (existingProjects.Count >= 1)
+            {
+                throw new ProjectLimitExceededException("Free-tier organizations are limited to one project. Upgrade to create more.");
+            }
+        }
+
+        return await _projects.CreateAsync(organizationId, name, cancellationToken);
+    }
+
+    /// <summary>plan-tier-gating: no payment collected — an explicit placeholder for the eventual real paid flow, not billing itself.</summary>
+    public async Task UpgradeOrganizationAsync(Guid organizationId, CancellationToken cancellationToken = default) =>
+        await _organizations.SetPlanTierAsync(organizationId, PlanTier.Paid, cancellationToken);
 
     /// <summary>
     /// Returns the raw token value once — it is never retrievable again after this call.

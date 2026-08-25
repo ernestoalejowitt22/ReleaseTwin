@@ -27,16 +27,17 @@ import {
   disconnectConnection,
   revokeToken,
   startGitHubConnection,
+  upgradeOrganization,
 } from "./actions";
 
 export default async function DashboardPage({
   searchParams,
 }: {
-  searchParams: Promise<{ projectId?: string; connectionError?: string }>;
+  searchParams: Promise<{ projectId?: string; connectionError?: string; projectLimitError?: string }>;
 }) {
   await auth.protect();
 
-  const { projectId, connectionError } = await searchParams;
+  const { projectId, connectionError, projectLimitError } = await searchParams;
   const view = await api.get<DashboardView>(
     `/api/dashboard${projectId ? `?projectId=${projectId}` : ""}`,
   );
@@ -55,6 +56,12 @@ export default async function DashboardPage({
         </div>
       )}
 
+      {projectLimitError && (
+        <div className="rounded-md border border-destructive/50 bg-destructive/10 p-3 text-sm text-destructive">
+          {projectLimitError}
+        </div>
+      )}
+
       <Card>
         <CardHeader>
           <CardTitle>Usage this month</CardTitle>
@@ -62,14 +69,31 @@ export default async function DashboardPage({
             Across every project in your organization — not just the one selected below.
           </CardDescription>
         </CardHeader>
-        <CardContent className="flex gap-6">
-          <div>
-            <p className="text-2xl font-semibold">{view.usage.caseReportCount}</p>
-            <p className="text-sm text-muted-foreground">case reports</p>
+        <CardContent className="flex flex-col gap-4">
+          <div className="flex gap-6">
+            <div>
+              <p className="text-2xl font-semibold">{view.usage.caseReportCount}</p>
+              <p className="text-sm text-muted-foreground">case reports</p>
+            </div>
+            <div>
+              <p className="text-2xl font-semibold">{view.usage.flagProofReportCount}</p>
+              <p className="text-sm text-muted-foreground">flag-proof reports</p>
+            </div>
           </div>
-          <div>
-            <p className="text-2xl font-semibold">{view.usage.flagProofReportCount}</p>
-            <p className="text-sm text-muted-foreground">flag-proof reports</p>
+          <div className="flex items-center gap-3 border-t pt-4">
+            <Badge variant={view.planTier === "Paid" ? "default" : "secondary"}>
+              {view.planTier} plan
+            </Badge>
+            {view.planTier === "Free" && (
+              <>
+                <p className="text-sm text-muted-foreground">Limited to 1 project.</p>
+                <form action={upgradeOrganization}>
+                  <Button variant="outline" size="sm" type="submit">
+                    Upgrade
+                  </Button>
+                </form>
+              </>
+            )}
           </div>
         </CardContent>
       </Card>

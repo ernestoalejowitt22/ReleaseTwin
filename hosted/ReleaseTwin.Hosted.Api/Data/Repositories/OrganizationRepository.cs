@@ -15,6 +15,14 @@ public sealed class OrganizationRepository : IOrganizationRepository
         return item is null ? null : ToOrganization(item);
     }
 
+    public async Task SetPlanTierAsync(Guid organizationId, PlanTier tier, CancellationToken cancellationToken = default)
+    {
+        var org = await GetAsync(organizationId, cancellationToken)
+            ?? throw new InvalidOperationException($"Cannot set plan tier: organization {organizationId} not found.");
+        org.PlanTier = tier;
+        await _table.PutItemAsync(ToItem(org), cancellationToken: cancellationToken);
+    }
+
     internal static Dictionary<string, Amazon.DynamoDBv2.Model.AttributeValue> ToItem(Organization org) => new()
     {
         ["PK"] = Attrs.S(Keys.Org(org.Id)),
@@ -23,6 +31,7 @@ public sealed class OrganizationRepository : IOrganizationRepository
         ["Id"] = Attrs.S(org.Id.ToString()),
         ["Name"] = Attrs.S(org.Name),
         ["CreatedAt"] = Attrs.S(org.CreatedAt.ToString("O")),
+        ["PlanTier"] = Attrs.S(org.PlanTier.ToString()),
     };
 
     internal static Organization ToOrganization(Dictionary<string, Amazon.DynamoDBv2.Model.AttributeValue> item) => new()
@@ -30,5 +39,6 @@ public sealed class OrganizationRepository : IOrganizationRepository
         Id = item.GetGuid("Id"),
         Name = item.GetS("Name"),
         CreatedAt = item.GetDateTimeOffset("CreatedAt"),
+        PlanTier = item.TryGetValue("PlanTier", out var v) && v.S is not null ? Enum.Parse<PlanTier>(v.S) : PlanTier.Free,
     };
 }
