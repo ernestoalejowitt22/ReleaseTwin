@@ -8,6 +8,9 @@ name: Bootstrap AWS Infra
 # never given the ealejo account's own MFA-enforcement policy. Its standing access key/secret are
 # these repo secrets: AWS_BOOTSTRAP_ACCESS_KEY_ID, AWS_BOOTSTRAP_SECRET_ACCESS_KEY.
 on:
+  push:
+    branches: [main]
+    paths: ["hosted/terraform-bootstrap/**", "hosted/terraform-state-backend/**"]
   workflow_dispatch:
     inputs:
       region:
@@ -16,6 +19,11 @@ on:
 
 permissions:
   contents: read
+
+# push-triggered runs have no `inputs` (workflow_dispatch-only context) — fall back to the same
+# default the dispatch input itself uses.
+env:
+  REGION: ${{ inputs.region || 'us-east-1' }}
 
 jobs:
   # hosted/terraform-state-backend: the one truly irreducible piece — its own state has nowhere
@@ -31,7 +39,7 @@ jobs:
         with:
           aws-access-key-id: ${{ secrets.AWS_BOOTSTRAP_ACCESS_KEY_ID }}
           aws-secret-access-key: ${{ secrets.AWS_BOOTSTRAP_SECRET_ACCESS_KEY }}
-          aws-region: ${{ inputs.region }}
+          aws-region: ${{ env.REGION }}
 
       - uses: hashicorp/setup-terraform@v3
         with:
@@ -43,7 +51,7 @@ jobs:
 
       - name: Terraform apply
         working-directory: hosted/terraform-state-backend
-        run: terraform apply -auto-approve -var="region=${{ inputs.region }}"
+        run: terraform apply -auto-approve -var="region=${{ env.REGION }}"
 
   # hosted/terraform-bootstrap: OIDC provider + the CI role deploy-hosted.yml assumes. Uses the
   # bucket/table state-backend just created as its own remote backend — unlike that job, this
@@ -59,7 +67,7 @@ jobs:
         with:
           aws-access-key-id: ${{ secrets.AWS_BOOTSTRAP_ACCESS_KEY_ID }}
           aws-secret-access-key: ${{ secrets.AWS_BOOTSTRAP_SECRET_ACCESS_KEY }}
-          aws-region: ${{ inputs.region }}
+          aws-region: ${{ env.REGION }}
 
       - uses: hashicorp/setup-terraform@v3
         with:
@@ -81,7 +89,7 @@ jobs:
 
       - name: Terraform apply
         working-directory: hosted/terraform-bootstrap
-        run: terraform apply -auto-approve -var="region=${{ inputs.region }}"
+        run: terraform apply -auto-approve -var="region=${{ env.REGION }}"
 
       - name: Deploy role ARN
         working-directory: hosted/terraform-bootstrap
