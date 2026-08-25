@@ -27,9 +27,9 @@ env:
 
 jobs:
   # hosted/terraform-state-backend: the one truly irreducible piece — its own state has nowhere
-  # else to live yet, so it stays local (ephemeral, lost when this job ends). Small and static
-  # (an S3 bucket + a DynamoDB table) enough that this is an accepted tradeoff, not a real risk —
-  # see design.md Risks.
+  # else to live yet, so it stays local, and is lost every time this job's runner exits (see
+  # design.md Risks). Made idempotent below via import-if-exists rather than relying on that state
+  # surviving between runs, since in practice this job runs far more than "once, ever."
   state-backend:
     runs-on: ubuntu-latest
     steps:
@@ -48,6 +48,20 @@ jobs:
       - name: Terraform init
         working-directory: hosted/terraform-state-backend
         run: terraform init
+
+      # This config deliberately has no backend block (it's what creates the bucket everything
+      # else's state lives in — can't point at itself), so its own state is local, and a fresh
+      # GitHub Actions runner has none from any prior run. Without this, every run "sees" nothing
+      # and tries to re-create resources that already exist. Same idempotent-import pattern as the
+      # OIDC provider below: a no-op once these are already in this run's (ephemeral) state, and
+      # harmless on a genuinely first-ever run (nothing to import, `apply` creates them normally).
+      - name: Import pre-existing state-backend resources, if any
+        working-directory: hosted/terraform-state-backend
+        run: |
+          terraform import aws_s3_bucket.terraform_state releasetwin-terraform-state-846136340491 || true
+          terraform import aws_s3_bucket_versioning.terraform_state releasetwin-terraform-state-846136340491 || true
+          terraform import aws_s3_bucket_public_access_block.terraform_state releasetwin-terraform-state-846136340491 || true
+          terraform import aws_dynamodb_table.terraform_lock releasetwin-terraform-state-lock || true
 
       - name: Terraform apply
         working-directory: hosted/terraform-state-backend
