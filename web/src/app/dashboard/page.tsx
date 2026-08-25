@@ -57,6 +57,25 @@ export default async function DashboardPage({
 
       <Card>
         <CardHeader>
+          <CardTitle>Usage this month</CardTitle>
+          <CardDescription>
+            Across every project in your organization — not just the one selected below.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="flex gap-6">
+          <div>
+            <p className="text-2xl font-semibold">{view.usage.caseReportCount}</p>
+            <p className="text-sm text-muted-foreground">case reports</p>
+          </div>
+          <div>
+            <p className="text-2xl font-semibold">{view.usage.flagProofReportCount}</p>
+            <p className="text-sm text-muted-foreground">flag-proof reports</p>
+          </div>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
           <CardTitle>Projects</CardTitle>
         </CardHeader>
         <CardContent className="flex flex-col gap-4">

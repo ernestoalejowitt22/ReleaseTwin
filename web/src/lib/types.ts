@@ -33,6 +33,12 @@ export interface DashboardFlagProofReportView {
   uploadedAt: string;
 }
 
+export interface DashboardUsageSummary {
+  caseReportCount: number;
+  flagProofReportCount: number;
+  periodStart: string;
+}
+
 export interface DashboardView {
   projects: DashboardProjectSummary[];
   selectedProject: DashboardProjectSummary | null;
@@ -40,6 +46,7 @@ export interface DashboardView {
   tokens: DashboardTokenView[];
   caseReports: DashboardCaseReportView[];
   flagProofReports: DashboardFlagProofReportView[];
+  usage: DashboardUsageSummary;
 }
 
 export interface GitHubAuthorizeResult {

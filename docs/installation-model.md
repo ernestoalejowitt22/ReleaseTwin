@@ -37,7 +37,7 @@ Per the assessment doc, **CI runner is the right first default** — lowest infr
 
 ## What this constrains, confirmed in practice
 
-1. **No hardcoded credentials in adapter code.** Confirmed across every adapter built so far (Azure DevOps, generic HTTP) and now the hosted platform itself: Clerk Client ID/Secret and the database connection string are all configuration, never literals.
+1. **No hardcoded credentials in adapter code.** Confirmed across every adapter built so far (Azure DevOps, generic HTTP) and now the hosted platform itself: Clerk Client ID/Secret and AWS access (the SDK's own default credential chain — as of `usage-metering`, DynamoDB is the hosted platform's data store, not EF Core/Postgres) are all configuration, never literals.
 2. **No adapter assumes a specific host process.** Confirmed: the same adapters work identically from unit tests, the CLI, and (for the HTTP adapter specifically) now also drive real uploads to the hosted ingest API.
 3. **Uploaded data never includes anything sensitive.** New with the hosted platform, but not a new design decision — it falls directly out of `CaseReport`/`FlagProofResult`'s existing metadata-only shape from Phase 1. The ingest API's contract has no field capable of carrying fixture content, response bodies, or credentials (tested explicitly).
 

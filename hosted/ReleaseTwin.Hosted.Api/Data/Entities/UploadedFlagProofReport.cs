@@ -16,5 +16,4 @@ public sealed class UploadedFlagProofReport
     public DateTimeOffset UploadedAt { get; set; }
 
     public Guid ProjectId { get; set; }
-    public Project? Project { get; set; }
 }

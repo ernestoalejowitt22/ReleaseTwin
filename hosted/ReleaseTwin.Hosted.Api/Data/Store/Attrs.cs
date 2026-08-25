@@ -1,0 +1,47 @@
+using Amazon.DynamoDBv2.Model;
+
+namespace ReleaseTwin.Hosted.Api.Data.Store;
+
+/// <summary>Small helpers for building/reading the <c>Dictionary&lt;string, AttributeValue&gt;</c> item shape every repository works with directly (design.md: low-level client, hand-written mapping — no DynamoDBContext).</summary>
+internal static class Attrs
+{
+    public static AttributeValue S(string value) => new() { S = value };
+    public static AttributeValue? SOrNull(string? value) => value is null ? null : new AttributeValue { S = value };
+    public static AttributeValue N(long value) => new() { N = value.ToString() };
+    public static AttributeValue Bool(bool value) => new() { BOOL = value };
+
+    public static string GetS(this Dictionary<string, AttributeValue> item, string key) => item[key].S;
+    public static string? GetSOrNull(this Dictionary<string, AttributeValue> item, string key) =>
+        item.TryGetValue(key, out var v) && v.NULL != true ? v.S : null;
+    public static long GetN(this Dictionary<string, AttributeValue> item, string key) => long.Parse(item[key].N);
+    public static long GetNOrDefault(this Dictionary<string, AttributeValue> item, string key, long fallback = 0) =>
+        item.TryGetValue(key, out var v) && v.N is not null ? long.Parse(v.N) : fallback;
+    public static bool GetBool(this Dictionary<string, AttributeValue> item, string key) => item[key].BOOL == true;
+    public static Guid GetGuid(this Dictionary<string, AttributeValue> item, string key) => Guid.Parse(item[key].S);
+    public static DateTimeOffset GetDateTimeOffset(this Dictionary<string, AttributeValue> item, string key) =>
+        DateTimeOffset.Parse(item[key].S, null, System.Globalization.DateTimeStyles.RoundtripKind);
+
+    public static void SetIfNotNull(this Dictionary<string, AttributeValue> item, string key, AttributeValue? value)
+    {
+        if (value is not null)
+        {
+            item[key] = value;
+        }
+    }
+}
+
+/// <summary>Key-prefix conventions from design.md's single-table design — one place these string shapes are built, so every repository agrees on them.</summary>
+internal static class Keys
+{
+    public static string Org(Guid orgId) => $"ORG#{orgId}";
+    public static string Project(Guid projectId) => $"PROJECT#{projectId}";
+    public static string Conn(Guid projectId) => $"CONN#{projectId}";
+    public static string Counter(DateOnly period) => $"COUNTER#{period:yyyy-MM}";
+    public static string User(string clerkUserId) => $"USER#{clerkUserId}";
+    public static string Token(string tokenHash) => $"TOKEN#{tokenHash}";
+    public static string TokenId(Guid tokenId) => $"TOKENID#{tokenId}";
+    public static string CaseReport(DateTimeOffset uploadedAt, Guid id) => $"CASEREPORT#{uploadedAt:O}#{id}";
+    public static string FlagProof(DateTimeOffset uploadedAt, Guid id) => $"FLAGPROOF#{uploadedAt:O}#{id}";
+
+    public static DateOnly CurrentUtcPeriod() => DateOnly.FromDateTime(DateTimeOffset.UtcNow.UtcDateTime);
+}

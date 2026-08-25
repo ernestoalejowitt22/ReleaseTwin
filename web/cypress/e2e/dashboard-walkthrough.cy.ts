@@ -30,6 +30,10 @@ describe("dashboard walkthrough", () => {
 
     cy.contains("h1", "Dashboard").should("be.visible");
     cy.contains("Projects").should("be.visible");
+    // usage-metering: org-wide usage summary, shown regardless of project selection.
+    cy.contains("Usage this month").should("be.visible");
+    cy.contains("case reports").should("be.visible");
+    cy.contains("flag-proof reports").should("be.visible");
     cy.screenshot("dashboard-walkthrough/01-signed-in");
 
     const projectName = `e2e-project-${Date.now()}`;

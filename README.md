@@ -157,7 +157,7 @@ cd hosted
 dotnet test ReleaseTwin.Hosted.slnx
 ```
 
-31 tests, all against a real (in-memory or SQLite) database and the real ASP.NET Core pipeline — no live Clerk application is needed to run them.
+37 tests, all against the real ASP.NET Core pipeline — no live Clerk application is needed to run them. As of `usage-metering`, persistence is DynamoDB, not EF Core/Postgres/SQLite: most tests run against an in-memory fake of the single hosted table, with a smaller `Category=Integration`-tagged set (skips automatically unless `DYNAMODB_LOCAL_URL` is set) exercising real DynamoDB semantics via DynamoDB Local — `cd hosted && docker compose up -d`.
 
 The frontend (`web/`) has real Cypress e2e coverage as of `web-cypress-e2e` — one spec automating the actual sign-in → dashboard → create project → issue token → sign out walkthrough against a **real, live Clerk instance** (not mocked). This is local-only for now — no CI wiring exists yet for it, same as the rest of this project has no CI pipeline at all. To run it:
 
@@ -179,9 +179,12 @@ The hosted platform is real but **not yet offered to anyone** — no Clerk appli
 ```bash
 cd hosted
 export Clerk__Domain=your-app.clerk.accounts.dev
-export Database__SqlitePath=/path/to/local.db   # or ConnectionStrings__Hosted for Postgres
+docker compose up -d                                 # DynamoDB Local, for local dev
+export Aws__DynamoDb__ServiceUrl=http://localhost:8000
 dotnet run --project ReleaseTwin.Hosted.Api
 ```
+
+Real AWS (production) uses the standard AWS SDK credential chain instead — set `Aws__Region` (and optionally `Aws__DynamoDb__TablePrefix`) and omit `Aws__DynamoDb__ServiceUrl`; provision the table first via `cd hosted/terraform && terraform apply`.
 
 **2. The Next.js frontend** — uses `@clerk/nextjs`'s own Publishable/Secret key pair (Clerk Dashboard → API Keys — a *different* pair from any OAuth Application credentials):
 

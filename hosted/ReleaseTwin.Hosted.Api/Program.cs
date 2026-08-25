@@ -1,10 +1,11 @@
 using System.Security.Claims;
+using Amazon.DynamoDBv2;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
-using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using ReleaseTwin.Hosted.Api.Auth;
-using ReleaseTwin.Hosted.Api.Data;
+using ReleaseTwin.Hosted.Api.Data.Repositories;
+using ReleaseTwin.Hosted.Api.Data.Store;
 using ReleaseTwin.Hosted.Api.Endpoints;
 using ReleaseTwin.Hosted.Api.Services;
 
@@ -12,26 +13,50 @@ var builder = WebApplication.CreateBuilder(args);
 
 builder.Services.AddRazorPages();
 
-// design.md D4: Postgres in production. SQLite is a real, persistent, file-based stand-in for local
-// runs across separate processes (e.g. tasks.md 7.1's walkthrough) without needing a Postgres server.
-// In-memory is the fallback for tests with no database configured at all.
-builder.Services.AddDbContext<HostedDbContext>(options =>
+// usage-metering design.md: single DynamoDB table (real AWS in production; DynamoDB Local for local
+// dev, selected via Aws:DynamoDb:ServiceUrl; the in-memory fake is the test fallback when neither AWS
+// config nor a local endpoint is present — same three-tier role the old EF Core setup played).
+var dynamoDbServiceUrl = builder.Configuration["Aws:DynamoDb:ServiceUrl"];
+var tableName = (builder.Configuration["Aws:DynamoDb:TablePrefix"] ?? "") + "ReleaseTwinHosted";
+var useRealDynamoDb = !string.IsNullOrWhiteSpace(dynamoDbServiceUrl) || !string.IsNullOrWhiteSpace(builder.Configuration["Aws:Region"]);
+
+if (useRealDynamoDb)
 {
-    var connectionString = builder.Configuration.GetConnectionString("Hosted");
-    var sqlitePath = builder.Configuration["Database:SqlitePath"];
-    if (!string.IsNullOrWhiteSpace(connectionString))
+    builder.Services.AddSingleton<IAmazonDynamoDB>(_ =>
     {
-        options.UseNpgsql(connectionString);
-    }
-    else if (!string.IsNullOrWhiteSpace(sqlitePath))
-    {
-        options.UseSqlite($"Data Source={sqlitePath}");
-    }
-    else
-    {
-        options.UseInMemoryDatabase("releasetwin-hosted-dev");
-    }
-});
+        var config = new AmazonDynamoDBConfig();
+        if (!string.IsNullOrWhiteSpace(dynamoDbServiceUrl))
+        {
+            // DynamoDB Local — no real AWS credentials needed, but the SDK still requires *some*
+            // credential object to be configured; DynamoDB Local ignores their values entirely.
+            config.ServiceURL = dynamoDbServiceUrl;
+        }
+        else if (!string.IsNullOrWhiteSpace(builder.Configuration["Aws:Region"]))
+        {
+            config.RegionEndpoint = Amazon.RegionEndpoint.GetBySystemName(builder.Configuration["Aws:Region"]);
+        }
+
+        // Real AWS: the SDK's own default credential chain (env vars, shared config, IAM role) —
+        // never a hardcoded key, same "no hardcoded credentials" rule this project applies everywhere.
+        return string.IsNullOrWhiteSpace(dynamoDbServiceUrl)
+            ? new AmazonDynamoDBClient(config)
+            : new AmazonDynamoDBClient(new Amazon.Runtime.BasicAWSCredentials("local", "local"), config);
+    });
+    builder.Services.AddSingleton<IHostedTable>(sp => new DynamoDbHostedTable(sp.GetRequiredService<IAmazonDynamoDB>(), tableName));
+}
+else
+{
+    builder.Services.AddSingleton<IHostedTable, InMemoryHostedTable>();
+}
+
+builder.Services.AddScoped<IOrganizationRepository, OrganizationRepository>();
+builder.Services.AddScoped<IUserRepository, UserRepository>();
+builder.Services.AddScoped<IProjectRepository, ProjectRepository>();
+builder.Services.AddScoped<IApiTokenRepository, ApiTokenRepository>();
+builder.Services.AddScoped<IConnectionRepository, ConnectionRepository>();
+builder.Services.AddScoped<ICaseReportRepository, CaseReportRepository>();
+builder.Services.AddScoped<IFlagProofReportRepository, FlagProofReportRepository>();
+builder.Services.AddScoped<IUsageCounterRepository, UsageCounterRepository>();
 
 builder.Services.AddScoped<ITokenService, TokenService>();
 builder.Services.AddScoped<ProvisioningService>();
@@ -147,17 +172,18 @@ if (app.Environment.IsDevelopment())
     {
         var user = await provisioning.GetOrCreateUserAsync($"dev-clerk-{login}", login, null);
         var project = await provisioning.CreateProjectAsync(user.OrganizationId, $"{login}'s first project");
-        var (_, raw) = await provisioning.IssueTokenAsync(project.Id);
+        var (_, raw) = await provisioning.IssueTokenAsync(project.Id, project.OrganizationId);
         return Results.Ok(new { organizationId = user.OrganizationId, projectId = project.Id, token = raw });
     });
 }
 
-// Stage 1 simplification: no formal EF Core migrations tooling set up yet (tasks.md 2.2) —
-// EnsureCreated is sufficient for an in-memory/dev database; a real deploy should switch to
-// proper migrations before depending on this for production data.
-using (var scope = app.Services.CreateScope())
+// usage-metering tasks.md 1.4/1.5: auto-provision the table only against DynamoDB Local (a
+// developer's own throwaway local instance) — never against real AWS, where table creation is the
+// documented provisioning script's job (design.md Non-Goals: no IaC, but also no surprise
+// auto-provisioning against a real account).
+if (!string.IsNullOrWhiteSpace(dynamoDbServiceUrl))
 {
-    scope.ServiceProvider.GetRequiredService<HostedDbContext>().Database.EnsureCreated();
+    await TableProvisioning.EnsureTableExistsAsync(app.Services.GetRequiredService<IAmazonDynamoDB>(), tableName);
 }
 
 app.Run();

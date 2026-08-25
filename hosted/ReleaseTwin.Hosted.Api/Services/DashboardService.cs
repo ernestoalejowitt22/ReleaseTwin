@@ -1,6 +1,5 @@
-using Microsoft.EntityFrameworkCore;
-using ReleaseTwin.Hosted.Api.Data;
-using ReleaseTwin.Hosted.Api.Data.Entities;
+using ReleaseTwin.Hosted.Api.Data.Repositories;
+using ReleaseTwin.Hosted.Api.Data.Store;
 
 namespace ReleaseTwin.Hosted.Api.Services;
 
@@ -14,13 +13,17 @@ public sealed record DashboardCaseReportView(string CaseId, bool Passed, string?
 
 public sealed record DashboardFlagProofReportView(string CaseId, string BuildIdentity, string Outcome, bool? KnownBadLegPassed, bool? KnownGoodLegPassed, DateTimeOffset UploadedAt);
 
+/// <summary>usage-metering: organization-wide report counts for the current period, independent of which project is selected — see dashboard spec's "Dashboard shows the organization's current usage".</summary>
+public sealed record DashboardUsageSummary(int CaseReportCount, int FlagProofReportCount, DateOnly PeriodStart);
+
 public sealed record DashboardView(
     IReadOnlyList<DashboardProjectSummary> Projects,
     DashboardProjectSummary? SelectedProject,
     DashboardConnectionView? Connection,
     IReadOnlyList<DashboardTokenView> Tokens,
     IReadOnlyList<DashboardCaseReportView> CaseReports,
-    IReadOnlyList<DashboardFlagProofReportView> FlagProofReports);
+    IReadOnlyList<DashboardFlagProofReportView> FlagProofReports,
+    DashboardUsageSummary Usage);
 
 /// <summary>
 /// hosted-react-frontend: the data-shaping half of what was Dashboard.cshtml.cs's OnGetAsync,
@@ -31,13 +34,32 @@ public sealed record DashboardView(
 /// </summary>
 public sealed class DashboardService
 {
-    private readonly HostedDbContext _db;
+    private readonly IProjectRepository _projects;
+    private readonly IConnectionRepository _connections;
+    private readonly IApiTokenRepository _tokens;
+    private readonly ICaseReportRepository _caseReports;
+    private readonly IFlagProofReportRepository _flagProofReports;
+    private readonly IUsageCounterRepository _usage;
 
-    public DashboardService(HostedDbContext db) => _db = db;
+    public DashboardService(
+        IProjectRepository projects,
+        IConnectionRepository connections,
+        IApiTokenRepository tokens,
+        ICaseReportRepository caseReports,
+        IFlagProofReportRepository flagProofReports,
+        IUsageCounterRepository usage)
+    {
+        _projects = projects;
+        _connections = connections;
+        _tokens = tokens;
+        _caseReports = caseReports;
+        _flagProofReports = flagProofReports;
+        _usage = usage;
+    }
 
     public async Task<DashboardView> GetDashboardViewAsync(Guid organizationId, Guid? projectId, CancellationToken cancellationToken = default)
     {
-        var projects = await _db.Projects.Where(p => p.OrganizationId == organizationId).OrderBy(p => p.Name).ToListAsync(cancellationToken);
+        var projects = await _projects.ListByOrganizationAsync(organizationId, cancellationToken);
 
         // A project only ever resolves if it belongs to the caller's own organization — the source
         // of the "cross-organization data is never shown" guarantee.
@@ -47,15 +69,20 @@ public sealed class DashboardService
 
         var projectSummaries = projects.Select(p => new DashboardProjectSummary(p.Id, p.Name)).ToList();
 
+        // usage-metering: org-wide, independent of selectedProject — see design.md's explicit
+        // "org-wide, not per-project" decision. Computed even if no project is selected.
+        var counter = await _usage.GetAsync(organizationId, Keys.CurrentUtcPeriod(), cancellationToken);
+        var usage = new DashboardUsageSummary((int)counter.CaseReportCount, (int)counter.FlagProofReportCount, counter.PeriodStart);
+
         if (selectedProject is null)
         {
-            return new DashboardView(projectSummaries, null, null, [], [], []);
+            return new DashboardView(projectSummaries, null, null, [], [], [], usage);
         }
 
-        var connection = await _db.Connections.FirstOrDefaultAsync(c => c.ProjectId == selectedProject.Id, cancellationToken);
-        var tokens = await _db.ApiTokens.Where(t => t.ProjectId == selectedProject.Id).OrderByDescending(t => t.CreatedAt).ToListAsync(cancellationToken);
-        var caseReports = await _db.UploadedCaseReports.Where(r => r.ProjectId == selectedProject.Id).OrderByDescending(r => r.UploadedAt).ToListAsync(cancellationToken);
-        var flagProofReports = await _db.UploadedFlagProofReports.Where(r => r.ProjectId == selectedProject.Id).OrderByDescending(r => r.UploadedAt).ToListAsync(cancellationToken);
+        var connection = await _connections.GetAsync(selectedProject.Id, cancellationToken);
+        var tokens = await _tokens.ListByProjectAsync(selectedProject.Id, cancellationToken);
+        var caseReports = await _caseReports.ListByProjectAsync(selectedProject.Id, cancellationToken);
+        var flagProofReports = await _flagProofReports.ListByProjectAsync(selectedProject.Id, cancellationToken);
 
         return new DashboardView(
             projectSummaries,
@@ -63,6 +90,7 @@ public sealed class DashboardService
             connection is null ? null : new DashboardConnectionView(connection.Provider, connection.ExternalRepo, connection.ConnectedAt),
             tokens.Select(t => new DashboardTokenView(t.Id, t.DisplayPrefix, t.CreatedAt, t.IsRevoked)).ToList(),
             caseReports.Select(r => new DashboardCaseReportView(r.CaseId, r.Passed, r.Classification, r.CleanupStatus, r.UploadedAt)).ToList(),
-            flagProofReports.Select(r => new DashboardFlagProofReportView(r.CaseId, r.BuildIdentity, r.Outcome, r.KnownBadLegPassed, r.KnownGoodLegPassed, r.UploadedAt)).ToList());
+            flagProofReports.Select(r => new DashboardFlagProofReportView(r.CaseId, r.BuildIdentity, r.Outcome, r.KnownBadLegPassed, r.KnownGoodLegPassed, r.UploadedAt)).ToList(),
+            usage);
     }
 }

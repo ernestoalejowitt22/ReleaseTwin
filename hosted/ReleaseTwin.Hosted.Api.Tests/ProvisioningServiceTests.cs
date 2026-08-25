@@ -1,40 +1,35 @@
-using Microsoft.EntityFrameworkCore;
-using ReleaseTwin.Hosted.Api.Data;
+using ReleaseTwin.Hosted.Api.Data.Repositories;
+using ReleaseTwin.Hosted.Api.Data.Store;
 using ReleaseTwin.Hosted.Api.Services;
 
 namespace ReleaseTwin.Hosted.Api.Tests;
 
 public class ProvisioningServiceTests
 {
-    private static HostedDbContext NewDb()
+    private static (ProvisioningService Service, IApiTokenRepository Tokens) NewService()
     {
-        var options = new DbContextOptionsBuilder<HostedDbContext>()
-            .UseInMemoryDatabase(Guid.NewGuid().ToString())
-            .Options;
-        return new HostedDbContext(options);
+        var table = new InMemoryHostedTable();
+        var users = new UserRepository(table);
+        var projects = new ProjectRepository(table);
+        var tokens = new ApiTokenRepository(table);
+        return (new ProvisioningService(users, projects, tokens, new TokenService()), tokens);
     }
-
-    private static ProvisioningService NewService(HostedDbContext db) => new(db, new TokenService());
 
     // Scenario: New signup is immediately usable
     [Fact]
     public async Task NewSignupIsImmediatelyUsable()
     {
-        await using var db = NewDb();
-        var service = NewService(db);
+        var (service, _) = NewService();
 
         var user = await service.GetOrCreateUserAsync("clerk-user-1", "alice", "alice@example.com");
 
         Assert.NotEqual(Guid.Empty, user.OrganizationId);
-        var org = await db.Organizations.FindAsync(user.OrganizationId);
-        Assert.NotNull(org);
     }
 
     [Fact]
     public async Task RepeatedLoginReturnsSameUserAndOrganization()
     {
-        await using var db = NewDb();
-        var service = NewService(db);
+        var (service, _) = NewService();
 
         var first = await service.GetOrCreateUserAsync("clerk-user-1", "alice", "alice@example.com");
         var second = await service.GetOrCreateUserAsync("clerk-user-1", "alice", "alice@example.com");
@@ -47,27 +42,24 @@ public class ProvisioningServiceTests
     [Fact]
     public async Task CustomerCreatesTheirFirstProject()
     {
-        await using var db = NewDb();
-        var service = NewService(db);
+        var (service, _) = NewService();
         var user = await service.GetOrCreateUserAsync("clerk-user-1", "alice", null);
 
         var project = await service.CreateProjectAsync(user.OrganizationId, "Claims Portal");
 
         Assert.Equal(user.OrganizationId, project.OrganizationId);
-        Assert.Empty(project.ApiTokens);
     }
 
     // Scenario: Token is scoped to its own project
     [Fact]
     public async Task TokenIsScopedToItsOwnProject()
     {
-        await using var db = NewDb();
-        var service = NewService(db);
+        var (service, _) = NewService();
         var user = await service.GetOrCreateUserAsync("clerk-user-1", "alice", null);
         var projectA = await service.CreateProjectAsync(user.OrganizationId, "A");
         var projectB = await service.CreateProjectAsync(user.OrganizationId, "B");
 
-        var (token, raw) = await service.IssueTokenAsync(projectA.Id);
+        var (token, raw) = await service.IssueTokenAsync(projectA.Id, projectA.OrganizationId);
 
         Assert.Equal(projectA.Id, token.ProjectId);
         Assert.NotEqual(projectB.Id, token.ProjectId);
@@ -78,15 +70,14 @@ public class ProvisioningServiceTests
     [Fact]
     public async Task RevokedTokenIsRejected()
     {
-        await using var db = NewDb();
-        var service = NewService(db);
+        var (service, tokens) = NewService();
         var user = await service.GetOrCreateUserAsync("clerk-user-1", "alice", null);
         var project = await service.CreateProjectAsync(user.OrganizationId, "A");
-        var (token, _) = await service.IssueTokenAsync(project.Id);
+        var (token, _) = await service.IssueTokenAsync(project.Id, project.OrganizationId);
 
         await service.RevokeTokenAsync(token.Id);
 
-        var reloaded = await db.ApiTokens.FindAsync(token.Id);
+        var reloaded = await tokens.GetByHashAsync(token.TokenHash);
         Assert.NotNull(reloaded);
         Assert.True(reloaded!.IsRevoked);
     }

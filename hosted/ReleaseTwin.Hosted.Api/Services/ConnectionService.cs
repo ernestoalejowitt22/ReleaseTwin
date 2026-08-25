@@ -1,6 +1,4 @@
-using Microsoft.EntityFrameworkCore;
-using ReleaseTwin.Hosted.Api.Data;
-using ReleaseTwin.Hosted.Api.Data.Entities;
+using ReleaseTwin.Hosted.Api.Data.Repositories;
 
 namespace ReleaseTwin.Hosted.Api.Services;
 
@@ -11,46 +9,21 @@ namespace ReleaseTwin.Hosted.Api.Services;
 /// </summary>
 public sealed class ConnectionService
 {
-    private readonly HostedDbContext _db;
+    private readonly IProjectRepository _projects;
+    private readonly IConnectionRepository _connections;
 
-    public ConnectionService(HostedDbContext db) => _db = db;
+    public ConnectionService(IProjectRepository projects, IConnectionRepository connections)
+    {
+        _projects = projects;
+        _connections = connections;
+    }
 
     public async Task<bool> ProjectBelongsToOrganizationAsync(Guid projectId, Guid organizationId, CancellationToken cancellationToken = default) =>
-        await _db.Projects.AnyAsync(p => p.Id == projectId && p.OrganizationId == organizationId, cancellationToken);
+        await _projects.ExistsInOrganizationAsync(organizationId, projectId, cancellationToken);
 
-    public async Task ConnectAsync(Guid projectId, string provider, string externalRepo, CancellationToken cancellationToken = default)
-    {
-        var existing = await _db.Connections.FirstOrDefaultAsync(c => c.ProjectId == projectId, cancellationToken);
-        if (existing is not null)
-        {
-            existing.Provider = provider;
-            existing.ExternalRepo = externalRepo;
-            existing.ConnectedAt = DateTimeOffset.UtcNow;
-        }
-        else
-        {
-            _db.Connections.Add(new Connection
-            {
-                Id = Guid.NewGuid(),
-                ProjectId = projectId,
-                Provider = provider,
-                ExternalRepo = externalRepo,
-                ConnectedAt = DateTimeOffset.UtcNow,
-            });
-        }
+    public async Task ConnectAsync(Guid projectId, string provider, string externalRepo, CancellationToken cancellationToken = default) =>
+        await _connections.UpsertAsync(projectId, provider, externalRepo, cancellationToken);
 
-        await _db.SaveChangesAsync(cancellationToken);
-    }
-
-    public async Task DisconnectAsync(Guid projectId, CancellationToken cancellationToken = default)
-    {
-        var existing = await _db.Connections.FirstOrDefaultAsync(c => c.ProjectId == projectId, cancellationToken);
-        if (existing is null)
-        {
-            return;
-        }
-
-        _db.Connections.Remove(existing);
-        await _db.SaveChangesAsync(cancellationToken);
-    }
+    public async Task DisconnectAsync(Guid projectId, CancellationToken cancellationToken = default) =>
+        await _connections.DeleteAsync(projectId, cancellationToken);
 }

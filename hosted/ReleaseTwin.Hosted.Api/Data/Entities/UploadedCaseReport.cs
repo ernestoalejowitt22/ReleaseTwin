@@ -18,5 +18,4 @@ public sealed class UploadedCaseReport
     public DateTimeOffset UploadedAt { get; set; }
 
     public Guid ProjectId { get; set; }
-    public Project? Project { get; set; }
 }

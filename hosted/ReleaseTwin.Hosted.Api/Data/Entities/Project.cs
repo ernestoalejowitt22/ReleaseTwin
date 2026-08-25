@@ -7,8 +7,4 @@ public sealed class Project
     public DateTimeOffset CreatedAt { get; set; }
 
     public Guid OrganizationId { get; set; }
-    public Organization? Organization { get; set; }
-
-    public List<ApiToken> ApiTokens { get; set; } = new();
-    public Connection? Connection { get; set; }
 }

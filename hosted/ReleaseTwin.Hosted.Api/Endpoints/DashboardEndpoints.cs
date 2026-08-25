@@ -1,8 +1,7 @@
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Routing;
-using Microsoft.EntityFrameworkCore;
-using ReleaseTwin.Hosted.Api.Data;
+using ReleaseTwin.Hosted.Api.Data.Repositories;
 using ReleaseTwin.Hosted.Api.Services;
 
 namespace ReleaseTwin.Hosted.Api.Endpoints;
@@ -47,20 +46,22 @@ public static class DashboardEndpoints
             return Results.Created($"/api/dashboard?projectId={project.Id}", new { project.Id, project.Name });
         });
 
-        group.MapPost("/projects/{projectId:guid}/tokens", async (Guid projectId, ProvisioningService provisioning, CurrentOrganizationAccessor currentOrg, HostedDbContext db) =>
+        group.MapPost("/projects/{projectId:guid}/tokens", async (Guid projectId, ProvisioningService provisioning, CurrentOrganizationAccessor currentOrg, IProjectRepository projects) =>
         {
-            if (!await ProjectBelongsToOrgAsync(db, projectId, currentOrg))
+            var orgId = currentOrg.OrganizationId;
+            if (orgId is null || !await projects.ExistsInOrganizationAsync(orgId.Value, projectId))
             {
                 return Results.Forbid();
             }
 
-            var (_, raw) = await provisioning.IssueTokenAsync(projectId);
+            var (_, raw) = await provisioning.IssueTokenAsync(projectId, orgId.Value);
             return Results.Ok(new { token = raw });
         });
 
-        group.MapDelete("/projects/{projectId:guid}/tokens/{tokenId:guid}", async (Guid projectId, Guid tokenId, ProvisioningService provisioning, CurrentOrganizationAccessor currentOrg, HostedDbContext db) =>
+        group.MapDelete("/projects/{projectId:guid}/tokens/{tokenId:guid}", async (Guid projectId, Guid tokenId, ProvisioningService provisioning, CurrentOrganizationAccessor currentOrg, IProjectRepository projects) =>
         {
-            if (!await ProjectBelongsToOrgAsync(db, projectId, currentOrg))
+            var orgId = currentOrg.OrganizationId;
+            if (orgId is null || !await projects.ExistsInOrganizationAsync(orgId.Value, projectId))
             {
                 return Results.Forbid();
             }
@@ -80,12 +81,6 @@ public static class DashboardEndpoints
             await connections.DisconnectAsync(projectId);
             return Results.NoContent();
         });
-    }
-
-    private static async Task<bool> ProjectBelongsToOrgAsync(HostedDbContext db, Guid projectId, CurrentOrganizationAccessor currentOrg)
-    {
-        var orgId = currentOrg.OrganizationId;
-        return orgId is not null && await db.Projects.AnyAsync(p => p.Id == projectId && p.OrganizationId == orgId);
     }
 }
 

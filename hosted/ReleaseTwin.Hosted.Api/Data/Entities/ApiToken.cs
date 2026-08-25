@@ -16,7 +16,14 @@ public sealed class ApiToken
     public DateTimeOffset? RevokedAt { get; set; }
 
     public Guid ProjectId { get; set; }
-    public Project? Project { get; set; }
+
+    /// <summary>
+    /// usage-metering design.md: denormalized from the token's project at issuance time, so
+    /// IngestEndpoints can increment the right organization's usage counter without an extra read on
+    /// the ingest hot path. No staleness risk in practice — projects are never reassigned between
+    /// organizations.
+    /// </summary>
+    public Guid OrganizationId { get; set; }
 
     public bool IsRevoked => RevokedAt is not null;
 }

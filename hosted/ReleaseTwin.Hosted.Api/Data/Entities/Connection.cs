@@ -18,5 +18,4 @@ public sealed class Connection
     public DateTimeOffset ConnectedAt { get; set; }
 
     public Guid ProjectId { get; set; }
-    public Project? Project { get; set; }
 }
