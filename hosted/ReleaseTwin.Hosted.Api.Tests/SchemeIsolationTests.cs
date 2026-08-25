@@ -24,7 +24,7 @@ public class SchemeIsolationTests : IClassFixture<CustomWebApplicationFactory>
         var provisioning = scope.ServiceProvider.GetRequiredService<ProvisioningService>();
         var user = await provisioning.GetOrCreateUserAsync("clerk-1", "alice", null);
         var project = await provisioning.CreateProjectAsync(user.OrganizationId, "P");
-        var (_, raw) = await provisioning.IssueTokenAsync(project.Id);
+        var (_, raw) = await provisioning.IssueTokenAsync(project.Id, project.OrganizationId);
 
         var client = _factory.CreateClient();
         client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", raw);

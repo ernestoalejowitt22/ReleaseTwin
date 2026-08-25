@@ -10,5 +10,4 @@ public sealed class AppUser
     public DateTimeOffset CreatedAt { get; set; }
 
     public Guid OrganizationId { get; set; }
-    public Organization? Organization { get; set; }
 }

@@ -1,10 +1,9 @@
 using System.Net;
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
-using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using ReleaseTwin.Hosted.Api.Contracts;
-using ReleaseTwin.Hosted.Api.Data;
+using ReleaseTwin.Hosted.Api.Data.Repositories;
 using ReleaseTwin.Hosted.Api.Services;
 
 namespace ReleaseTwin.Hosted.Api.Tests;
@@ -22,7 +21,7 @@ public class IngestApiTests : IClassFixture<CustomWebApplicationFactory>
 
         var user = await provisioning.GetOrCreateUserAsync(Guid.NewGuid().ToString(), "tester", null);
         var project = await provisioning.CreateProjectAsync(user.OrganizationId, "Test Project");
-        var (_, raw) = await provisioning.IssueTokenAsync(project.Id);
+        var (_, raw) = await provisioning.IssueTokenAsync(project.Id, project.OrganizationId);
         return (raw, project.Id);
     }
 
@@ -70,8 +69,8 @@ public class IngestApiTests : IClassFixture<CustomWebApplicationFactory>
 
         response.EnsureSuccessStatusCode();
         using var scope = _factory.Services.CreateScope();
-        var db = scope.ServiceProvider.GetRequiredService<HostedDbContext>();
-        var stored = await db.UploadedCaseReports.SingleAsync(r => r.CaseId == "CASE-1");
+        var reports = scope.ServiceProvider.GetRequiredService<ICaseReportRepository>();
+        var stored = (await reports.ListByProjectAsync(projectId)).Single(r => r.CaseId == "CASE-1");
         Assert.Equal(projectId, stored.ProjectId);
     }
 
@@ -86,7 +85,7 @@ public class IngestApiTests : IClassFixture<CustomWebApplicationFactory>
             var provisioning = scope.ServiceProvider.GetRequiredService<ProvisioningService>();
             var user = await provisioning.GetOrCreateUserAsync(Guid.NewGuid().ToString(), "tester2", null);
             var project = await provisioning.CreateProjectAsync(user.OrganizationId, "P");
-            var issued = await provisioning.IssueTokenAsync(project.Id);
+            var issued = await provisioning.IssueTokenAsync(project.Id, project.OrganizationId);
             tokenId = issued.Token.Id;
             raw = issued.RawValue;
             await provisioning.RevokeTokenAsync(tokenId);
@@ -104,21 +103,18 @@ public class IngestApiTests : IClassFixture<CustomWebApplicationFactory>
     [Fact]
     public async Task MalformedReportIsRejectedAtomically()
     {
-        var (raw, _) = await SeedTokenAsync();
+        var (raw, projectId) = await SeedTokenAsync();
         var client = _factory.CreateClient();
         client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", raw);
 
-        int countBefore;
-        using (var scope = _factory.Services.CreateScope())
-        {
-            countBefore = await scope.ServiceProvider.GetRequiredService<HostedDbContext>().UploadedCaseReports.CountAsync();
-        }
+        using var scope = _factory.Services.CreateScope();
+        var reports = scope.ServiceProvider.GetRequiredService<ICaseReportRepository>();
+        var countBefore = (await reports.ListByProjectAsync(projectId)).Count;
 
         var response = await client.PostAsJsonAsync("/api/ingest/case-report", new { caseId = "" });
 
         Assert.False(response.IsSuccessStatusCode);
-        using var verifyScope = _factory.Services.CreateScope();
-        var countAfter = await verifyScope.ServiceProvider.GetRequiredService<HostedDbContext>().UploadedCaseReports.CountAsync();
+        var countAfter = (await reports.ListByProjectAsync(projectId)).Count;
         Assert.Equal(countBefore, countAfter);
     }
 
@@ -157,8 +153,8 @@ public class IngestApiTests : IClassFixture<CustomWebApplicationFactory>
 
         response.EnsureSuccessStatusCode();
         using var scope = _factory.Services.CreateScope();
-        var db = scope.ServiceProvider.GetRequiredService<HostedDbContext>();
-        var stored = await db.UploadedFlagProofReports.SingleAsync();
+        var reports = scope.ServiceProvider.GetRequiredService<IFlagProofReportRepository>();
+        var stored = (await reports.ListByProjectAsync(projectId)).Single();
         Assert.Equal(projectId, stored.ProjectId);
         Assert.Equal("Passed", stored.Outcome);
     }

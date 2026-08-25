@@ -1,6 +1,6 @@
-using Microsoft.EntityFrameworkCore;
-using ReleaseTwin.Hosted.Api.Data;
+using Amazon.DynamoDBv2.Model;
 using ReleaseTwin.Hosted.Api.Data.Entities;
+using ReleaseTwin.Hosted.Api.Data.Repositories;
 
 namespace ReleaseTwin.Hosted.Api.Services;
 
@@ -10,21 +10,23 @@ namespace ReleaseTwin.Hosted.Api.Services;
 /// </summary>
 public sealed class ProvisioningService
 {
-    private readonly HostedDbContext _db;
-    private readonly ITokenService _tokens;
+    private readonly IUserRepository _users;
+    private readonly IProjectRepository _projects;
+    private readonly IApiTokenRepository _tokens;
+    private readonly ITokenService _tokenService;
 
-    public ProvisioningService(HostedDbContext db, ITokenService tokens)
+    public ProvisioningService(IUserRepository users, IProjectRepository projects, IApiTokenRepository tokens, ITokenService tokenService)
     {
-        _db = db;
+        _users = users;
+        _projects = projects;
         _tokens = tokens;
+        _tokenService = tokenService;
     }
 
     /// <summary>First login auto-creates a personal organization so the account is immediately usable — no separate "create org" step required to satisfy the self-serve requirement.</summary>
     public async Task<AppUser> GetOrCreateUserAsync(string clerkUserId, string displayName, string? email, CancellationToken cancellationToken = default)
     {
-        var existing = await _db.Users
-            .Include(u => u.Organization)
-            .FirstOrDefaultAsync(u => u.ClerkUserId == clerkUserId, cancellationToken);
+        var existing = await _users.GetByClerkUserIdAsync(clerkUserId, cancellationToken);
         if (existing is not null)
         {
             return existing;
@@ -47,56 +49,40 @@ public sealed class ProvisioningService
             OrganizationId = organization.Id,
         };
 
-        _db.Organizations.Add(organization);
-        _db.Users.Add(user);
-        await _db.SaveChangesAsync(cancellationToken);
-
-        user.Organization = organization;
-        return user;
+        try
+        {
+            await _users.CreateWithOrganizationAsync(organization, user, cancellationToken);
+            return user;
+        }
+        catch (ConditionalCheckFailedException)
+        {
+            // usage-metering design.md: a concurrent request already created this user — re-read
+            // instead of retrying the create, exactly mirroring the prior EF Core "check then create"
+            // shape but now race-safe by construction.
+            return await _users.GetByClerkUserIdAsync(clerkUserId, cancellationToken)
+                ?? throw new InvalidOperationException("Conditional create failed but no user was found on re-read.");
+        }
     }
 
-    public async Task<Project> CreateProjectAsync(Guid organizationId, string name, CancellationToken cancellationToken = default)
+    public async Task<Project> CreateProjectAsync(Guid organizationId, string name, CancellationToken cancellationToken = default) =>
+        await _projects.CreateAsync(organizationId, name, cancellationToken);
+
+    /// <summary>
+    /// Returns the raw token value once — it is never retrievable again after this call.
+    /// Takes <paramref name="organizationId"/> explicitly (rather than looking the project up by id
+    /// alone) because Project's primary key is (OrganizationId, ProjectId) by design (design.md) —
+    /// every caller already knows the organization at this point (it's what authorized the request in
+    /// the first place), and denormalizing it onto the token here is what lets IngestEndpoints
+    /// increment the right organization's usage counter later without an extra read on the ingest hot
+    /// path (design.md's OrganizationId denormalization decision).
+    /// </summary>
+    public async Task<(ApiToken Token, string RawValue)> IssueTokenAsync(Guid projectId, Guid organizationId, CancellationToken cancellationToken = default)
     {
-        var project = new Project
-        {
-            Id = Guid.NewGuid(),
-            Name = name,
-            CreatedAt = DateTimeOffset.UtcNow,
-            OrganizationId = organizationId,
-        };
-
-        _db.Projects.Add(project);
-        await _db.SaveChangesAsync(cancellationToken);
-        return project;
-    }
-
-    /// <summary>Returns the raw token value once — it is never retrievable again after this call.</summary>
-    public async Task<(ApiToken Token, string RawValue)> IssueTokenAsync(Guid projectId, CancellationToken cancellationToken = default)
-    {
-        var generated = _tokens.GenerateToken();
-        var token = new ApiToken
-        {
-            Id = Guid.NewGuid(),
-            ProjectId = projectId,
-            TokenHash = generated.Hash,
-            DisplayPrefix = generated.DisplayPrefix,
-            CreatedAt = DateTimeOffset.UtcNow,
-        };
-
-        _db.ApiTokens.Add(token);
-        await _db.SaveChangesAsync(cancellationToken);
+        var generated = _tokenService.GenerateToken();
+        var token = await _tokens.CreateAsync(projectId, organizationId, generated.Hash, generated.DisplayPrefix, cancellationToken);
         return (token, generated.RawValue);
     }
 
-    public async Task RevokeTokenAsync(Guid tokenId, CancellationToken cancellationToken = default)
-    {
-        var token = await _db.ApiTokens.FirstOrDefaultAsync(t => t.Id == tokenId, cancellationToken);
-        if (token is null || token.IsRevoked)
-        {
-            return;
-        }
-
-        token.RevokedAt = DateTimeOffset.UtcNow;
-        await _db.SaveChangesAsync(cancellationToken);
-    }
+    public async Task RevokeTokenAsync(Guid tokenId, CancellationToken cancellationToken = default) =>
+        await _tokens.RevokeAsync(tokenId, cancellationToken);
 }

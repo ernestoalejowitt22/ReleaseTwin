@@ -1,8 +1,8 @@
 using System.Net;
 using Microsoft.AspNetCore.DataProtection;
-using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
-using ReleaseTwin.Hosted.Api.Data;
+using ReleaseTwin.Hosted.Api.Data.Repositories;
+using ReleaseTwin.Hosted.Api.Data.Store;
 using ReleaseTwin.Hosted.Api.Services;
 
 namespace ReleaseTwin.Hosted.Api.Tests;
@@ -14,8 +14,19 @@ namespace ReleaseTwin.Hosted.Api.Tests;
 /// </summary>
 public class ConnectionFlowTests
 {
-    private static HostedDbContext NewDb() => new(
-        new DbContextOptionsBuilder<HostedDbContext>().UseInMemoryDatabase(Guid.NewGuid().ToString()).Options);
+    private sealed record Fixture(ProvisioningService Provisioning, ConnectionService Connections, IConnectionRepository ConnectionRepo, IUserRepository UserRepo);
+
+    private static Fixture NewFixture()
+    {
+        var table = new InMemoryHostedTable();
+        var users = new UserRepository(table);
+        var projects = new ProjectRepository(table);
+        var tokens = new ApiTokenRepository(table);
+        var connectionRepo = new ConnectionRepository(table);
+        var provisioning = new ProvisioningService(users, projects, tokens, new TokenService());
+        var connections = new ConnectionService(projects, connectionRepo);
+        return new Fixture(provisioning, connections, connectionRepo, users);
+    }
 
     private static IConfiguration ConfiguredGitHub() => new ConfigurationBuilder()
         .AddInMemoryCollection(new Dictionary<string, string?>
@@ -112,10 +123,9 @@ public class ConnectionFlowTests
     [Fact]
     public async Task NoTokenShapedValueEverReachesTheDatabase()
     {
-        await using var db = NewDb();
-        var provisioning = new ProvisioningService(db, new TokenService());
-        var user = await provisioning.GetOrCreateUserAsync("clerk-1", "alice", null);
-        var project = await provisioning.CreateProjectAsync(user.OrganizationId, "P");
+        var f = NewFixture();
+        var user = await f.Provisioning.GetOrCreateUserAsync("clerk-1", "alice", null);
+        var project = await f.Provisioning.CreateProjectAsync(user.OrganizationId, "P");
 
         var stateService = new ConnectionStateService(new EphemeralDataProtectionProvider());
         var state = stateService.Mint(project.Id);
@@ -127,13 +137,14 @@ public class ConnectionFlowTests
 
         // Only the already-chosen repo name crosses into ConnectionService.ConnectAsync — the token
         // from the exchange above was never passed to it and cannot be retrieved from the flow result.
-        await new ConnectionService(db).ConnectAsync(project.Id, "github", callbackResult!.Repositories[0]);
+        await f.Connections.ConnectAsync(project.Id, "github", callbackResult!.Repositories[0]);
 
-        var connection = await db.Connections.SingleAsync(c => c.ProjectId == project.Id);
-        Assert.DoesNotContain(handler.IssuedAccessToken, connection.ExternalRepo);
+        var connection = await f.ConnectionRepo.GetAsync(project.Id);
+        Assert.NotNull(connection);
+        Assert.DoesNotContain(handler.IssuedAccessToken, connection!.ExternalRepo);
 
-        var everyStoredString = string.Join('|', db.Connections.Select(c => c.Provider + c.ExternalRepo))
-            + string.Join('|', db.Users.Select(u => u.ClerkUserId + u.DisplayName));
+        var everyStoredString = connection.Provider + connection.ExternalRepo
+            + user.ClerkUserId + user.DisplayName;
         Assert.DoesNotContain(handler.IssuedAccessToken, everyStoredString);
     }
 
@@ -151,14 +162,12 @@ public class ConnectionFlowTests
     [Fact]
     public async Task ConnectionForAnotherOrganizationsProjectIsRejected()
     {
-        await using var db = NewDb();
-        var provisioning = new ProvisioningService(db, new TokenService());
-        var orgAUser = await provisioning.GetOrCreateUserAsync("clerk-a", "alice", null);
-        var orgBUser = await provisioning.GetOrCreateUserAsync("clerk-b", "bob", null);
-        var projectB = await provisioning.CreateProjectAsync(orgBUser.OrganizationId, "B's project");
-        var connections = new ConnectionService(db);
+        var f = NewFixture();
+        var orgAUser = await f.Provisioning.GetOrCreateUserAsync("clerk-a", "alice", null);
+        var orgBUser = await f.Provisioning.GetOrCreateUserAsync("clerk-b", "bob", null);
+        var projectB = await f.Provisioning.CreateProjectAsync(orgBUser.OrganizationId, "B's project");
 
-        var belongsToOrgA = await connections.ProjectBelongsToOrganizationAsync(projectB.Id, orgAUser.OrganizationId);
+        var belongsToOrgA = await f.Connections.ProjectBelongsToOrganizationAsync(projectB.Id, orgAUser.OrganizationId);
 
         Assert.False(belongsToOrgA);
     }

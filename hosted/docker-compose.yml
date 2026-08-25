@@ -1,0 +1,17 @@
+# usage-metering tasks.md 1.5: DynamoDB Local plays the role SQLite played before this migration — a
+# real, locally-run stand-in, no AWS account needed. Runs in-memory (data resets when the container
+# restarts) rather than the image's file-backed mode: the file-backed mode needs its SQLite data
+# directory to be writable by the container's own user, which a plain named-volume mount doesn't
+# guarantee on every host — in-memory sidesteps that entirely and is sufficient for local dev/tests,
+# where nothing depends on data surviving a restart anyway.
+#
+# Usage:
+#   docker compose up -d
+#   export Aws__DynamoDb__ServiceUrl=http://localhost:8000
+#   dotnet run --project ReleaseTwin.Hosted.Api
+services:
+  dynamodb-local:
+    image: amazon/dynamodb-local:latest
+    command: ["-jar", "DynamoDBLocal.jar", "-inMemory", "-sharedDb"]
+    ports:
+      - "8000:8000"

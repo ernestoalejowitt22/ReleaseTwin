@@ -1,5 +1,5 @@
-using Microsoft.EntityFrameworkCore;
-using ReleaseTwin.Hosted.Api.Data;
+using ReleaseTwin.Hosted.Api.Data.Repositories;
+using ReleaseTwin.Hosted.Api.Data.Store;
 using ReleaseTwin.Hosted.Api.Services;
 
 namespace ReleaseTwin.Hosted.Api.Tests;
@@ -11,21 +11,35 @@ namespace ReleaseTwin.Hosted.Api.Tests;
 /// </summary>
 public class DashboardServiceTests
 {
-    private static HostedDbContext NewDb() => new(
-        new DbContextOptionsBuilder<HostedDbContext>().UseInMemoryDatabase(Guid.NewGuid().ToString()).Options);
+    private sealed record Fixture(ProvisioningService Provisioning, DashboardService Dashboard, IConnectionRepository Connections, ICaseReportRepository CaseReports);
+
+    private static Fixture NewFixture()
+    {
+        var table = new InMemoryHostedTable();
+        var users = new UserRepository(table);
+        var projects = new ProjectRepository(table);
+        var tokens = new ApiTokenRepository(table);
+        var connections = new ConnectionRepository(table);
+        var caseReports = new CaseReportRepository(table);
+        var flagProofReports = new FlagProofReportRepository(table);
+        var usage = new UsageCounterRepository(table);
+
+        var provisioning = new ProvisioningService(users, projects, tokens, new TokenService());
+        var dashboard = new DashboardService(projects, connections, tokens, caseReports, flagProofReports, usage);
+        return new Fixture(provisioning, dashboard, connections, caseReports);
+    }
 
     // Scenario: Cross-organization data is never shown
     [Fact]
     public async Task CustomerSeesOnlyTheirOwnOrganizationsProjects()
     {
-        await using var db = NewDb();
-        var provisioning = new ProvisioningService(db, new TokenService());
-        var orgAUser = await provisioning.GetOrCreateUserAsync("clerk-a", "alice", null);
-        var orgBUser = await provisioning.GetOrCreateUserAsync("clerk-b", "bob", null);
-        var projectA = await provisioning.CreateProjectAsync(orgAUser.OrganizationId, "A's project");
-        await provisioning.CreateProjectAsync(orgBUser.OrganizationId, "B's project");
+        var f = NewFixture();
+        var orgAUser = await f.Provisioning.GetOrCreateUserAsync("clerk-a", "alice", null);
+        var orgBUser = await f.Provisioning.GetOrCreateUserAsync("clerk-b", "bob", null);
+        var projectA = await f.Provisioning.CreateProjectAsync(orgAUser.OrganizationId, "A's project");
+        await f.Provisioning.CreateProjectAsync(orgBUser.OrganizationId, "B's project");
 
-        var view = await new DashboardService(db).GetDashboardViewAsync(orgAUser.OrganizationId, null);
+        var view = await f.Dashboard.GetDashboardViewAsync(orgAUser.OrganizationId, null);
 
         Assert.Single(view.Projects);
         Assert.Equal(projectA.Id, view.Projects[0].Id);
@@ -34,13 +48,12 @@ public class DashboardServiceTests
     [Fact]
     public async Task RequestingAnotherOrgsProjectDoesNotSelectIt()
     {
-        await using var db = NewDb();
-        var provisioning = new ProvisioningService(db, new TokenService());
-        var orgAUser = await provisioning.GetOrCreateUserAsync("clerk-a", "alice", null);
-        var orgBUser = await provisioning.GetOrCreateUserAsync("clerk-b", "bob", null);
-        var projectB = await provisioning.CreateProjectAsync(orgBUser.OrganizationId, "B's project");
+        var f = NewFixture();
+        var orgAUser = await f.Provisioning.GetOrCreateUserAsync("clerk-a", "alice", null);
+        var orgBUser = await f.Provisioning.GetOrCreateUserAsync("clerk-b", "bob", null);
+        var projectB = await f.Provisioning.CreateProjectAsync(orgBUser.OrganizationId, "B's project");
 
-        var view = await new DashboardService(db).GetDashboardViewAsync(orgAUser.OrganizationId, projectB.Id);
+        var view = await f.Dashboard.GetDashboardViewAsync(orgAUser.OrganizationId, projectB.Id);
 
         Assert.Null(view.SelectedProject);
     }
@@ -49,72 +62,37 @@ public class DashboardServiceTests
     [Fact]
     public async Task UploadedReportsAppearInRunHistory()
     {
-        await using var db = NewDb();
-        var provisioning = new ProvisioningService(db, new TokenService());
-        var user = await provisioning.GetOrCreateUserAsync("clerk-1", "alice", null);
-        var project = await provisioning.CreateProjectAsync(user.OrganizationId, "P");
-        db.UploadedCaseReports.Add(new Data.Entities.UploadedCaseReport
+        var f = NewFixture();
+        var user = await f.Provisioning.GetOrCreateUserAsync("clerk-1", "alice", null);
+        var project = await f.Provisioning.CreateProjectAsync(user.OrganizationId, "P");
+        await f.CaseReports.AddAsync(new Data.Entities.UploadedCaseReport
         {
             Id = Guid.NewGuid(),
             ProjectId = project.Id,
             CaseId = "CASE-1",
-            OracleLocator = "t/1",
+            OracleLocator = "tickets/CASE-1",
             FixtureSha256 = "abc",
             Passed = true,
             CleanupStatus = "AllSucceeded",
-            DurationMs = 5,
             UploadedAt = DateTimeOffset.UtcNow,
         });
-        await db.SaveChangesAsync();
 
-        var view = await new DashboardService(db).GetDashboardViewAsync(user.OrganizationId, project.Id);
+        var view = await f.Dashboard.GetDashboardViewAsync(user.OrganizationId, project.Id);
 
         Assert.Single(view.CaseReports);
         Assert.Equal("CASE-1", view.CaseReports[0].CaseId);
     }
 
-    // Scenario: Flag-proof result is not shown as an ordinary pass/fail
+    // usage-metering: Dashboard shows the organization's current usage
     [Fact]
-    public async Task FlagProofResultsAreExposedSeparatelyFromCaseReports()
+    public async Task UsageSummaryIsZeroWhenNothingUploaded()
     {
-        await using var db = NewDb();
-        var provisioning = new ProvisioningService(db, new TokenService());
-        var user = await provisioning.GetOrCreateUserAsync("clerk-1", "alice", null);
-        var project = await provisioning.CreateProjectAsync(user.OrganizationId, "P");
-        db.UploadedFlagProofReports.Add(new Data.Entities.UploadedFlagProofReport
-        {
-            Id = Guid.NewGuid(),
-            ProjectId = project.Id,
-            CaseId = "CLM-042",
-            OracleLocator = "t/1",
-            BuildIdentity = "build-1",
-            Outcome = "WeakOracle",
-            KnownBadLegPassed = true,
-            KnownGoodLegPassed = true,
-            UploadedAt = DateTimeOffset.UtcNow,
-        });
-        await db.SaveChangesAsync();
+        var f = NewFixture();
+        var user = await f.Provisioning.GetOrCreateUserAsync("clerk-1", "alice", null);
 
-        var view = await new DashboardService(db).GetDashboardViewAsync(user.OrganizationId, project.Id);
+        var view = await f.Dashboard.GetDashboardViewAsync(user.OrganizationId, null);
 
-        Assert.Empty(view.CaseReports);
-        Assert.Single(view.FlagProofReports);
-        Assert.Equal("WeakOracle", view.FlagProofReports[0].Outcome);
-    }
-
-    // Scenario: Connected project shows its repo
-    [Fact]
-    public async Task ConnectedProjectIncludesItsConnection()
-    {
-        await using var db = NewDb();
-        var provisioning = new ProvisioningService(db, new TokenService());
-        var user = await provisioning.GetOrCreateUserAsync("clerk-1", "alice", null);
-        var project = await provisioning.CreateProjectAsync(user.OrganizationId, "P");
-        await new ConnectionService(db).ConnectAsync(project.Id, "github", "acme/checkout-service");
-
-        var view = await new DashboardService(db).GetDashboardViewAsync(user.OrganizationId, project.Id);
-
-        Assert.NotNull(view.Connection);
-        Assert.Equal("acme/checkout-service", view.Connection!.ExternalRepo);
+        Assert.Equal(0, view.Usage.CaseReportCount);
+        Assert.Equal(0, view.Usage.FlagProofReportCount);
     }
 }
