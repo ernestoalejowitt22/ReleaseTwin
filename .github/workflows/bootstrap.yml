@@ -69,6 +69,16 @@ jobs:
         working-directory: hosted/terraform-bootstrap
         run: terraform init
 
+      # design.md Risks: this AWS account already has a GitHub Actions OIDC provider from another
+      # project — adopt it into this state instead of creating a duplicate. `|| true` makes this
+      # idempotent: a no-op once it's already in state (every run after the first), and harmless
+      # if some future account genuinely has no provider yet (plain `apply` then creates it).
+      - name: Import pre-existing OIDC provider, if any
+        working-directory: hosted/terraform-bootstrap
+        run: |
+          terraform import aws_iam_openid_connect_provider.github_actions \
+            arn:aws:iam::846136340491:oidc-provider/token.actions.githubusercontent.com || true
+
       - name: Terraform apply
         working-directory: hosted/terraform-bootstrap
         run: terraform apply -auto-approve -var="region=${{ inputs.region }}"
