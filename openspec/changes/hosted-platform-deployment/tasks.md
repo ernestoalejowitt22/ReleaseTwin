@@ -67,9 +67,9 @@
 
 ## 6. Terraform pass 1, via CI
 
-- [ ] 6.1 Trigger `deploy-hosted.yml` with `table_prefix=releasetwin-dev-`, `region=us-east-1` (GitHub vars left at empty defaults for this first pass).
-- [ ] 6.2 Confirm the run succeeds; capture the `function_url` output from the run's summary.
-- [ ] 6.3 Smoke-test the Function URL directly (e.g. `curl <url>/Privacy` should return 200; `curl <url>/api/dashboard` should return 401, matching local behavior).
+- [x] 6.1 Trigger `deploy-hosted.yml` with `table_prefix=releasetwin-dev-`, `region=us-east-1` (GitHub vars left at empty defaults for this first pass). (Took several fix cycles — see design.md Risks: verb-enumerated bootstrap/CI-role policies, the OIDC trust condition needing to match on `sub` not `repository`. All now fixed and idempotent.)
+- [x] 6.2 Confirm the run succeeds; capture the `function_url` output from the run's summary. (`https://aeq4mvkh3n63sqnngc4lp7567y0mqfzr.lambda-url.us-east-1.on.aws/`)
+- [x] 6.3 Smoke-test the Function URL directly (e.g. `curl <url>/Privacy` should return 200; `curl <url>/api/dashboard` should return 401, matching local behavior). (Confirmed: 200 and 401 respectively, ~2.3s cold start on first request.)
 
 ## 7. `web/` on Vercel
 
