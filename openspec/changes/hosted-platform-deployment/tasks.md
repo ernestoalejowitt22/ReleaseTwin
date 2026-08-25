@@ -79,9 +79,9 @@
 
 ## 8. GitHub OAuth App + terraform pass 2, via CI
 
-- [ ] 8.1 Register a new GitHub OAuth App at github.com/settings/developers — authorization callback URL `<vercel-url-from-7.3>/connect/github/callback`, no scope beyond the default (the flow itself requests `read:user` — verify against `GitHubConnectionFlowService`, don't request `repo`).
-- [ ] 8.2 Store the real `GitHubConnection` Client ID/CallbackUrl as repo variables and the Client Secret as a repo secret (never committed).
-- [ ] 8.3 Re-trigger `deploy-hosted.yml` — updates the Lambda's environment variables in place with the real GitHub values.
+- [x] 8.1 Register a new GitHub OAuth App at github.com/settings/developers — authorization callback URL `<vercel-url-from-7.3>/connect/github/callback`, no scope beyond the default (the flow itself requests `read:user` — verify against `GitHubConnectionFlowService`, don't request `repo`). (`https://releasetwin.vercel.app/connect/github/callback`)
+- [x] 8.2 Store the real `GitHubConnection` Client ID/CallbackUrl as repo variables and the Client Secret as a repo secret (never committed). (`GH_OAUTH_CLIENT_ID` initially landed as a secret instead of a variable — workflow reads it via `vars.*`, so that silently resolved empty; fixed by adding it as a variable too.)
+- [x] 8.3 Re-trigger `deploy-hosted.yml` — updates the Lambda's environment variables in place with the real GitHub values. (Pass 2 succeeded, run 32910278851.)
 
 ## 9. End-to-end verification (real usage, not automated)
 
