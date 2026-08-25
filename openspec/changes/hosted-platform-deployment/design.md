@@ -20,7 +20,7 @@ Verified during design (not assumed):
 **Non-Goals:**
 - A custom domain (explicit user decision — Function URL's and Vercel's default addresses are fine for now).
 - Production Clerk instance (explicit user decision — stay on the existing dev instance/keys).
-- Auto-deploy on push — the new workflow is manually triggered (`workflow_dispatch`), not wired to `main`. CI solves *who/what can run `terraform apply`*, not *when* — deploys stay a deliberate action, matching "keep costs low now, bump things when ready for customers."
+- Auto-deploy on push for `deploy-hosted.yml` (the actual DynamoDB/Lambda infra) — stays `workflow_dispatch`-only; that's a bigger call (it creates/updates real, billed resources) than the bootstrap layer. **Revised**: `bootstrap.yml` *is* now push-triggered (`main`, scoped to `hosted/terraform-bootstrap/**` and `hosted/terraform-state-backend/**`) per explicit user decision — safe to automate specifically because it's now idempotent (the OIDC-provider import fix) and low-stakes (an S3 bucket, a lock table, an IAM role — nothing that costs by usage or affects the running app).
 - Secrets Manager / SSM Parameter Store — Lambda environment variables (encrypted at rest by AWS's own managed key by default) are enough for a single-operator pilot instance; revisit if this ever needs a second operator or real customer secrets.
 - Billing/paid tiers — unchanged, Stage 1 free-only.
 - Any change to `ReleaseTwin.Core`, adapter code, the CLI's behavior, or the hosted API's request/response contracts.
