@@ -1,3 +1,4 @@
+using ReleaseTwin.Hosted.Api.Data.Entities;
 using ReleaseTwin.Hosted.Api.Data.Repositories;
 using ReleaseTwin.Hosted.Api.Data.Store;
 
@@ -23,7 +24,8 @@ public sealed record DashboardView(
     IReadOnlyList<DashboardTokenView> Tokens,
     IReadOnlyList<DashboardCaseReportView> CaseReports,
     IReadOnlyList<DashboardFlagProofReportView> FlagProofReports,
-    DashboardUsageSummary Usage);
+    DashboardUsageSummary Usage,
+    PlanTier PlanTier);
 
 /// <summary>
 /// hosted-react-frontend: the data-shaping half of what was Dashboard.cshtml.cs's OnGetAsync,
@@ -34,6 +36,7 @@ public sealed record DashboardView(
 /// </summary>
 public sealed class DashboardService
 {
+    private readonly IOrganizationRepository _organizations;
     private readonly IProjectRepository _projects;
     private readonly IConnectionRepository _connections;
     private readonly IApiTokenRepository _tokens;
@@ -42,6 +45,7 @@ public sealed class DashboardService
     private readonly IUsageCounterRepository _usage;
 
     public DashboardService(
+        IOrganizationRepository organizations,
         IProjectRepository projects,
         IConnectionRepository connections,
         IApiTokenRepository tokens,
@@ -49,6 +53,7 @@ public sealed class DashboardService
         IFlagProofReportRepository flagProofReports,
         IUsageCounterRepository usage)
     {
+        _organizations = organizations;
         _projects = projects;
         _connections = connections;
         _tokens = tokens;
@@ -59,6 +64,8 @@ public sealed class DashboardService
 
     public async Task<DashboardView> GetDashboardViewAsync(Guid organizationId, Guid? projectId, CancellationToken cancellationToken = default)
     {
+        var organization = await _organizations.GetAsync(organizationId, cancellationToken);
+        var planTier = organization?.PlanTier ?? PlanTier.Free;
         var projects = await _projects.ListByOrganizationAsync(organizationId, cancellationToken);
 
         // A project only ever resolves if it belongs to the caller's own organization — the source
@@ -76,7 +83,7 @@ public sealed class DashboardService
 
         if (selectedProject is null)
         {
-            return new DashboardView(projectSummaries, null, null, [], [], [], usage);
+            return new DashboardView(projectSummaries, null, null, [], [], [], usage, planTier);
         }
 
         var connection = await _connections.GetAsync(selectedProject.Id, cancellationToken);
@@ -91,6 +98,7 @@ public sealed class DashboardService
             tokens.Select(t => new DashboardTokenView(t.Id, t.DisplayPrefix, t.CreatedAt, t.IsRevoked)).ToList(),
             caseReports.Select(r => new DashboardCaseReportView(r.CaseId, r.Passed, r.Classification, r.CleanupStatus, r.UploadedAt)).ToList(),
             flagProofReports.Select(r => new DashboardFlagProofReportView(r.CaseId, r.BuildIdentity, r.Outcome, r.KnownBadLegPassed, r.KnownGoodLegPassed, r.UploadedAt)).ToList(),
-            usage);
+            usage,
+            planTier);
     }
 }

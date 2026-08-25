@@ -44,6 +44,36 @@ describe("dashboard walkthrough", () => {
     cy.contains(`Connection — ${projectName}`).should("be.visible");
     cy.screenshot("dashboard-walkthrough/02-project-created");
 
+    // plan-tier-gating: real exercise of the Free-tier limit — this org (assuming a fresh backing
+    // store, or one where this org hasn't been upgraded by an earlier run) now has exactly the one
+    // project just created, so a second attempt should be rejected with the real 403 path.
+    cy.get("body").then(($body) => {
+      if ($body.text().includes("Free plan")) {
+        cy.contains("Free plan").should("be.visible");
+
+        const secondProjectName = `e2e-project-${Date.now()}-2`;
+        cy.get('input[name="name"]').type(secondProjectName);
+        cy.contains("button", "Create project").click();
+        cy.contains("Free plan is limited to 1 project").should("be.visible");
+        cy.contains(secondProjectName).should("not.exist");
+        cy.screenshot("dashboard-walkthrough/02b-project-limit-rejected");
+
+        cy.contains("button", "Upgrade").click();
+        cy.contains("Paid plan").should("be.visible");
+        cy.contains("button", "Upgrade").should("not.exist");
+        cy.screenshot("dashboard-walkthrough/02c-upgraded");
+
+        cy.get('input[name="name"]').type(secondProjectName);
+        cy.contains("button", "Create project").click();
+        cy.contains(secondProjectName).should("be.visible");
+        cy.screenshot("dashboard-walkthrough/02d-second-project-after-upgrade");
+      } else {
+        // Already Paid from an earlier run against a persistent backing store — the limit doesn't
+        // apply, nothing further to exercise here.
+        cy.contains("Paid plan").should("be.visible");
+      }
+    });
+
     cy.contains("button", "Issue new token").click();
     cy.contains("New token (shown once, copy it now):").should("be.visible");
     cy.get("code").contains(/^rtw_/).should("be.visible");

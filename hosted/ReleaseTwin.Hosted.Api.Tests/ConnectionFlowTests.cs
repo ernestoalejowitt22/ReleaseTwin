@@ -20,10 +20,11 @@ public class ConnectionFlowTests
     {
         var table = new InMemoryHostedTable();
         var users = new UserRepository(table);
+        var organizations = new OrganizationRepository(table);
         var projects = new ProjectRepository(table);
         var tokens = new ApiTokenRepository(table);
         var connectionRepo = new ConnectionRepository(table);
-        var provisioning = new ProvisioningService(users, projects, tokens, new TokenService());
+        var provisioning = new ProvisioningService(users, organizations, projects, tokens, new TokenService());
         var connections = new ConnectionService(projects, connectionRepo);
         return new Fixture(provisioning, connections, connectionRepo, users);
     }

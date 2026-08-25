@@ -39,6 +39,8 @@ export interface DashboardUsageSummary {
   periodStart: string;
 }
 
+export type PlanTier = "Free" | "Paid";
+
 export interface DashboardView {
   projects: DashboardProjectSummary[];
   selectedProject: DashboardProjectSummary | null;
@@ -47,6 +49,7 @@ export interface DashboardView {
   caseReports: DashboardCaseReportView[];
   flagProofReports: DashboardFlagProofReportView[];
   usage: DashboardUsageSummary;
+  planTier: PlanTier;
 }
 
 export interface GitHubAuthorizeResult {

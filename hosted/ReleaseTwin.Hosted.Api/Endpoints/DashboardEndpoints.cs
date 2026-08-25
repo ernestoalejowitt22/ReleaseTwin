@@ -42,8 +42,29 @@ public static class DashboardEndpoints
                 return Results.BadRequest("Project name is required.");
             }
 
-            var project = await provisioning.CreateProjectAsync(orgId.Value, request.Name);
-            return Results.Created($"/api/dashboard?projectId={project.Id}", new { project.Id, project.Name });
+            try
+            {
+                var project = await provisioning.CreateProjectAsync(orgId.Value, request.Name);
+                return Results.Created($"/api/dashboard?projectId={project.Id}", new { project.Id, project.Name });
+            }
+            catch (ProjectLimitExceededException)
+            {
+                // plan-tier-gating design.md: distinct from a generic 400/500 so the frontend can
+                // show the right message and upgrade prompt rather than a validation error.
+                return Results.Json(new { error = "free-tier-project-limit" }, statusCode: StatusCodes.Status403Forbidden);
+            }
+        });
+
+        group.MapPost("/upgrade", async (ProvisioningService provisioning, CurrentOrganizationAccessor currentOrg) =>
+        {
+            var orgId = currentOrg.OrganizationId;
+            if (orgId is null)
+            {
+                return Results.Forbid();
+            }
+
+            await provisioning.UpgradeOrganizationAsync(orgId.Value);
+            return Results.NoContent();
         });
 
         group.MapPost("/projects/{projectId:guid}/tokens", async (Guid projectId, ProvisioningService provisioning, CurrentOrganizationAccessor currentOrg, IProjectRepository projects) =>

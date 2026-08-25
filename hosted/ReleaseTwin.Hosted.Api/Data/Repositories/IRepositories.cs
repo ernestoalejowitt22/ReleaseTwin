@@ -5,6 +5,9 @@ namespace ReleaseTwin.Hosted.Api.Data.Repositories;
 public interface IOrganizationRepository
 {
     Task<Organization?> GetAsync(Guid organizationId, CancellationToken cancellationToken = default);
+
+    /// <summary>plan-tier-gating: read, mutate, re-put — same pattern as ApiTokenRepository.RevokeAsync.</summary>
+    Task SetPlanTierAsync(Guid organizationId, PlanTier tier, CancellationToken cancellationToken = default);
 }
 
 public interface IUserRepository

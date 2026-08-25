@@ -13,6 +13,14 @@ var builder = WebApplication.CreateBuilder(args);
 
 builder.Services.AddRazorPages();
 
+// plan-tier-gating: PlanTier is the first enum exposed through the dashboard JSON contract —
+// without this, System.Text.Json's default serializes it as a raw integer, inconsistent with every
+// other status-like value in this API (Classification, CleanupStatus, Outcome) already being strings.
+builder.Services.ConfigureHttpJsonOptions(options =>
+{
+    options.SerializerOptions.Converters.Add(new System.Text.Json.Serialization.JsonStringEnumConverter());
+});
+
 // usage-metering design.md: single DynamoDB table (real AWS in production; DynamoDB Local for local
 // dev, selected via Aws:DynamoDb:ServiceUrl; the in-memory fake is the test fallback when neither AWS
 // config nor a local endpoint is present — same three-tier role the old EF Core setup played).
