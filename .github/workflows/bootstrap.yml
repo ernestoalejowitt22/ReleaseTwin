@@ -3,10 +3,10 @@ name: Bootstrap AWS Infra
 # hosted-platform-deployment design.md: the one-time (or rare) layer everything else depends on —
 # the GitHub Actions OIDC trust, the CI role deploy-hosted.yml assumes, and the S3/DynamoDB remote
 # state backend both terraform roots below and hosted/terraform itself use. Can't authenticate via
-# OIDC (that's what job 2 creates) — instead uses a short-lived AWS session you mint locally with
-# your own MFA and paste into these repo secrets for this one run:
-#   AWS_BOOTSTRAP_ACCESS_KEY_ID, AWS_BOOTSTRAP_SECRET_ACCESS_KEY, AWS_BOOTSTRAP_SESSION_TOKEN
-# Safe to remove those secrets again once this workflow succeeds — nothing else ever reads them.
+# OIDC (that's what job 2 creates) — instead uses a dedicated IAM user (`releasetwin-bootstrap`),
+# created once by hand with a narrow policy scoped to exactly what these two terraform roots need,
+# never given the ealejo account's own MFA-enforcement policy. Its standing access key/secret are
+# these repo secrets: AWS_BOOTSTRAP_ACCESS_KEY_ID, AWS_BOOTSTRAP_SECRET_ACCESS_KEY.
 on:
   workflow_dispatch:
     inputs:
@@ -31,7 +31,6 @@ jobs:
         with:
           aws-access-key-id: ${{ secrets.AWS_BOOTSTRAP_ACCESS_KEY_ID }}
           aws-secret-access-key: ${{ secrets.AWS_BOOTSTRAP_SECRET_ACCESS_KEY }}
-          aws-session-token: ${{ secrets.AWS_BOOTSTRAP_SESSION_TOKEN }}
           aws-region: ${{ inputs.region }}
 
       - uses: hashicorp/setup-terraform@v3
@@ -60,7 +59,6 @@ jobs:
         with:
           aws-access-key-id: ${{ secrets.AWS_BOOTSTRAP_ACCESS_KEY_ID }}
           aws-secret-access-key: ${{ secrets.AWS_BOOTSTRAP_SECRET_ACCESS_KEY }}
-          aws-session-token: ${{ secrets.AWS_BOOTSTRAP_SESSION_TOKEN }}
           aws-region: ${{ inputs.region }}
 
       - uses: hashicorp/setup-terraform@v3
