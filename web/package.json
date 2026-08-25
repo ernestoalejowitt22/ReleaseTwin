@@ -7,11 +7,11 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
-    "e2e:api": "cd ../hosted && dotnet run --project ReleaseTwin.Hosted.Api --urls http://localhost:5199",
+    "e2e:api": "cd ../hosted && Clerk__Domain=classic-marlin-8065.clerk.accounts.dev dotnet run --project ReleaseTwin.Hosted.Api --urls http://localhost:5199",
     "e2e:web": "next dev",
     "e2e:run": "cypress run",
     "e2e:open": "cypress open",
-    "e2e": "start-server-and-test e2e:api http://localhost:5199/api/dashboard e2e:web http://localhost:3000 e2e:run"
+    "e2e": "start-server-and-test e2e:api http://localhost:5199/Privacy e2e:web http://localhost:3000 e2e:run"
   },
   "dependencies": {
     "@clerk/nextjs": "^7.8.1",

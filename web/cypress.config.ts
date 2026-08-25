@@ -1,5 +1,7 @@
 import path from "node:path";
 import { randomUUID } from "node:crypto";
+import { execFile } from "node:child_process";
+import { promisify } from "node:util";
 import { config as loadDotenv } from "dotenv";
 import { clerkSetup } from "@clerk/testing/cypress";
 import { createClerkClient } from "@clerk/backend";
@@ -9,6 +11,13 @@ import { defineConfig } from "cypress";
 // for free the way `next dev` does, so load it explicitly rather than duplicating secrets into a
 // second file. CLERK_SECRET_KEY there is already unprefixed and works as-is for @clerk/testing.
 loadDotenv({ path: path.resolve(__dirname, ".env.local") });
+
+const execFileAsync = promisify(execFile);
+
+// Resolved from this file's own directory (not process.cwd()), so this task works the same whether
+// `npm run e2e`/`cypress run` is invoked from `web/` or the repo root.
+const repoRoot = path.resolve(__dirname, "..");
+const cliProjectPath = path.join(repoRoot, "src", "ReleaseTwin.Cli");
 
 export default defineConfig({
   // Clerk *development* instances (accounts.dev shared infra, not a custom domain) bounce through
@@ -64,6 +73,68 @@ export default defineConfig({
             skipPasswordChecks: true,
           });
           return { created: true, userId: user.id };
+        },
+
+        // registration design.md: after registration.cy.ts drives the *real* sign-up UI through
+        // email + password + email_code verification, Cypress's Electron runner (unlike a real
+        // browser) doesn't complete Clerk's cross-domain session handoff back to this app — it
+        // bounces to the Account Portal's own "sign in" page instead, confirmed empirically during
+        // implementation. This mints a real Clerk sign-in token for the just-created user (Clerk's
+        // own documented mechanism for handing a session to a client without re-prompting for
+        // credentials — the "ticket" strategy @clerk/testing's clerkSignIn already supports) so the
+        // test can establish the session directly on this app's own origin instead. It only ever
+        // runs *after* the real sign-up form has already been submitted — it doesn't shortcut any
+        // part of account creation itself.
+        async createSignInTicket({ email }: { email: string }) {
+          const clerkClient = createClerkClient({ secretKey: process.env.CLERK_SECRET_KEY });
+          const users = await clerkClient.users.getUserList({ emailAddress: [email] });
+          if (users.data.length === 0) {
+            throw new Error(`createSignInTicket: no Clerk user found for ${email}`);
+          }
+          const signInToken = await clerkClient.signInTokens.createSignInToken({
+            userId: users.data[0].id,
+            expiresInSeconds: 60,
+          });
+          return { ticket: signInToken.token };
+        },
+
+        // product-usage-loop design.md: shells out to a real `dotnet run` of the CLI against a
+        // dashboard-issued token, so the e2e suite exercises the actual, unmocked upload path a
+        // customer would use — not a seeded/mocked report. A first invocation implicitly triggers a
+        // `dotnet build`, so this is intentionally not bounded by Cypress's default command timeout
+        // (see the `taskTimeout` passed alongside `cy.task('runCli', ...)` in the spec itself).
+        async runCli({
+          token,
+          apiUrl,
+          casesDir,
+        }: {
+          token: string;
+          apiUrl: string;
+          casesDir: string;
+        }) {
+          try {
+            const { stdout, stderr } = await execFileAsync(
+              "dotnet",
+              ["run", "--project", cliProjectPath, "--", casesDir],
+              {
+                cwd: repoRoot,
+                env: {
+                  ...process.env,
+                  RELEASETWIN_API_TOKEN: token,
+                  RELEASETWIN_API_URL: apiUrl,
+                },
+                maxBuffer: 10 * 1024 * 1024,
+              },
+            );
+            return { code: 0, stdout, stderr };
+          } catch (error) {
+            const execError = error as { code?: number; stdout?: string; stderr?: string };
+            return {
+              code: execError.code ?? 1,
+              stdout: execError.stdout ?? "",
+              stderr: execError.stderr ?? String(error),
+            };
+          }
         },
       });
 
