@@ -20,13 +20,54 @@
 - [x] 4.1 New `.github/workflows/bootstrap.yml`: `workflow_dispatch`-triggered, two sequential jobs (`state-backend` applying group 3.1, `oidc-and-role` applying group 3.2), both authenticated via a short-lived AWS session read from `AWS_BOOTSTRAP_ACCESS_KEY_ID`/`AWS_BOOTSTRAP_SECRET_ACCESS_KEY`/`AWS_BOOTSTRAP_SESSION_TOKEN` repo secrets (pasted from a locally-minted MFA session — this can't use OIDC, since it's what creates the OIDC trust). YAML validated.
 - [x] 4.2 New `.github/workflows/deploy-hosted.yml`: `workflow_dispatch`-triggered (not on push — design.md Non-Goals), assumes the CI role via OIDC (`aws-actions/configure-aws-credentials`, no stored AWS secret), builds the Lambda zip (`dotnet lambda package`), runs `terraform apply` for `hosted/terraform` with `table_prefix`/`region` as workflow inputs and `GitHubConnection__*` sourced from repo secrets/variables. `permissions: id-token: write` set for OIDC token issuance. YAML validated.
 
-## 5. Run the bootstrap workflow (needs your MFA — cannot be done by an agent)
+## 5. Create the `releasetwin-bootstrap` IAM user (the one MFA'd action in this whole plan — cannot be done by an agent)
 
-- [ ] 5.1 Mint a short-lived MFA session for `ealejo` (`aws sts get-session-token --profile ealejo --serial-number arn:aws:iam::846136340491:mfa/iphone-iam --token-code <code> --duration-seconds 3600`).
-- [ ] 5.2 Add its `AccessKeyId`/`SecretAccessKey`/`SessionToken` as the `AWS_BOOTSTRAP_ACCESS_KEY_ID`/`AWS_BOOTSTRAP_SECRET_ACCESS_KEY`/`AWS_BOOTSTRAP_SESSION_TOKEN` repo secrets.
-- [ ] 5.3 Trigger `bootstrap.yml` (`gh workflow run bootstrap.yml` or the Actions UI). Confirm both jobs succeed; capture the CI role ARN from the `oidc-and-role` job's summary.
-- [ ] 5.4 Delete the three `AWS_BOOTSTRAP_*` secrets — nothing else ever reads them, and the session expires on its own regardless.
-- [ ] 5.5 Set the CI role ARN from 5.3 as the `AWS_DEPLOY_ROLE_ARN` repo variable (used by `deploy-hosted.yml`).
+- [ ] 5.1 In the AWS Console (`ealejo` account, logged in normally — MFA here is just your regular login, not a CLI session dance): IAM → Users → Create user `releasetwin-bootstrap`, no console access, access-key-only credential type.
+- [ ] 5.2 Attach an inline policy with exactly this — S3/DynamoDB for the state backend, IAM/OIDC-provider actions for the trust and role, nothing else:
+  ```json
+  {
+    "Version": "2012-10-17",
+    "Statement": [
+      {
+        "Sid": "StateBucket",
+        "Effect": "Allow",
+        "Action": [
+          "s3:CreateBucket", "s3:GetBucketLocation", "s3:GetBucketVersioning",
+          "s3:PutBucketVersioning", "s3:GetBucketPublicAccessBlock",
+          "s3:PutBucketPublicAccessBlock", "s3:GetEncryptionConfiguration",
+          "s3:GetBucketAcl", "s3:ListBucket", "s3:GetObject", "s3:PutObject"
+        ],
+        "Resource": [
+          "arn:aws:s3:::releasetwin-terraform-state-846136340491",
+          "arn:aws:s3:::releasetwin-terraform-state-846136340491/*"
+        ]
+      },
+      {
+        "Sid": "StateLockTable",
+        "Effect": "Allow",
+        "Action": [
+          "dynamodb:CreateTable", "dynamodb:DescribeTable",
+          "dynamodb:GetItem", "dynamodb:PutItem", "dynamodb:DeleteItem"
+        ],
+        "Resource": "arn:aws:dynamodb:us-east-1:846136340491:table/releasetwin-terraform-state-lock"
+      },
+      {
+        "Sid": "OidcAndRole",
+        "Effect": "Allow",
+        "Action": [
+          "iam:CreateOpenIDConnectProvider", "iam:GetOpenIDConnectProvider",
+          "iam:ListOpenIDConnectProviders", "iam:TagOpenIDConnectProvider",
+          "iam:CreateRole", "iam:GetRole", "iam:PutRolePolicy",
+          "iam:GetRolePolicy", "iam:DeleteRolePolicy", "iam:TagRole"
+        ],
+        "Resource": "*"
+      }
+    ]
+  }
+  ```
+- [ ] 5.3 Generate an access key for the user; add its `AccessKeyId`/`SecretAccessKey` as the `AWS_BOOTSTRAP_ACCESS_KEY_ID`/`AWS_BOOTSTRAP_SECRET_ACCESS_KEY` repo secrets (standing, kept permanently — GitHub secrets are encrypted at rest and never re-displayed; see design.md Decisions).
+- [ ] 5.4 Trigger `bootstrap.yml` (`gh workflow run bootstrap.yml` or the Actions UI). Confirm both jobs succeed; capture the CI role ARN from the `oidc-and-role` job's summary.
+- [ ] 5.5 Set the CI role ARN from 5.4 as the `AWS_DEPLOY_ROLE_ARN` repo variable (used by `deploy-hosted.yml`).
 
 ## 6. Terraform pass 1, via CI
 
