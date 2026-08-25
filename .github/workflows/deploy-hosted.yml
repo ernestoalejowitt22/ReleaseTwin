@@ -1,0 +1,72 @@
+name: Deploy Hosted API
+
+# hosted-platform-deployment design.md: manually triggered only — not wired to push/PR like
+# hosted-ci.yml. This solves *who/what can run terraform apply* (via OIDC, no stored AWS secret),
+# not *when* a deploy happens; that stays a deliberate action.
+on:
+  workflow_dispatch:
+    inputs:
+      table_prefix:
+        description: "DynamoDB table / resource name prefix"
+        default: "releasetwin-dev-"
+      region:
+        description: "AWS region"
+        default: "us-east-1"
+
+permissions:
+  id-token: write # required to request the OIDC token that's exchanged for AWS credentials
+  contents: read
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "10.0.x"
+
+      - name: Install Amazon.Lambda.Tools
+        run: dotnet tool install -g Amazon.Lambda.Tools
+
+      # Terraform doesn't compile .NET code (design.md) — build the deployment zip first, terraform
+      # references it by path.
+      - name: Build Lambda deployment package
+        run: |
+          export PATH="$PATH:$HOME/.dotnet/tools"
+          dotnet lambda package -pl hosted/ReleaseTwin.Hosted.Api -o hosted/terraform/lambda-package.zip
+
+      # No stored AWS access key anywhere — the role trusts this repo's OIDC token directly
+      # (hosted/terraform-bootstrap). AWS_DEPLOY_ROLE_ARN is a plain repo variable (ARNs aren't
+      # secret), set from that bootstrap's `github_actions_role_arn` output.
+      - uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ vars.AWS_DEPLOY_ROLE_ARN }}
+          aws-region: ${{ inputs.region }}
+
+      - uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: "~> 1.5"
+
+      - name: Terraform init
+        working-directory: hosted/terraform
+        run: terraform init
+
+      # design.md two-pass apply: GitHubConnection__* vars/secrets are empty until the GitHub OAuth
+      # App is registered (needs the Vercel URL, which needs this workflow's own first-pass output)
+      # — re-running this workflow with those set updates the Lambda's env vars in place.
+      - name: Terraform apply
+        working-directory: hosted/terraform
+        run: |
+          terraform apply -auto-approve \
+            -var="table_prefix=${{ inputs.table_prefix }}" \
+            -var="region=${{ inputs.region }}" \
+            -var="github_client_id=${{ vars.GH_OAUTH_CLIENT_ID }}" \
+            -var="github_client_secret=${{ secrets.GH_OAUTH_CLIENT_SECRET }}" \
+            -var="github_callback_url=${{ vars.GH_OAUTH_CALLBACK_URL }}"
+
+      - name: Function URL
+        working-directory: hosted/terraform
+        run: |
+          echo "Function URL: $(terraform output -raw function_url)" >> "$GITHUB_STEP_SUMMARY"

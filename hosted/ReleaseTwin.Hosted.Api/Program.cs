@@ -11,6 +11,12 @@ using ReleaseTwin.Hosted.Api.Services;
 
 var builder = WebApplication.CreateBuilder(args);
 
+// hosted-platform-deployment design.md: swaps Kestrel for the Lambda-aware server only when
+// actually running under Lambda (detected via the standard Lambda environment variables) — a no-op
+// under `dotnet run`, so local dev and `npm run e2e` are unaffected. Function URLs share HTTP API's
+// payload format, so HttpApi is the correct event source even though there's no API Gateway here.
+builder.Services.AddAWSLambdaHosting(LambdaEventSource.HttpApi);
+
 builder.Services.AddRazorPages();
 
 // plan-tier-gating: PlanTier is the first enum exposed through the dashboard JSON contract —
