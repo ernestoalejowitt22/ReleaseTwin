@@ -34,7 +34,7 @@ internal sealed class ReadVariableGroupValueOperation : IOperation
         _variableName = variableName;
     }
 
-    public async Task<OperationResult> ExecuteAsync(CaseExecutionContext context, IReadOnlyDictionary<string, object?> parameters, CancellationToken cancellationToken)
+    public async Task<OperationResult> ExecuteAsync(CaseExecutionContext context, IReadOnlyDictionary<string, object?> parameters, IReadOnlyList<CaptureDeclaration> captures, CancellationToken cancellationToken)
     {
         var value = await _client.GetVariableGroupValueAsync(_variableGroupId, _variableName, cancellationToken);
         return value == "true"

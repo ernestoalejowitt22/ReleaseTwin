@@ -21,13 +21,9 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\..\src\ReleaseTwin.Cli\ReleaseTwin.Cli.csproj" />
-    <ProjectReference Include="..\..\src\ReleaseTwin.Core\ReleaseTwin.Core.csproj" />
-    <ProjectReference Include="..\..\src\ReleaseTwin.AdapterSdk\ReleaseTwin.AdapterSdk.csproj" />
-    <ProjectReference Include="..\..\src\ReleaseTwin.Adapters.AzureDevOps\ReleaseTwin.Adapters.AzureDevOps.csproj" />
-    <ProjectReference Include="..\..\src\ReleaseTwin.Adapters.Http\ReleaseTwin.Adapters.Http.csproj" />
     <ProjectReference Include="..\..\src\ReleaseTwin.Adapters.LaunchDarkly\ReleaseTwin.Adapters.LaunchDarkly.csproj" />
-    <ProjectReference Include="..\..\src\ReleaseTwin.Adapters.Ui\ReleaseTwin.Adapters.Ui.csproj" />
+    <ProjectReference Include="..\..\src\ReleaseTwin.AdapterSdk\ReleaseTwin.AdapterSdk.csproj" />
+    <ProjectReference Include="..\..\src\ReleaseTwin.Core\ReleaseTwin.Core.csproj" />
   </ItemGroup>
 
 </Project>

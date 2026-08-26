@@ -1,0 +1,25 @@
+id: AUTH-CHAIN-DEMO-1
+oracle:
+  locator: docs/customer-pilot-guide.md
+fixture:
+  locator: example-auth-chain.json
+  sha256: 7b79d0ff51b8b4b8e9db2b318e7fff765e1f66e1bd33fb64695fef89f1780e92
+pipeline:
+  # Stands in for a real login endpoint (e.g. NAHA's /v1/e2e/login) that returns a token in its
+  # JSON body — httpbin.org/uuid is used here only because it's a public, credential-free endpoint
+  # that returns a JSON field to capture; swap the url for a real login endpoint to use for real.
+  - operation: http.request
+    with:
+      method: GET
+      url: https://httpbin.org/uuid
+    capture:
+      - name: token
+        from: json:$.uuid
+  # Stands in for a real protected endpoint (e.g. NAHA's /api/me) that requires the captured token
+  # as a bearer credential — httpbin.org/bearer returns 200 only when an Authorization header is
+  # present, so this step demonstrates the capture actually reaching the request.
+  - operation: http.request
+    with:
+      url: https://httpbin.org/bearer
+      headers:
+        Authorization: Bearer {{token}}

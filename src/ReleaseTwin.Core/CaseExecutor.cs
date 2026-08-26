@@ -88,7 +88,27 @@ public sealed class CaseExecutor
         foreach (var step in testCase.Pipeline)
         {
             _operations.TryGet(step.OperationName, out var operation);
-            var (succeeded, stepDetail, isTimeout) = await ExecuteStepWithRetryAsync(operation!, context, step, cancellationToken);
+
+            IReadOnlyDictionary<string, object?> resolvedParameters;
+            try
+            {
+                resolvedParameters = CaptureReferenceResolver.Resolve(step.Parameters, (IReadOnlyDictionary<string, string>)context.Captures);
+            }
+            catch (MissingCaptureException ex)
+            {
+                return (false, FailureClassification.Infrastructure, $"missing-capture:{ex.CaptureName}");
+            }
+
+            var (succeeded, stepDetail, isTimeout, stepCaptures) =
+                await ExecuteStepWithRetryAsync(operation!, context, step, resolvedParameters, cancellationToken);
+
+            if (succeeded)
+            {
+                foreach (var (name, value) in stepCaptures)
+                {
+                    context.Captures[name] = value;
+                }
+            }
 
             var effectivelyPassed = step.ExpectFailure ? !succeeded : succeeded;
             if (effectivelyPassed)
@@ -110,8 +130,10 @@ public sealed class CaseExecutor
         return (true, null, null);
     }
 
-    private static async Task<(bool Succeeded, string? Detail, bool IsTimeout)> ExecuteStepWithRetryAsync(
-        IOperation operation, CaseExecutionContext context, PipelineStep step, CancellationToken cancellationToken)
+    private static readonly IReadOnlyDictionary<string, string> EmptyCaptures = new Dictionary<string, string>();
+
+    private static async Task<(bool Succeeded, string? Detail, bool IsTimeout, IReadOnlyDictionary<string, string> Captures)> ExecuteStepWithRetryAsync(
+        IOperation operation, CaseExecutionContext context, PipelineStep step, IReadOnlyDictionary<string, object?> parameters, CancellationToken cancellationToken)
     {
         var retry = step.EffectiveRetry;
         string? lastDetail = null;
@@ -126,10 +148,10 @@ public sealed class CaseExecutor
 
             try
             {
-                var result = await operation.ExecuteAsync(context, step.Parameters, cts?.Token ?? cancellationToken);
+                var result = await operation.ExecuteAsync(context, parameters, step.Captures, cts?.Token ?? cancellationToken);
                 if (result.Succeeded)
                 {
-                    return (true, result.Detail, false);
+                    return (true, result.Detail, false, result.Captures ?? EmptyCaptures);
                 }
 
                 lastDetail = result.Detail;
@@ -142,7 +164,7 @@ public sealed class CaseExecutor
             }
         }
 
-        return (false, lastDetail, lastTimeout);
+        return (false, lastDetail, lastTimeout, EmptyCaptures);
     }
 
     private async Task<CleanupStatus> RunCleanupAsync(TestCase testCase, CaseExecutionContext context, CancellationToken cancellationToken)

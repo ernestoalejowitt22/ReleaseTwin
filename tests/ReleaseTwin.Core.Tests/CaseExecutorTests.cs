@@ -40,7 +40,7 @@ public class CaseExecutorTests
         public static StubOperation AlwaysPass() => new(_ => OperationResult.Pass());
         public static StubOperation AlwaysFail(string detail = "assertion-mismatch") => new(_ => OperationResult.Fail(detail));
 
-        public Task<OperationResult> ExecuteAsync(CaseExecutionContext context, IReadOnlyDictionary<string, object?> parameters, CancellationToken cancellationToken)
+        public Task<OperationResult> ExecuteAsync(CaseExecutionContext context, IReadOnlyDictionary<string, object?> parameters, IReadOnlyList<CaptureDeclaration> captures, CancellationToken cancellationToken)
         {
             Invocations++;
             return Task.FromResult(_behavior(Invocations));
@@ -52,7 +52,7 @@ public class CaseExecutorTests
         private readonly TimeSpan _delay;
         public DelayOperation(TimeSpan delay) => _delay = delay;
 
-        public async Task<OperationResult> ExecuteAsync(CaseExecutionContext context, IReadOnlyDictionary<string, object?> parameters, CancellationToken cancellationToken)
+        public async Task<OperationResult> ExecuteAsync(CaseExecutionContext context, IReadOnlyDictionary<string, object?> parameters, IReadOnlyList<CaptureDeclaration> captures, CancellationToken cancellationToken)
         {
             await Task.Delay(_delay, cancellationToken);
             return OperationResult.Pass();
@@ -221,7 +221,7 @@ public class CaseExecutorTests
         private readonly string _name;
         private readonly List<string> _order;
         public RecordingOperation(string name, List<string> order) { _name = name; _order = order; }
-        public Task<OperationResult> ExecuteAsync(CaseExecutionContext context, IReadOnlyDictionary<string, object?> parameters, CancellationToken cancellationToken)
+        public Task<OperationResult> ExecuteAsync(CaseExecutionContext context, IReadOnlyDictionary<string, object?> parameters, IReadOnlyList<CaptureDeclaration> captures, CancellationToken cancellationToken)
         {
             _order.Add(_name);
             return Task.FromResult(OperationResult.Pass());
@@ -376,7 +376,7 @@ public class CaseExecutorTests
     {
         private readonly Func<CaseExecutionContext, CancellationToken, Task<OperationResult>> _behavior;
         public InlineOperation(Func<CaseExecutionContext, CancellationToken, Task<OperationResult>> behavior) => _behavior = behavior;
-        public Task<OperationResult> ExecuteAsync(CaseExecutionContext context, IReadOnlyDictionary<string, object?> parameters, CancellationToken cancellationToken) =>
+        public Task<OperationResult> ExecuteAsync(CaseExecutionContext context, IReadOnlyDictionary<string, object?> parameters, IReadOnlyList<CaptureDeclaration> captures, CancellationToken cancellationToken) =>
             _behavior(context, cancellationToken);
     }
 

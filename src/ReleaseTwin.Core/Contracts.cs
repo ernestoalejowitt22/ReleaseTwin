@@ -6,6 +6,9 @@ public sealed class CaseExecutionContext
 
     /// <summary>Adapter-owned state bag. Core never reads or writes specific keys here.</summary>
     public IDictionary<string, object?> AdapterState { get; } = new Dictionary<string, object?>();
+
+    /// <summary>Named captures produced by steps in this run. Scoped to this case run only; a fresh context is created per case.</summary>
+    public IDictionary<string, string> Captures { get; } = new Dictionary<string, string>();
 }
 
 public enum PrerequisiteStatus
@@ -29,15 +32,15 @@ public interface IPrerequisiteCheck
     Task<PrerequisiteResult> EvaluateAsync(CaseExecutionContext context, CancellationToken cancellationToken);
 }
 
-public sealed record OperationResult(bool Succeeded, string? Detail = null)
+public sealed record OperationResult(bool Succeeded, string? Detail = null, IReadOnlyDictionary<string, string>? Captures = null)
 {
-    public static OperationResult Pass(string? detail = null) => new(true, detail);
+    public static OperationResult Pass(string? detail = null, IReadOnlyDictionary<string, string>? captures = null) => new(true, detail, captures);
     public static OperationResult Fail(string? detail = null) => new(false, detail);
 }
 
 public interface IOperation
 {
-    Task<OperationResult> ExecuteAsync(CaseExecutionContext context, IReadOnlyDictionary<string, object?> parameters, CancellationToken cancellationToken);
+    Task<OperationResult> ExecuteAsync(CaseExecutionContext context, IReadOnlyDictionary<string, object?> parameters, IReadOnlyList<CaptureDeclaration> captures, CancellationToken cancellationToken);
 }
 
 public sealed record CleanupResult(bool Succeeded, string? Detail = null);

@@ -78,7 +78,7 @@ internal sealed class CreateRecordOperation : IOperation
     private readonly ToyHttpClient _client;
     public CreateRecordOperation(ToyHttpClient client) => _client = client;
 
-    public Task<OperationResult> ExecuteAsync(CaseExecutionContext context, IReadOnlyDictionary<string, object?> parameters, CancellationToken cancellationToken)
+    public Task<OperationResult> ExecuteAsync(CaseExecutionContext context, IReadOnlyDictionary<string, object?> parameters, IReadOnlyList<CaptureDeclaration> captures, CancellationToken cancellationToken)
     {
         var id = _client.CreateRecord("claim", "{}");
         context.AdapterState["toyhttp.recordId"] = id;
@@ -91,7 +91,7 @@ internal sealed class GetRecordOperation : IOperation
     private readonly ToyHttpClient _client;
     public GetRecordOperation(ToyHttpClient client) => _client = client;
 
-    public Task<OperationResult> ExecuteAsync(CaseExecutionContext context, IReadOnlyDictionary<string, object?> parameters, CancellationToken cancellationToken)
+    public Task<OperationResult> ExecuteAsync(CaseExecutionContext context, IReadOnlyDictionary<string, object?> parameters, IReadOnlyList<CaptureDeclaration> captures, CancellationToken cancellationToken)
     {
         if (context.AdapterState.TryGetValue("toyhttp.recordId", out var idObj) && idObj is string id
             && _client.TryGetRecord(id, out var payload))
