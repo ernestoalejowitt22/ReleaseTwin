@@ -36,11 +36,23 @@
       specifically" to "whichever installed adapter exposes `FeatureStateController`."
 - [x] 3.4 Unit tests mirroring the existing Azure DevOps flag-proof tests, against a fake LaunchDarkly
       backend.
-- [ ] 3.5 Real verification: a flag-proof case against one of NAHA's actual LaunchDarkly flags
-      (`POLICY_API_FLAG` or similar). BLOCKED: needs a real LaunchDarkly API token + project/environment
-      key for NAHA's account, which this session has no access to. `LAUNCHDARKLY_API_TOKEN`,
-      `LAUNCHDARKLY_PROJECT_KEY`, `LAUNCHDARKLY_ENVIRONMENT_KEY` env vars are wired and ready — supply
-      real credentials and a real flag key to `examples/cases/` to complete this.
+- [x] 3.5 Real verification: a flag-proof case against one of NAHA's actual LaunchDarkly flags.
+      Unblocked: real LaunchDarkly test-account credentials (API token, project key, environment
+      key) now live in AWS Secrets Manager (`releasetwin/e2e/launchdarkly-account`), fetched by a
+      new Cypress task the same way the existing real-GitHub-account e2e spec already does. A new
+      spec, `web/cypress/e2e/launchdarkly-real-flag-proof.cy.ts`, signs in via real Clerk auth,
+      creates a real project, sets those real credentials through the real dashboard
+      adapter-credentials form (`hosted-adapter-credentials`), issues a real project token, and
+      runs the real CLI — through the hosted-credential-fetch path, not local env vars, so it
+      exercises the exact round trip a customer's own CI would take — against the real flag
+      `naha.service-catalog-api`. Required one small CLI fix along the way: `LaunchDarklyAdapter`
+      was always constructed with its hardcoded demo flag key (`release-proof-feature`); added an
+      optional `LAUNCHDARKLY_FLAG_KEY` env var (`CliRunner.cs`) so a real run can point
+      `ld.readFeatureFlag` at a different real flag, matching the existing per-adapter-config
+      convention. Ran for real: `npm run e2e:ld` — `1 passing`, CLI stdout matched
+      `FLAGPROOF LD-REAL-FLAGPROOF-<timestamp> (Passed)`, confirming the real toggle-then-read
+      round trip against LaunchDarkly. Flag key deliberately lives in the spec file, not the
+      secret, so future tests can target other flags without touching Secrets Manager.
 
 **Addendum (not a task, a flagged gap):** adapter credential setup (Azure DevOps's 5 env vars,
 LaunchDarkly's 3, and whatever a future adapter needs) has no customer-facing story — no shared
