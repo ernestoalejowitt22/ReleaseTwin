@@ -58,6 +58,43 @@ resource "aws_iam_role_policy" "hosted_api_dynamodb" {
   policy = data.aws_iam_policy_document.hosted_api_dynamodb.json
 }
 
+# hosted-adapter-credentials design.md Migration Plan: the real-AWS path persists the Data
+# Protection key ring (used by ConnectionStateService and AdapterCredentialService) to SSM Parameter
+# Store as SecureString (PersistKeysToAWSSystemsManager) — without this, ANY code path that creates
+# a data protector (including the pre-existing GitHub connection flow) fails, not just
+# adapter-credentials specifically. Scoped to exactly the one parameter path this table's key ring
+# uses, plus KMS access to the default `alias/aws/ssm` key SecureString encryption uses.
+data "aws_iam_policy_document" "hosted_api_data_protection" {
+  statement {
+    actions = [
+      "ssm:GetParameter",
+      "ssm:GetParameters",
+      "ssm:GetParametersByPath",
+      "ssm:PutParameter",
+    ]
+    resources = [
+      "arn:aws:ssm:${var.region}:*:parameter/${var.table_prefix}ReleaseTwinHosted/DataProtection/Keys/*",
+    ]
+  }
+
+  statement {
+    actions = [
+      "kms:Decrypt",
+      "kms:Encrypt",
+      "kms:GenerateDataKey",
+    ]
+    resources = [
+      "arn:aws:kms:${var.region}:*:alias/aws/ssm",
+    ]
+  }
+}
+
+resource "aws_iam_role_policy" "hosted_api_data_protection" {
+  name   = "data-protection-ssm-access"
+  role   = aws_iam_role.hosted_api.id
+  policy = data.aws_iam_policy_document.hosted_api_data_protection.json
+}
+
 resource "aws_lambda_function" "hosted_api" {
   function_name = "${var.table_prefix}releasetwin-hosted-api"
   role          = aws_iam_role.hosted_api.arn
