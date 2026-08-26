@@ -71,6 +71,68 @@ export default defineConfig({
           return { username, password, currentTotpCode };
         },
 
+        // launchdarkly-real-flag-proof: real LaunchDarkly test-account credentials (API token,
+        // project key, environment key only — the flag key deliberately lives in the spec file
+        // itself, not the secret, so different tests can target different flags) live in AWS
+        // Secrets Manager, same convention as fetchGitHubTestAccount above.
+        async fetchLaunchDarklyTestAccount() {
+          const client = new SecretsManagerClient({});
+          const response = await client.send(
+            new GetSecretValueCommand({ SecretId: "releasetwin/e2e/launchdarkly-account" }),
+          );
+          if (!response.SecretString) {
+            throw new Error("releasetwin/e2e/launchdarkly-account has no SecretString value.");
+          }
+
+          const { apiToken, projectKey, environmentKey } = JSON.parse(response.SecretString) as {
+            apiToken: string;
+            projectKey: string;
+            environmentKey: string;
+          };
+
+          return { apiToken, projectKey, environmentKey };
+        },
+
+        // launchdarkly-real-flag-proof: writes a throwaway case + fixture directory for a
+        // LaunchDarkly flag-proof case targeting a caller-supplied real flag key — generated per
+        // run rather than checked in, since the flag key is chosen by the spec, not fixed content.
+        async writeLaunchDarklyFlagProofCase({
+          directory,
+          caseId,
+          flagKey,
+        }: {
+          directory: string;
+          caseId: string;
+          flagKey: string;
+        }) {
+          const fs = await import("node:fs/promises");
+          const casesDir = path.join(directory, "cases");
+          const fixturesDir = path.join(directory, "fixtures");
+          await fs.mkdir(casesDir, { recursive: true });
+          await fs.mkdir(fixturesDir, { recursive: true });
+
+          await fs.writeFile(path.join(fixturesDir, `${caseId}.json`), "{}\n");
+
+          const yaml = [
+            `id: ${caseId}`,
+            "oracle:",
+            `  locator: tickets/${caseId}`,
+            "fixture:",
+            `  locator: ${caseId}.json`,
+            "requires:",
+            "  - http:launchdarkly",
+            "pipeline:",
+            "  - operation: ld.readFeatureFlag",
+            "flag_proof:",
+            `  feature_key: ${flagKey}`,
+            `  build_identity: ${caseId}-build`,
+            "",
+          ].join("\n");
+          await fs.writeFile(path.join(casesDir, `${caseId}.yaml`), yaml);
+
+          return { casesDir };
+        },
+
         // Idempotent by construction: looks up the test user before ever creating one, so running
         // this task repeatedly (every local/CI run) never creates duplicates.
         //
@@ -141,10 +203,12 @@ export default defineConfig({
           token,
           apiUrl,
           casesDir,
+          env,
         }: {
           token: string;
           apiUrl: string;
           casesDir: string;
+          env?: Record<string, string>;
         }) {
           try {
             const { stdout, stderr } = await execFileAsync(
@@ -156,6 +220,7 @@ export default defineConfig({
                   ...process.env,
                   RELEASETWIN_API_TOKEN: token,
                   RELEASETWIN_API_URL: apiUrl,
+                  ...env,
                 },
                 maxBuffer: 10 * 1024 * 1024,
               },

@@ -14,7 +14,9 @@
     "e2e": "start-server-and-test e2e:api http://localhost:5199/Privacy e2e:web http://localhost:3000 e2e:run",
     "e2e:api:github": "node scripts/e2e-api-with-github.mjs",
     "e2e:run:github": "cypress run --spec cypress/e2e/github-connection.cy.ts",
-    "e2e:github": "start-server-and-test e2e:api:github http://localhost:5199/Privacy e2e:web http://localhost:3000 e2e:run:github"
+    "e2e:github": "start-server-and-test e2e:api:github http://localhost:5199/Privacy e2e:web http://localhost:3000 e2e:run:github",
+    "e2e:run:ld": "cypress run --spec cypress/e2e/launchdarkly-real-flag-proof.cy.ts",
+    "e2e:ld": "start-server-and-test e2e:api http://localhost:5199/Privacy e2e:web http://localhost:3000 e2e:run:ld"
   },
   "dependencies": {
     "@clerk/nextjs": "^7.8.1",

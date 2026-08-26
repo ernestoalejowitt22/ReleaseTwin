@@ -63,7 +63,7 @@
   ```
 - [x] 5.3 Generate an access key for the user; add its `AccessKeyId`/`SecretAccessKey` as the `AWS_BOOTSTRAP_ACCESS_KEY_ID`/`AWS_BOOTSTRAP_SECRET_ACCESS_KEY` repo secrets (standing, kept permanently — GitHub secrets are encrypted at rest and never re-displayed; see design.md Decisions).
 - [x] 5.4 Trigger `bootstrap.yml` (`gh workflow run bootstrap.yml` or the Actions UI). Confirm both jobs succeed; capture the CI role ARN from the `oidc-and-role` job's summary. (Took several iterations — permissions gap on read-back calls, the OIDC provider already existing from another project, the shared provider's thumbprint_list — all now fixed and idempotent for future runs.)
-- [ ] 5.5 Set the CI role ARN from 5.4 as the `AWS_DEPLOY_ROLE_ARN` repo variable (used by `deploy-hosted.yml`).
+- [x] 5.5 Set the CI role ARN from 5.4 as the `AWS_DEPLOY_ROLE_ARN` repo variable (used by `deploy-hosted.yml`). Confirmed already set: `arn:aws:iam::846136340491:role/releasetwin-github-actions-deploy`.
 
 ## 6. Terraform pass 1, via CI
 
@@ -85,7 +85,7 @@
 
 ## 9. End-to-end verification (real usage, not automated)
 
-- [ ] 9.1 Sign up for real through the deployed Vercel URL with a real email (not a `+clerk_test@` throwaway) — confirm landing on a freshly-provisioned dashboard.
+- [x] 9.1 Sign up for real through the deployed Vercel URL with a real email (not a `+clerk_test@` throwaway) — confirm landing on a freshly-provisioned dashboard. Found and fixed a real bug along the way: the app had no local `/sign-up` route, so `<SignIn>`'s built-in "Sign up" link fell back to Clerk's hosted Account Portal, which had no way to redirect back into the app after registration — landed on Clerk's own generic "Start building" placeholder instead of the dashboard (and a direct `/sign-up` visit was a 404). Added `web/src/app/sign-up/[[...sign-up]]/page.tsx` (`<SignUp fallbackRedirectUrl="/dashboard" signInUrl="/sign-in" />`) and wired `signUpUrl="/sign-up"` into the `/sign-in` page, matching the existing `/sign-in` pattern. The real account itself was created successfully in Clerk regardless; signing back in confirmed a freshly-provisioned dashboard — Free plan, 0 case reports, 0 flag-proof reports, no projects. Fix not yet deployed (verified locally-correct via code inspection; deploy is a separate step).
 - [ ] 9.2 Create a project; click "Connect GitHub"; authorize with a real GitHub account; confirm the connection shows on the dashboard.
 - [ ] 9.3 Issue a token from the deployed dashboard.
 - [ ] 9.4 From a local machine, `export RELEASETWIN_API_TOKEN=<issued token>` and `RELEASETWIN_API_URL=<Function URL>`, then `dotnet run --project src/ReleaseTwin.Cli -- examples/cases`.
