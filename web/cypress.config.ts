@@ -5,6 +5,8 @@ import { promisify } from "node:util";
 import { config as loadDotenv } from "dotenv";
 import { clerkSetup } from "@clerk/testing/cypress";
 import { createClerkClient } from "@clerk/backend";
+import { SecretsManagerClient, GetSecretValueCommand } from "@aws-sdk/client-secrets-manager";
+import { generate as generateTotpCode, createGuardrails } from "otplib";
 import { defineConfig } from "cypress";
 
 // web-cypress-e2e design.md: Cypress runs in its own Node process — it doesn't get web/.env.local
@@ -37,6 +39,38 @@ export default defineConfig({
       });
 
       on("task", {
+        // e2e-github-connection-flow design.md: the project owner's real GitHub password + TOTP
+        // secret live in AWS Secrets Manager, not in any repo-adjacent file (even a gitignored
+        // one) — fetched here using whatever AWS credentials are already available in the
+        // environment running Cypress, the same "ambient credential chain" the .NET side already
+        // relies on for DynamoDB. The TOTP code is generated fresh on every call, never cached,
+        // since codes are time-windowed and a stale one would just fail to log in.
+        async fetchGitHubTestAccount() {
+          const client = new SecretsManagerClient({});
+          const response = await client.send(
+            new GetSecretValueCommand({ SecretId: "releasetwin/e2e/github-account" }),
+          );
+          if (!response.SecretString) {
+            throw new Error("releasetwin/e2e/github-account has no SecretString value.");
+          }
+
+          const { username, password, totpSecret } = JSON.parse(response.SecretString) as {
+            username: string;
+            password: string;
+            totpSecret: string;
+          };
+
+          // otplib v13 defaults to a 128-bit minimum secret length (stricter than RFC 4226's own
+          // minimum) — this GitHub account's real, GitHub-issued secret predates that and is
+          // 80 bits, still a completely valid TOTP secret from GitHub's own perspective.
+          const currentTotpCode = await generateTotpCode({
+            secret: totpSecret,
+            guardrails: createGuardrails({ MIN_SECRET_BYTES: 10 }),
+          });
+
+          return { username, password, currentTotpCode };
+        },
+
         // Idempotent by construction: looks up the test user before ever creating one, so running
         // this task repeatedly (every local/CI run) never creates duplicates.
         //
@@ -122,6 +156,44 @@ export default defineConfig({
                   ...process.env,
                   RELEASETWIN_API_TOKEN: token,
                   RELEASETWIN_API_URL: apiUrl,
+                },
+                maxBuffer: 10 * 1024 * 1024,
+              },
+            );
+            return { code: 0, stdout, stderr };
+          } catch (error) {
+            const execError = error as { code?: number; stdout?: string; stderr?: string };
+            return {
+              code: execError.code ?? 1,
+              stdout: execError.stdout ?? "",
+              stderr: execError.stderr ?? String(error),
+            };
+          }
+        },
+
+        // hosted-journeys 5.9: same shape as runCli, but runs a hosted, pinned journey version
+        // (`--journey <id>@<version>`) instead of a local cases directory — the CLI's hosted-fetch
+        // path (RunJourneyAsync), exercised for real end to end.
+        async runCliJourney({
+          token,
+          apiUrl,
+          journeyRef,
+        }: {
+          token: string;
+          apiUrl: string;
+          journeyRef: string;
+        }) {
+          try {
+            const { stdout, stderr } = await execFileAsync(
+              "dotnet",
+              ["run", "--project", cliProjectPath, "--", "--journey", journeyRef],
+              {
+                cwd: repoRoot,
+                env: {
+                  ...process.env,
+                  RELEASETWIN_API_TOKEN: token,
+                  RELEASETWIN_API_URL: apiUrl,
+                  RELEASETWIN_FIXTURES_ROOT: path.join(repoRoot, "examples", "fixtures"),
                 },
                 maxBuffer: 10 * 1024 * 1024,
               },

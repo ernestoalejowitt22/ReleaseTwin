@@ -11,7 +11,10 @@
     "e2e:web": "next dev",
     "e2e:run": "cypress run",
     "e2e:open": "cypress open",
-    "e2e": "start-server-and-test e2e:api http://localhost:5199/Privacy e2e:web http://localhost:3000 e2e:run"
+    "e2e": "start-server-and-test e2e:api http://localhost:5199/Privacy e2e:web http://localhost:3000 e2e:run",
+    "e2e:api:github": "node scripts/e2e-api-with-github.mjs",
+    "e2e:run:github": "cypress run --spec cypress/e2e/github-connection.cy.ts",
+    "e2e:github": "start-server-and-test e2e:api:github http://localhost:5199/Privacy e2e:web http://localhost:3000 e2e:run:github"
   },
   "dependencies": {
     "@clerk/nextjs": "^7.8.1",
@@ -29,6 +32,7 @@
     "tw-animate-css": "^1.4.0"
   },
   "devDependencies": {
+    "@aws-sdk/client-secrets-manager": "^3.1118.0",
     "@clerk/backend": "^3.16.11",
     "@clerk/testing": "^2.2.29",
     "@tailwindcss/postcss": "^4",
@@ -39,6 +43,7 @@
     "dotenv": "^17.4.2",
     "eslint": "^9",
     "eslint-config-next": "16.3.2",
+    "otplib": "^13.5.0",
     "start-server-and-test": "^3.0.12",
     "tailwindcss": "^4",
     "typescript": "^5"

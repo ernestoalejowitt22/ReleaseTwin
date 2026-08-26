@@ -1,4 +1,5 @@
 using ReleaseTwin.AdapterSdk;
+using ReleaseTwin.Core;
 
 namespace ReleaseTwin.Adapters.AzureDevOps;
 
@@ -10,7 +11,7 @@ namespace ReleaseTwin.Adapters.AzureDevOps;
 /// caller resolves the PAT (environment variable, secret store, etc.) and passes it in via
 /// <see cref="AzureDevOpsOptions"/>.
 /// </summary>
-public sealed class AzureDevOpsAdapter : IAdapterModule, IDisposable
+public sealed class AzureDevOpsAdapter : IAdapterModule, IFeatureStateControllerSource, IDisposable
 {
     private readonly AzureDevOpsClient _client;
     private readonly string _areaPath;
@@ -33,7 +34,7 @@ public sealed class AzureDevOpsAdapter : IAdapterModule, IDisposable
     public string Name => "azure-devops";
 
     /// <summary>Exposed so a composition can wire <see cref="ReleaseTwin.Core.FlagProofRunner"/> against this adapter's variable group.</summary>
-    public VariableGroupFeatureStateController FeatureStateController => new(_client, _variableGroupId);
+    public IFeatureStateController FeatureStateController => new VariableGroupFeatureStateController(_client, _variableGroupId);
 
     /// <summary>
     /// Maps every operation/prerequisite/cleanup name <see cref="Register"/> would contribute to the

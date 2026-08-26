@@ -1,6 +1,8 @@
 using ReleaseTwin.AdapterSdk;
 using ReleaseTwin.Adapters.AzureDevOps;
 using ReleaseTwin.Adapters.Http;
+using ReleaseTwin.Adapters.LaunchDarkly;
+using ReleaseTwin.Adapters.Ui;
 using ReleaseTwin.Cli.CaseLoading;
 using ReleaseTwin.Cli.Upload;
 using ReleaseTwin.Core;
@@ -8,9 +10,9 @@ using ReleaseTwin.Core;
 namespace ReleaseTwin.Cli;
 
 /// <summary>
-/// design.md D5: composes the credential-free HTTP adapter unconditionally, and the Azure DevOps
-/// adapter only when all of its environment variables are present. Partial Azure DevOps config is
-/// treated as a mistake (clear startup error), not a silent skip.
+/// design.md D5: composes the credential-free HTTP adapter unconditionally, and the Azure DevOps /
+/// LaunchDarkly adapters only when all of their respective environment variables are present.
+/// Partial configuration of either is treated as a mistake (clear startup error), not a silent skip.
 /// </summary>
 public sealed class CliRunner
 {
@@ -19,22 +21,119 @@ public sealed class CliRunner
         "AZDO_ORG", "AZDO_PROJECT", "AZDO_PAT", "AZDO_AREA_PATH", "AZDO_VARIABLE_GROUP_ID",
     };
 
-    public async Task<int> RunAsync(
+    private static readonly string[] LaunchDarklyEnvironmentVariables =
+    {
+        "LAUNCHDARKLY_API_TOKEN", "LAUNCHDARKLY_PROJECT_KEY", "LAUNCHDARKLY_ENVIRONMENT_KEY",
+    };
+
+    public Task<int> RunAsync(
         string casesDirectory,
         IReadOnlyDictionary<string, string?> environment,
         TextWriter output,
         CancellationToken cancellationToken = default,
         HttpMessageHandler? azureDevOpsHandlerForTesting = null,
         HttpMessageHandler? httpAdapterHandlerForTesting = null,
-        HttpMessageHandler? uploadHandlerForTesting = null)
+        HttpMessageHandler? uploadHandlerForTesting = null,
+        HttpMessageHandler? launchDarklyHandlerForTesting = null,
+        HttpMessageHandler? adapterCredentialsHandlerForTesting = null) =>
+        RunCoreAsync(
+            environment, output, cancellationToken,
+            LoadLocalCasesAsync(casesDirectory),
+            azureDevOpsHandlerForTesting, httpAdapterHandlerForTesting, uploadHandlerForTesting, launchDarklyHandlerForTesting, adapterCredentialsHandlerForTesting);
+
+    /// <summary>
+    /// hosted-journeys: runs one journey fetched from the hosted API at a specific, pinned version —
+    /// through the exact same case-loading/pipeline machinery as a locally-loaded case, only the
+    /// YAML's source differs. `RELEASETWIN_API_TOKEN` is required here (unlike the local-directory
+    /// path, where it only enables optional report uploads) since it's how the fetch itself
+    /// authenticates and how the project scoping the spec requires is enforced.
+    /// </summary>
+    public Task<int> RunJourneyAsync(
+        Guid journeyId,
+        int version,
+        IReadOnlyDictionary<string, string?> environment,
+        TextWriter output,
+        CancellationToken cancellationToken = default,
+        HttpMessageHandler? azureDevOpsHandlerForTesting = null,
+        HttpMessageHandler? httpAdapterHandlerForTesting = null,
+        HttpMessageHandler? uploadHandlerForTesting = null,
+        HttpMessageHandler? launchDarklyHandlerForTesting = null,
+        HttpMessageHandler? journeyFetchHandlerForTesting = null,
+        HttpMessageHandler? adapterCredentialsHandlerForTesting = null) =>
+        RunCoreAsync(
+            environment, output, cancellationToken,
+            LoadHostedJourneyAsync(journeyId, version, environment, journeyFetchHandlerForTesting),
+            azureDevOpsHandlerForTesting, httpAdapterHandlerForTesting, uploadHandlerForTesting, launchDarklyHandlerForTesting, adapterCredentialsHandlerForTesting);
+
+    private static Func<Task<(IReadOnlyList<LoadedCase>? Cases, string? Error)>> LoadLocalCasesAsync(string casesDirectory) => () =>
+    {
+        try
+        {
+            return Task.FromResult<(IReadOnlyList<LoadedCase>?, string?)>((new CaseFileLoader(casesDirectory).LoadAll(), null));
+        }
+        catch (CaseFileException ex)
+        {
+            return Task.FromResult<(IReadOnlyList<LoadedCase>?, string?)>((null, $"Failed to load cases: {ex.Message}"));
+        }
+    };
+
+    private static Func<Task<(IReadOnlyList<LoadedCase>? Cases, string? Error)>> LoadHostedJourneyAsync(
+        Guid journeyId, int version, IReadOnlyDictionary<string, string?> environment, HttpMessageHandler? journeyFetchHandlerForTesting) => async () =>
+    {
+        string? Get(string key) => environment.TryGetValue(key, out var value) ? value : null;
+
+        var apiToken = Get("RELEASETWIN_API_TOKEN");
+        if (string.IsNullOrWhiteSpace(apiToken))
+        {
+            return (null, "Running a hosted journey requires RELEASETWIN_API_TOKEN to be set.");
+        }
+
+        var baseUrl = Get("RELEASETWIN_API_URL") is { Length: > 0 } url ? url : "https://api.releasetwin.example";
+
+        string yamlContent;
+        using (var fetchClient = new JourneyFetchClient(baseUrl, apiToken, journeyFetchHandlerForTesting))
+        {
+            try
+            {
+                yamlContent = await fetchClient.FetchJourneyVersionAsync(journeyId, version, CancellationToken.None);
+            }
+            catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException or JourneyFetchException)
+            {
+                return (null, $"Failed to fetch journey {journeyId} version {version}: {ex.Message}");
+            }
+        }
+
+        try
+        {
+            var fixturesRoot = Get("RELEASETWIN_FIXTURES_ROOT") is { Length: > 0 } root ? root : Path.Combine(Directory.GetCurrentDirectory(), "fixtures");
+            var loaded = CaseFileLoader.ForFixturesRoot(fixturesRoot).ParseYaml($"journey {journeyId}@{version}", yamlContent);
+            return (new[] { loaded }, null);
+        }
+        catch (CaseFileException ex)
+        {
+            return (null, $"Failed to parse fetched journey {journeyId} version {version}: {ex.Message}");
+        }
+    };
+
+    private async Task<int> RunCoreAsync(
+        IReadOnlyDictionary<string, string?> environment,
+        TextWriter output,
+        CancellationToken cancellationToken,
+        Func<Task<(IReadOnlyList<LoadedCase>? Cases, string? Error)>> loadCasesAsync,
+        HttpMessageHandler? azureDevOpsHandlerForTesting,
+        HttpMessageHandler? httpAdapterHandlerForTesting,
+        HttpMessageHandler? uploadHandlerForTesting,
+        HttpMessageHandler? launchDarklyHandlerForTesting,
+        HttpMessageHandler? adapterCredentialsHandlerForTesting)
     {
         string? Get(string key) => environment.TryGetValue(key, out var value) ? value : null;
 
         // cli-runner (hosted-self-serve-platform delta): upload is entirely optional. No token, no
         // upload attempt, no error — the CLI behaves exactly as it did before this capability existed.
         var apiToken = Get("RELEASETWIN_API_TOKEN");
+        var apiUrl = Get("RELEASETWIN_API_URL") is { Length: > 0 } configuredUrl ? configuredUrl : "https://api.releasetwin.example";
         IngestClient? ingestClient = apiToken is { Length: > 0 }
-            ? new IngestClient(Get("RELEASETWIN_API_URL") is { Length: > 0 } url ? url : "https://api.releasetwin.example", apiToken, uploadHandlerForTesting)
+            ? new IngestClient(apiUrl, apiToken, uploadHandlerForTesting)
             : null;
 
         var present = AzureDevOpsEnvironmentVariables.Where(key => !string.IsNullOrWhiteSpace(Get(key))).ToList();
@@ -46,14 +145,82 @@ public sealed class CliRunner
             return 1;
         }
 
-        var installAzureDevOps = missing.Count == 0;
-
         AzureDevOpsAdapter? azureDevOpsAdapter = null;
-        if (installAzureDevOps)
+        if (missing.Count == 0)
         {
             var options = new AzureDevOpsOptions(Get("AZDO_ORG")!, Get("AZDO_PROJECT")!, Get("AZDO_PAT")!);
             var variableGroupId = int.Parse(Get("AZDO_VARIABLE_GROUP_ID")!);
             azureDevOpsAdapter = new AzureDevOpsAdapter(options, Get("AZDO_AREA_PATH")!, variableGroupId, handler: azureDevOpsHandlerForTesting);
+        }
+        else if (apiToken is { Length: > 0 })
+        {
+            // hosted-adapter-credentials: environment vars are entirely absent for this adapter —
+            // fall back to a hosted fetch before deciding it's not installed. Env vars, when fully
+            // present, always win (handled above, before this branch is ever reached).
+            var fields = await TryFetchAdapterCredentialAsync("azure-devops", apiToken, apiUrl, adapterCredentialsHandlerForTesting, output, cancellationToken);
+            if (fields is not null)
+            {
+                try
+                {
+                    var options = new AzureDevOpsOptions(fields["org"], fields["project"], fields["pat"]);
+                    var variableGroupId = int.Parse(fields["variableGroupId"]);
+                    azureDevOpsAdapter = new AzureDevOpsAdapter(options, fields["areaPath"], variableGroupId, handler: azureDevOpsHandlerForTesting);
+                }
+                catch (Exception ex) when (ex is KeyNotFoundException or FormatException)
+                {
+                    output.WriteLine($"WARN: hosted 'azure-devops' credentials are missing or malformed: {ex.Message}");
+                }
+            }
+        }
+
+        var presentLd = LaunchDarklyEnvironmentVariables.Where(key => !string.IsNullOrWhiteSpace(Get(key))).ToList();
+        var missingLd = LaunchDarklyEnvironmentVariables.Except(presentLd).ToList();
+
+        if (presentLd.Count > 0 && missingLd.Count > 0)
+        {
+            output.WriteLine($"LaunchDarkly is partially configured; missing: {string.Join(", ", missingLd)}");
+            return 1;
+        }
+
+        LaunchDarklyAdapter? launchDarklyAdapter = null;
+        if (missingLd.Count == 0)
+        {
+            var ldOptions = new LaunchDarklyOptions(Get("LAUNCHDARKLY_API_TOKEN")!, Get("LAUNCHDARKLY_PROJECT_KEY")!, Get("LAUNCHDARKLY_ENVIRONMENT_KEY")!);
+            launchDarklyAdapter = new LaunchDarklyAdapter(ldOptions, handler: launchDarklyHandlerForTesting);
+        }
+        else if (apiToken is { Length: > 0 })
+        {
+            var fields = await TryFetchAdapterCredentialAsync("launchdarkly", apiToken, apiUrl, adapterCredentialsHandlerForTesting, output, cancellationToken);
+            if (fields is not null)
+            {
+                try
+                {
+                    var ldOptions = new LaunchDarklyOptions(fields["apiToken"], fields["projectKey"], fields["environmentKey"]);
+                    launchDarklyAdapter = new LaunchDarklyAdapter(ldOptions, handler: launchDarklyHandlerForTesting);
+                }
+                catch (KeyNotFoundException ex)
+                {
+                    output.WriteLine($"WARN: hosted 'launchdarkly' credentials are missing or malformed: {ex.Message}");
+                }
+            }
+        }
+
+        // Unlike the credential-gated adapters above, the UI adapter needs no credentials — but
+        // launching a real browser process is expensive and requires browser binaries to be
+        // installed, so it's opt-in rather than unconditional like the HTTP adapter.
+        var uiEnabled = Get("RELEASETWIN_UI_ENABLED") is { Length: > 0 } uiFlag && (uiFlag == "1" || string.Equals(uiFlag, "true", StringComparison.OrdinalIgnoreCase));
+        UiAdapter? uiAdapter = null;
+        if (uiEnabled)
+        {
+            try
+            {
+                uiAdapter = await UiAdapter.CreateAsync(cancellationToken: cancellationToken);
+            }
+            catch (Exception ex) when (ex is not OperationCanceledException)
+            {
+                output.WriteLine($"Failed to start the UI adapter (browser launch failed): {ex.Message}");
+                return 1;
+            }
         }
 
         using var httpAdapter = new HttpAdapter(httpAdapterHandlerForTesting);
@@ -66,18 +233,31 @@ public sealed class CliRunner
                 root.Install(azureDevOpsAdapter);
             }
 
+            if (launchDarklyAdapter is not null)
+            {
+                root.Install(launchDarklyAdapter);
+            }
+
+            if (uiAdapter is not null)
+            {
+                root.Install(uiAdapter);
+            }
+
             root.Install(httpAdapter);
             var catalog = root.Catalog;
             var executor = root.BuildExecutor();
 
-            IReadOnlyList<LoadedCase> cases;
-            try
+            // Whichever installed adapter exposes a feature-state controller, not any specific one by
+            // name — cli-runner's own requirement text never named Azure DevOps specifically.
+            var featureStateController = new IFeatureStateControllerSource?[] { azureDevOpsAdapter, launchDarklyAdapter }
+                .OfType<IFeatureStateControllerSource>()
+                .Select(source => source.FeatureStateController)
+                .FirstOrDefault(controller => controller is not null);
+
+            var (cases, loadError) = await loadCasesAsync();
+            if (cases is null)
             {
-                cases = new CaseFileLoader(casesDirectory).LoadAll();
-            }
-            catch (CaseFileException ex)
-            {
-                output.WriteLine($"Failed to load cases: {ex.Message}");
+                output.WriteLine(loadError);
                 return 1;
             }
 
@@ -89,14 +269,14 @@ public sealed class CliRunner
 
                 if (loadedCase.FlagProof is { } flagProof)
                 {
-                    if (azureDevOpsAdapter is null)
+                    if (featureStateController is null)
                     {
                         failed++;
                         output.WriteLine($"FLAGPROOF {testCase.CaseId} (Ineligible): no installed adapter exposes feature-state control");
                         continue;
                     }
 
-                    var flagProofRunner = new FlagProofRunner(executor, catalog, azureDevOpsAdapter.FeatureStateController);
+                    var flagProofRunner = new FlagProofRunner(executor, catalog, featureStateController);
                     var result = await flagProofRunner.RunAsync(testCase, flagProof.FeatureKey, flagProof.BuildIdentity, cancellationToken: cancellationToken);
 
                     if (result.Outcome == FlagProofOutcome.Passed)
@@ -160,25 +340,57 @@ public sealed class CliRunner
         finally
         {
             azureDevOpsAdapter?.Dispose();
+            launchDarklyAdapter?.Dispose();
+            uiAdapter?.Dispose();
             ingestClient?.Dispose();
         }
     }
 
     /// <summary>
+    /// hosted-adapter-credentials: attempts a hosted fetch for one adapter's credentials, returning
+    /// null (not installing that adapter) on "not configured" or any fetch failure — this whole path
+    /// is optional, exactly like an entirely-absent set of environment variables already is.
+    /// </summary>
+    private static async Task<IReadOnlyDictionary<string, string>?> TryFetchAdapterCredentialAsync(
+        string adapter, string apiToken, string apiUrl, HttpMessageHandler? handler, TextWriter output, CancellationToken cancellationToken)
+    {
+        using var client = new AdapterCredentialsClient(apiUrl, apiToken, handler);
+        try
+        {
+            return await client.FetchAsync(adapter, cancellationToken);
+        }
+        catch (AdapterCredentialNotConfiguredException)
+        {
+            return null;
+        }
+        catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException or AdapterCredentialFetchException)
+        {
+            output.WriteLine($"WARN: failed to fetch hosted '{adapter}' credentials: {ex.Message}");
+            return null;
+        }
+    }
+
+    /// <summary>
     /// graceful-capability-gating: unions a case's declared `requires:` with whatever
-    /// <see cref="AzureDevOpsAdapter.KnownOperationCapabilities"/> implies from the operation,
-    /// prerequisite, and cleanup names actually referenced — so a case that forgets to declare
-    /// `requires:` for a known-gated operation is still protected from crashing.
+    /// <see cref="AzureDevOpsAdapter.KnownOperationCapabilities"/> / <see cref="LaunchDarklyAdapter.KnownOperationCapabilities"/>
+    /// implies from the operation, prerequisite, and cleanup names actually referenced — so a case
+    /// that forgets to declare `requires:` for a known-gated operation is still protected from crashing.
     /// </summary>
     private static TestCase WithEffectiveCapabilities(TestCase testCase)
     {
         var referencedNames = testCase.Prerequisites.Select(p => p.CheckName)
             .Concat(testCase.Pipeline.Select(p => p.OperationName))
-            .Concat(testCase.Cleanup.Select(c => c.OperationName));
+            .Concat(testCase.Cleanup.Select(c => c.OperationName))
+            .ToList();
+
+        var knownOperationCapabilities = AzureDevOpsAdapter.KnownOperationCapabilities
+            .Concat(LaunchDarklyAdapter.KnownOperationCapabilities)
+            .Concat(UiAdapter.KnownOperationCapabilities)
+            .ToDictionary(kv => kv.Key, kv => kv.Value);
 
         var inferredCapabilities = referencedNames
-            .Where(AzureDevOpsAdapter.KnownOperationCapabilities.ContainsKey)
-            .Select(name => AzureDevOpsAdapter.KnownOperationCapabilities[name]);
+            .Where(knownOperationCapabilities.ContainsKey)
+            .Select(name => knownOperationCapabilities[name]);
 
         var effectiveCapabilities = testCase.RequiredCapabilities.Select(c => c.Name)
             .Concat(inferredCapabilities)

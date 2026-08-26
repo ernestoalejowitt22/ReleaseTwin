@@ -5,6 +5,8 @@
     <ProjectReference Include="..\ReleaseTwin.AdapterSdk\ReleaseTwin.AdapterSdk.csproj" />
     <ProjectReference Include="..\ReleaseTwin.Adapters.AzureDevOps\ReleaseTwin.Adapters.AzureDevOps.csproj" />
     <ProjectReference Include="..\ReleaseTwin.Adapters.Http\ReleaseTwin.Adapters.Http.csproj" />
+    <ProjectReference Include="..\ReleaseTwin.Adapters.LaunchDarkly\ReleaseTwin.Adapters.LaunchDarkly.csproj" />
+    <ProjectReference Include="..\ReleaseTwin.Adapters.Ui\ReleaseTwin.Adapters.Ui.csproj" />
   </ItemGroup>
 
   <ItemGroup>

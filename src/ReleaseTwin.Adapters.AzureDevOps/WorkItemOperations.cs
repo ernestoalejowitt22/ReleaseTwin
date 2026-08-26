@@ -13,7 +13,7 @@ internal sealed class CreateWorkItemOperation : IOperation
         _workItemType = workItemType;
     }
 
-    public async Task<OperationResult> ExecuteAsync(CaseExecutionContext context, IReadOnlyDictionary<string, object?> parameters, CancellationToken cancellationToken)
+    public async Task<OperationResult> ExecuteAsync(CaseExecutionContext context, IReadOnlyDictionary<string, object?> parameters, IReadOnlyList<CaptureDeclaration> captures, CancellationToken cancellationToken)
     {
         var title = $"release-proof {context.Case.CaseId}";
         var patch = new[] { JsonPatchOperation.Add("/fields/System.Title", title) };
@@ -36,7 +36,7 @@ internal sealed class GetWorkItemOperation : IOperation
     private readonly AzureDevOpsClient _client;
     public GetWorkItemOperation(AzureDevOpsClient client) => _client = client;
 
-    public async Task<OperationResult> ExecuteAsync(CaseExecutionContext context, IReadOnlyDictionary<string, object?> parameters, CancellationToken cancellationToken)
+    public async Task<OperationResult> ExecuteAsync(CaseExecutionContext context, IReadOnlyDictionary<string, object?> parameters, IReadOnlyList<CaptureDeclaration> captures, CancellationToken cancellationToken)
     {
         if (context.AdapterState.TryGetValue("azdo.workItemId", out var idObj) && idObj is int id)
         {
@@ -61,7 +61,7 @@ internal sealed class TransitionWorkItemStateOperation : IOperation
         _targetState = targetState;
     }
 
-    public async Task<OperationResult> ExecuteAsync(CaseExecutionContext context, IReadOnlyDictionary<string, object?> parameters, CancellationToken cancellationToken)
+    public async Task<OperationResult> ExecuteAsync(CaseExecutionContext context, IReadOnlyDictionary<string, object?> parameters, IReadOnlyList<CaptureDeclaration> captures, CancellationToken cancellationToken)
     {
         if (context.AdapterState.TryGetValue("azdo.workItemId", out var idObj) && idObj is int id)
         {

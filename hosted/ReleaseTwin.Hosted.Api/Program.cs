@@ -1,4 +1,5 @@
 using System.Security.Claims;
+using Amazon.AspNetCore.DataProtection.SSM;
 using Amazon.DynamoDBv2;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
@@ -63,6 +64,18 @@ else
     builder.Services.AddSingleton<IHostedTable, InMemoryHostedTable>();
 }
 
+// hosted-adapter-credentials design.md: Data Protection's default key ring lives on the local
+// filesystem, which does not survive a redeploy or work across multiple instances — losing it makes
+// every stored adapter credential permanently undecryptable. Real AWS deployments persist the key
+// ring to SSM Parameter Store as a SecureString (KMS-encrypted at rest by SSM itself); local/test
+// runs keep Data Protection's own default (ephemeral/filesystem) behavior, same as
+// ConnectionStateService's existing tests already rely on.
+if (useRealDynamoDb)
+{
+    builder.Services.AddDataProtection()
+        .PersistKeysToAWSSystemsManager($"/{tableName}/DataProtection/Keys");
+}
+
 builder.Services.AddScoped<IOrganizationRepository, OrganizationRepository>();
 builder.Services.AddScoped<IUserRepository, UserRepository>();
 builder.Services.AddScoped<IProjectRepository, ProjectRepository>();
@@ -71,11 +84,16 @@ builder.Services.AddScoped<IConnectionRepository, ConnectionRepository>();
 builder.Services.AddScoped<ICaseReportRepository, CaseReportRepository>();
 builder.Services.AddScoped<IFlagProofReportRepository, FlagProofReportRepository>();
 builder.Services.AddScoped<IUsageCounterRepository, UsageCounterRepository>();
+builder.Services.AddScoped<IJourneyRepository, JourneyRepository>();
+builder.Services.AddScoped<IJourneyVersionRepository, JourneyVersionRepository>();
+builder.Services.AddScoped<IAdapterCredentialRepository, AdapterCredentialRepository>();
 
 builder.Services.AddScoped<ITokenService, TokenService>();
 builder.Services.AddScoped<ProvisioningService>();
 builder.Services.AddScoped<ConnectionService>();
 builder.Services.AddScoped<DashboardService>();
+builder.Services.AddScoped<JourneyService>();
+builder.Services.AddScoped<AdapterCredentialService>();
 builder.Services.AddScoped<GitHubConnectionFlowService>();
 builder.Services.AddSingleton<IConnectionStateService, ConnectionStateService>();
 builder.Services.AddHttpClient("GitHubConnection");
@@ -149,6 +167,7 @@ builder.Services
                 var identity = (ClaimsIdentity)context.Principal!.Identity!;
                 identity.AddClaim(new Claim("org_id", user.OrganizationId.ToString()));
                 identity.AddClaim(new Claim("user_id", user.Id.ToString()));
+                identity.AddClaim(new Claim("user_display_name", displayName));
             },
         };
     })
@@ -176,6 +195,10 @@ app.MapRazorPages();
 app.MapIngestEndpoints();
 app.MapDashboardEndpoints();
 app.MapConnectionEndpoints();
+app.MapJourneyEndpoints();
+app.MapJourneyFetchEndpoints();
+app.MapAdapterCredentialEndpoints();
+app.MapAdapterCredentialFetchEndpoints();
 
 if (app.Environment.IsDevelopment())
 {

@@ -1,0 +1,3 @@
+{
+  "note": "login-then-call demo fixture — content is not used by http.request itself, but every case still needs a verified fixture"
+}
