@@ -182,11 +182,17 @@ public sealed class CliRunner
             return 1;
         }
 
+        // Optional: which flag `ld.readFeatureFlag` reads back. Defaults to the adapter's own
+        // built-in demo flag name so existing zero-config example cases are unaffected; a real
+        // flag-proof run against a customer's own flag overrides this to match that case's
+        // `flag_proof.feature_key` (the name actually being toggled).
+        var ldFlagKey = Get("LAUNCHDARKLY_FLAG_KEY") is { Length: > 0 } flagKeyOverride ? flagKeyOverride : "release-proof-feature";
+
         LaunchDarklyAdapter? launchDarklyAdapter = null;
         if (missingLd.Count == 0)
         {
             var ldOptions = new LaunchDarklyOptions(Get("LAUNCHDARKLY_API_TOKEN")!, Get("LAUNCHDARKLY_PROJECT_KEY")!, Get("LAUNCHDARKLY_ENVIRONMENT_KEY")!);
-            launchDarklyAdapter = new LaunchDarklyAdapter(ldOptions, handler: launchDarklyHandlerForTesting);
+            launchDarklyAdapter = new LaunchDarklyAdapter(ldOptions, ldFlagKey, launchDarklyHandlerForTesting);
         }
         else if (apiToken is { Length: > 0 })
         {
@@ -196,7 +202,7 @@ public sealed class CliRunner
                 try
                 {
                     var ldOptions = new LaunchDarklyOptions(fields["apiToken"], fields["projectKey"], fields["environmentKey"]);
-                    launchDarklyAdapter = new LaunchDarklyAdapter(ldOptions, handler: launchDarklyHandlerForTesting);
+                    launchDarklyAdapter = new LaunchDarklyAdapter(ldOptions, ldFlagKey, launchDarklyHandlerForTesting);
                 }
                 catch (KeyNotFoundException ex)
                 {
