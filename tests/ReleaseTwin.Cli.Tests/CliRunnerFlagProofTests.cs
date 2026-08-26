@@ -13,6 +13,13 @@ public class CliRunnerFlagProofTests
         ["AZDO_VARIABLE_GROUP_ID"] = "1",
     };
 
+    private static Dictionary<string, string?> ValidLaunchDarklyEnvironment() => new()
+    {
+        ["LAUNCHDARKLY_API_TOKEN"] = "test-token",
+        ["LAUNCHDARKLY_PROJECT_KEY"] = "test-project",
+        ["LAUNCHDARKLY_ENVIRONMENT_KEY"] = "production",
+    };
+
     private static string CreateWorkspace()
     {
         var root = Directory.CreateTempSubdirectory("releasetwin-flag-proof-").FullName;
@@ -98,6 +105,53 @@ public class CliRunnerFlagProofTests
 
         var text = output.ToString();
         Assert.Contains("FLAGPROOF FP-1 (Ineligible)", text);
+        Assert.NotEqual(0, exitCode);
+    }
+
+    // Scenario: whichever installed adapter exposes feature-state control is used — not Azure
+    // DevOps specifically. Only LaunchDarkly is configured here, and the case's own operation is
+    // LaunchDarkly's, yet flag-proof still runs and discriminates correctly.
+    [Fact]
+    public async Task FlagProofCaseIsEligibleViaLaunchDarklyWhenAzureDevOpsIsNotConfigured()
+    {
+        var root = CreateWorkspace();
+        File.WriteAllText(Path.Combine(root, "fixtures", "LD-1.json"), "{}");
+        File.WriteAllText(Path.Combine(root, "cases", "LD-1.yaml"), """
+            id: LD-1
+            oracle:
+              locator: t/LD-1
+            fixture:
+              locator: LD-1.json
+            pipeline:
+              - operation: ld.readFeatureFlag
+            flag_proof:
+              feature_key: release-proof-feature
+              build_identity: build-123
+            """);
+        var output = new StringWriter();
+
+        var exitCode = await new CliRunner().RunAsync(
+            Path.Combine(root, "cases"), ValidLaunchDarklyEnvironment(), output, launchDarklyHandlerForTesting: new FakeLaunchDarklyHandler());
+
+        var text = output.ToString();
+        Assert.Contains("FLAGPROOF LD-1 (Passed)", text);
+        Assert.Equal(0, exitCode);
+    }
+
+    // Scenario: partial LaunchDarkly configuration is a clear startup error, not a silent skip.
+    [Fact]
+    public async Task PartiallyConfiguredLaunchDarklyIsAClearError()
+    {
+        var root = CreateWorkspace();
+        WriteFlagProofCase(root, "FP-1");
+        var output = new StringWriter();
+
+        var exitCode = await new CliRunner().RunAsync(
+            Path.Combine(root, "cases"),
+            new Dictionary<string, string?> { ["LAUNCHDARKLY_API_TOKEN"] = "test-token" },
+            output);
+
+        Assert.Contains("LaunchDarkly is partially configured", output.ToString());
         Assert.NotEqual(0, exitCode);
     }
 

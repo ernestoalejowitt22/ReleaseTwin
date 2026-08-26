@@ -100,7 +100,7 @@ public class ConnectionFlowTests
         Assert.True(result.Configured);
         Assert.StartsWith("https://github.com/login/oauth/authorize", result.AuthorizeUrl);
         Assert.Contains("state=", result.AuthorizeUrl);
-        Assert.Contains("scope=read%3Auser", result.AuthorizeUrl);
+        Assert.Contains("scope=read%3Auser%20repo", result.AuthorizeUrl);
     }
 
     [Fact]

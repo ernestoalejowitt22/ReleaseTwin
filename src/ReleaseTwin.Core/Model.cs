@@ -11,15 +11,20 @@ public sealed record RetryPolicy(int MaxAttempts, TimeSpan? Timeout = null)
     public static RetryPolicy Once { get; } = new(1);
 }
 
+public sealed record CaptureDeclaration(string Name, string From);
+
 public sealed record PipelineStep(
     string OperationName,
     bool ExpectFailure = false,
     RetryPolicy? Retry = null,
-    IReadOnlyDictionary<string, object?>? With = null)
+    IReadOnlyDictionary<string, object?>? With = null,
+    IReadOnlyList<CaptureDeclaration>? Capture = null)
 {
     public RetryPolicy EffectiveRetry => Retry ?? RetryPolicy.Once;
     public IReadOnlyDictionary<string, object?> Parameters => With ?? EmptyParameters;
+    public IReadOnlyList<CaptureDeclaration> Captures => Capture ?? EmptyCaptures;
     private static readonly IReadOnlyDictionary<string, object?> EmptyParameters = new Dictionary<string, object?>();
+    private static readonly IReadOnlyList<CaptureDeclaration> EmptyCaptures = Array.Empty<CaptureDeclaration>();
 }
 
 public sealed record PrerequisiteDeclaration(string CheckName, string Owner);

@@ -20,8 +20,9 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { api } from "@/lib/api";
-import type { DashboardView } from "@/lib/types";
+import type { AdapterCredentialSummary, DashboardView } from "@/lib/types";
 import { IssueTokenButton } from "./issue-token-button";
+import { AdapterCredentialForm } from "./adapter-credential-form";
 import {
   createProject,
   disconnectConnection,
@@ -42,6 +43,10 @@ export default async function DashboardPage({
     `/api/dashboard${projectId ? `?projectId=${projectId}` : ""}`,
   );
   const selectedProject = view.selectedProject;
+  const adapterCredentials = selectedProject
+    ? await api.get<AdapterCredentialSummary[]>(`/api/adapter-credentials/${selectedProject.id}`)
+    : [];
+  const adapterCredentialByName = new Map(adapterCredentials.map((c) => [c.adapter, c]));
 
   return (
     <main className="mx-auto flex w-full max-w-5xl flex-1 flex-col gap-6 p-6">
@@ -128,6 +133,68 @@ export default async function DashboardPage({
 
       {selectedProject && (
         <>
+          {view.isSelectedProjectStale && (
+            <div className="rounded-md border border-amber-500/50 bg-amber-500/10 p-3 text-sm">
+              <p className="font-medium">Uploads have gone quiet for {selectedProject.name}.</p>
+              <p className="text-muted-foreground">
+                The gap since the last upload is much longer than this project&apos;s usual cadence — check that{" "}
+                <code>RELEASETWIN_API_TOKEN</code> is still set wherever the CLI runs.
+              </p>
+            </div>
+          )}
+
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between">
+              <CardTitle>Journeys — {selectedProject.name}</CardTitle>
+              <Link href={`/journeys?projectId=${selectedProject.id}`}>
+                <Button variant="outline" size="sm">
+                  Open builder
+                </Button>
+              </Link>
+            </CardHeader>
+            <CardContent>
+              <CardDescription>
+                Compose a multi-step pipeline visually and run it from the CLI with a pinned version.
+              </CardDescription>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle>Adapter credentials — {selectedProject.name}</CardTitle>
+              <CardDescription>
+                Let the CLI fetch these instead of setting them as environment variables wherever it
+                runs — environment variables still take precedence when both are present.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="flex flex-col gap-3">
+              <AdapterCredentialForm
+                projectId={selectedProject.id}
+                adapter="azure-devops"
+                title="Azure DevOps"
+                fields={[
+                  { name: "org", label: "Organization" },
+                  { name: "project", label: "Project" },
+                  { name: "pat", label: "Personal access token", type: "password" },
+                  { name: "areaPath", label: "Area path" },
+                  { name: "variableGroupId", label: "Variable group ID" },
+                ]}
+                configuredMetadata={adapterCredentialByName.get("azure-devops") ?? null}
+              />
+              <AdapterCredentialForm
+                projectId={selectedProject.id}
+                adapter="launchdarkly"
+                title="LaunchDarkly"
+                fields={[
+                  { name: "apiToken", label: "API token", type: "password" },
+                  { name: "projectKey", label: "Project key" },
+                  { name: "environmentKey", label: "Environment key" },
+                ]}
+                configuredMetadata={adapterCredentialByName.get("launchdarkly") ?? null}
+              />
+            </CardContent>
+          </Card>
+
           <Card>
             <CardHeader>
               <CardTitle>Connection — {selectedProject.name}</CardTitle>

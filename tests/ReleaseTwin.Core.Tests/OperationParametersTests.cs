@@ -22,7 +22,7 @@ public class OperationParametersTests
     {
         public IReadOnlyDictionary<string, object?>? Captured { get; private set; }
 
-        public Task<OperationResult> ExecuteAsync(CaseExecutionContext context, IReadOnlyDictionary<string, object?> parameters, CancellationToken cancellationToken)
+        public Task<OperationResult> ExecuteAsync(CaseExecutionContext context, IReadOnlyDictionary<string, object?> parameters, IReadOnlyList<CaptureDeclaration> captures, CancellationToken cancellationToken)
         {
             Captured = parameters;
             return Task.FromResult(OperationResult.Pass());

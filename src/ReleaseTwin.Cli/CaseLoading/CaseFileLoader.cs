@@ -15,7 +15,7 @@ public sealed class CaseFileLoader
 {
     private static readonly Regex EnvVarPattern = new(@"\$\{([A-Z0-9_]+)\}", RegexOptions.Compiled);
 
-    private readonly string _casesDirectory;
+    private readonly string? _casesDirectory;
     private readonly string _fixturesRoot;
     private readonly IDeserializer _deserializer;
 
@@ -29,8 +29,31 @@ public sealed class CaseFileLoader
             .Build();
     }
 
+    /// <summary>
+    /// For parsing YAML from a source other than a local cases directory (e.g. a hosted-journeys
+    /// fetch) — there's no cases directory to enumerate, so the fixtures root can't be inferred from
+    /// one and must be supplied explicitly. <see cref="LoadAll"/> is not usable on a loader built
+    /// this way.
+    /// </summary>
+    public static CaseFileLoader ForFixturesRoot(string fixturesRoot) => new(fixturesRootOnly: fixturesRoot);
+
+    private CaseFileLoader(string fixturesRootOnly)
+    {
+        _casesDirectory = null;
+        _fixturesRoot = fixturesRootOnly;
+        _deserializer = new DeserializerBuilder()
+            .WithNamingConvention(UnderscoredNamingConvention.Instance)
+            .IgnoreUnmatchedProperties()
+            .Build();
+    }
+
     public IReadOnlyList<LoadedCase> LoadAll()
     {
+        if (_casesDirectory is null)
+        {
+            throw new InvalidOperationException($"{nameof(LoadAll)} requires a cases directory; this loader was constructed via {nameof(ForFixturesRoot)}.");
+        }
+
         if (!Directory.Exists(_casesDirectory))
         {
             throw new CaseFileException(_casesDirectory, "cases directory does not exist");
@@ -41,17 +64,22 @@ public sealed class CaseFileLoader
             .OrderBy(f => f, StringComparer.Ordinal)
             .ToList();
 
-        return files.Select(LoadOne).ToList();
+        return files.Select(f => ParseYaml(Path.GetFileName(f), File.ReadAllText(f))).ToList();
     }
 
-    private LoadedCase LoadOne(string filePath)
+    /// <summary>
+    /// Parses one case's YAML content directly, independent of where it came from — the same logic
+    /// <see cref="LoadAll"/> uses per file, exposed so a hosted-fetched journey's YAML parses
+    /// identically to a locally-loaded case file (only the source of the YAML differs).
+    /// </summary>
+    public LoadedCase ParseYaml(string label, string yamlContent)
     {
-        var fileName = Path.GetFileName(filePath);
+        var fileName = label;
 
         CaseFileDto? dto;
         try
         {
-            dto = _deserializer.Deserialize<CaseFileDto>(File.ReadAllText(filePath));
+            dto = _deserializer.Deserialize<CaseFileDto>(yamlContent);
         }
         catch (YamlException ex)
         {
@@ -109,7 +137,24 @@ public sealed class CaseFileLoader
                     ? (IReadOnlyDictionary<string, object?>)InterpolateEnvVars(fileName, converted)!
                     : null;
 
-                return new PipelineStep(p.Operation, With: parameters);
+                var captures = (p.Capture ?? new List<CaptureDto>())
+                    .Select(c =>
+                    {
+                        if (string.IsNullOrWhiteSpace(c.Name))
+                        {
+                            throw new CaseFileException(fileName, "a pipeline step's capture is missing 'name'");
+                        }
+
+                        if (string.IsNullOrWhiteSpace(c.From))
+                        {
+                            throw new CaseFileException(fileName, "a pipeline step's capture is missing 'from'");
+                        }
+
+                        return new CaptureDeclaration(c.Name, c.From);
+                    })
+                    .ToList();
+
+                return new PipelineStep(p.Operation, With: parameters, Capture: captures.Count > 0 ? captures : null);
             })
             .ToList();
 

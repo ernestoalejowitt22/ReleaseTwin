@@ -95,4 +95,86 @@ public class CaseFileLoaderParametersTests
         Assert.Contains("RELEASETWIN_TEST_MISSING", ex.Message);
         Assert.Contains("case1.yaml", ex.Message);
     }
+
+    [Fact]
+    public void CaptureDeclarationsLoadOntoThePipelineStep()
+    {
+        var root = CreateWorkspace();
+        File.WriteAllText(Path.Combine(root, "cases", "case1.yaml"), """
+            id: CASE-1
+            oracle:
+              locator: t/1
+            fixture:
+              locator: f.json
+            pipeline:
+              - operation: http.request
+                with:
+                  url: https://example.com/v1/e2e/login
+                capture:
+                  - name: token
+                    from: json:$.token
+              - operation: http.request
+                with:
+                  url: https://example.com/api/me
+                  headers:
+                    Authorization: Bearer {{token}}
+            """);
+
+        var loader = new CaseFileLoader(Path.Combine(root, "cases"), Path.Combine(root, "fixtures"));
+        var testCase = loader.LoadAll().Single().Case;
+
+        var capture = Assert.Single(testCase.Pipeline[0].Captures);
+        Assert.Equal("token", capture.Name);
+        Assert.Equal("json:$.token", capture.From);
+    }
+
+    [Fact]
+    public void ACaptureReferenceIsLeftUnresolvedAtLoadTime()
+    {
+        var root = CreateWorkspace();
+        File.WriteAllText(Path.Combine(root, "cases", "case1.yaml"), """
+            id: CASE-1
+            oracle:
+              locator: t/1
+            fixture:
+              locator: f.json
+            pipeline:
+              - operation: http.request
+                with:
+                  url: https://example.com/api/me
+                  headers:
+                    Authorization: Bearer {{token}}
+            """);
+
+        var loader = new CaseFileLoader(Path.Combine(root, "cases"), Path.Combine(root, "fixtures"));
+        var testCase = loader.LoadAll().Single().Case;
+
+        var headers = Assert.IsType<Dictionary<string, object?>>(testCase.Pipeline[0].Parameters["headers"]);
+        Assert.Equal("Bearer {{token}}", headers["Authorization"]);
+    }
+
+    [Fact]
+    public void ACaptureMissingItsNameIsAClearLoadTimeError()
+    {
+        var root = CreateWorkspace();
+        File.WriteAllText(Path.Combine(root, "cases", "case1.yaml"), """
+            id: CASE-1
+            oracle:
+              locator: t/1
+            fixture:
+              locator: f.json
+            pipeline:
+              - operation: http.request
+                with:
+                  url: https://example.com/v1/e2e/login
+                capture:
+                  - from: json:$.token
+            """);
+
+        var loader = new CaseFileLoader(Path.Combine(root, "cases"), Path.Combine(root, "fixtures"));
+
+        var ex = Assert.Throws<CaseFileException>(() => loader.LoadAll());
+        Assert.Contains("capture", ex.Message);
+        Assert.Contains("name", ex.Message);
+    }
 }

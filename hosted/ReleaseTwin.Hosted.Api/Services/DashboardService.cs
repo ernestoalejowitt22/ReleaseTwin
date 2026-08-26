@@ -25,7 +25,8 @@ public sealed record DashboardView(
     IReadOnlyList<DashboardCaseReportView> CaseReports,
     IReadOnlyList<DashboardFlagProofReportView> FlagProofReports,
     DashboardUsageSummary Usage,
-    PlanTier PlanTier);
+    PlanTier PlanTier,
+    bool IsSelectedProjectStale);
 
 /// <summary>
 /// hosted-react-frontend: the data-shaping half of what was Dashboard.cshtml.cs's OnGetAsync,
@@ -83,13 +84,20 @@ public sealed class DashboardService
 
         if (selectedProject is null)
         {
-            return new DashboardView(projectSummaries, null, null, [], [], [], usage, planTier);
+            return new DashboardView(projectSummaries, null, null, [], [], [], usage, planTier, IsSelectedProjectStale: false);
         }
 
         var connection = await _connections.GetAsync(selectedProject.Id, cancellationToken);
         var tokens = await _tokens.ListByProjectAsync(selectedProject.Id, cancellationToken);
         var caseReports = await _caseReports.ListByProjectAsync(selectedProject.Id, cancellationToken);
         var flagProofReports = await _flagProofReports.ListByProjectAsync(selectedProject.Id, cancellationToken);
+
+        // upload-staleness spec: judged from this project's own combined upload timeline, not
+        // case reports or flag-proof reports alone.
+        var uploadTimestamps = caseReports.Select(r => r.UploadedAt)
+            .Concat(flagProofReports.Select(r => r.UploadedAt))
+            .ToList();
+        var isStale = UploadStalenessCalculator.IsStale(uploadTimestamps, DateTimeOffset.UtcNow);
 
         return new DashboardView(
             projectSummaries,
@@ -99,6 +107,7 @@ public sealed class DashboardService
             caseReports.Select(r => new DashboardCaseReportView(r.CaseId, r.Passed, r.Classification, r.CleanupStatus, r.UploadedAt)).ToList(),
             flagProofReports.Select(r => new DashboardFlagProofReportView(r.CaseId, r.BuildIdentity, r.Outcome, r.KnownBadLegPassed, r.KnownGoodLegPassed, r.UploadedAt)).ToList(),
             usage,
-            planTier);
+            planTier,
+            isStale);
     }
 }

@@ -29,6 +29,28 @@ To learn more about Next.js, take a look at the following resources:
 
 You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
 
+## End-to-end tests
+
+`npm run e2e` runs the Cypress suite in `cypress/e2e` against a locally-run hosted API
+(`npm run e2e:api`) and a locally-run Next.js dev server (`npm run e2e:web`). Most specs need
+`cypress.env.json` (see `cypress.env.json.example`) for Clerk test credentials.
+
+`cypress/e2e/github-connection.cy.ts` additionally drives the real GitHub OAuth flow, which needs a
+second OAuth App registered separately from the production one (GitHub OAuth Apps allow exactly one
+callback URL each, and the production app's callback points at the deployed Vercel URL, not
+localhost) — see `openspec/changes/e2e-github-connection-flow/design.md`. Run it with:
+
+```bash
+npm run e2e:github
+```
+
+Nothing needs exporting by hand for this one. Both the second OAuth App's Client ID/Secret/Callback
+URL (`releasetwin/e2e/github-oauth-app`) and the test account's own password/TOTP secret
+(`releasetwin/e2e/github-account`) live in AWS Secrets Manager, fetched at run time using whatever
+AWS credentials are already configured in your shell — `scripts/e2e-api-with-github.mjs` fetches the
+former and launches the hosted API with it; a Cypress task fetches the latter. Nobody outside those
+two fetches ever sees the raw values.
+
 ## Deploy on Vercel
 
 The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.

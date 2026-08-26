@@ -20,3 +20,13 @@ public interface IAdapterRegistrationBuilder
     IAdapterRegistrationBuilder AddCleanup(string name, ICleanupOperation operation);
     IAdapterRegistrationBuilder AddCapability(string name);
 }
+
+/// <summary>
+/// Optional marker an <see cref="IAdapterModule"/> implements when it can vend a feature-state
+/// controller for flag-proof mode — lets a caller ask "whichever installed adapter exposes one"
+/// instead of depending on any specific adapter by name.
+/// </summary>
+public interface IFeatureStateControllerSource
+{
+    IFeatureStateController? FeatureStateController { get; }
+}

@@ -54,6 +54,32 @@ public interface IFlagProofReportRepository
     Task<IReadOnlyList<UploadedFlagProofReport>> ListByProjectAsync(Guid projectId, CancellationToken cancellationToken = default);
 }
 
+public interface IJourneyRepository
+{
+    Task<Journey> CreateAsync(Guid projectId, string name, CancellationToken cancellationToken = default);
+    Task<Journey?> GetAsync(Guid projectId, Guid journeyId, CancellationToken cancellationToken = default);
+    Task<IReadOnlyList<Journey>> ListByProjectAsync(Guid projectId, CancellationToken cancellationToken = default);
+}
+
+public interface IJourneyVersionRepository
+{
+    /// <summary>Throws <see cref="Amazon.DynamoDBv2.Model.ConditionalCheckFailedException"/> if <paramref name="version"/> already exists for this journey — callers assign the version number, this never silently overwrites one.</summary>
+    Task<JourneyVersion> CreateAsync(Guid journeyId, int version, string yamlContent, string createdByUserId, string createdByDisplayName, CancellationToken cancellationToken = default);
+    Task<JourneyVersion?> GetAsync(Guid journeyId, int version, CancellationToken cancellationToken = default);
+
+    /// <summary>Ordered oldest to newest.</summary>
+    Task<IReadOnlyList<JourneyVersion>> ListByJourneyAsync(Guid journeyId, CancellationToken cancellationToken = default);
+}
+
+public interface IAdapterCredentialRepository
+{
+    /// <summary>Upserts in place — rotation replaces the stored value entirely, no history kept.</summary>
+    Task<AdapterCredential> SetAsync(Guid projectId, string adapter, string encryptedFields, string lastSetByUserId, string lastSetByDisplayName, CancellationToken cancellationToken = default);
+    Task<AdapterCredential?> GetAsync(Guid projectId, string adapter, CancellationToken cancellationToken = default);
+    Task<IReadOnlyList<AdapterCredential>> ListByProjectAsync(Guid projectId, CancellationToken cancellationToken = default);
+    Task DeleteAsync(Guid projectId, string adapter, CancellationToken cancellationToken = default);
+}
+
 public interface IUsageCounterRepository
 {
     /// <summary>Atomically increments the counter for (organizationId, current period) — safe under concurrent ingest requests.</summary>

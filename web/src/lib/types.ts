@@ -50,6 +50,7 @@ export interface DashboardView {
   flagProofReports: DashboardFlagProofReportView[];
   usage: DashboardUsageSummary;
   planTier: PlanTier;
+  isSelectedProjectStale: boolean;
 }
 
 export interface GitHubAuthorizeResult {
@@ -60,4 +61,23 @@ export interface GitHubAuthorizeResult {
 export interface GitHubCallbackResult {
   projectId: string;
   repositories: string[];
+}
+
+export interface JourneySummary {
+  id: string;
+  name: string;
+  projectId: string;
+  createdAt: string;
+}
+
+export interface JourneyVersionSummary {
+  version: number;
+  createdByDisplayName: string;
+  createdAt: string;
+}
+
+export interface AdapterCredentialSummary {
+  adapter: string;
+  lastSetByDisplayName: string;
+  updatedAt: string;
 }

@@ -22,6 +22,7 @@ public sealed class HttpAdapter : IAdapterModule, IDisposable
         builder
             .AddOperation("http.request", new HttpRequestOperation(_client))
             .AddOperation("http.assertJsonPath", new JsonPathAssertOperation())
+            .AddOperation("http.oauth2ClientCredentials", new Oauth2ClientCredentialsOperation(_client))
             .AddCapability("http:generic");
     }
 

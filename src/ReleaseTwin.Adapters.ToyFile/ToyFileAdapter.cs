@@ -89,7 +89,7 @@ internal sealed class WriteFileOperation : IOperation
     private readonly ToyFileStore _store;
     public WriteFileOperation(ToyFileStore store) => _store = store;
 
-    public Task<OperationResult> ExecuteAsync(CaseExecutionContext context, IReadOnlyDictionary<string, object?> parameters, CancellationToken cancellationToken)
+    public Task<OperationResult> ExecuteAsync(CaseExecutionContext context, IReadOnlyDictionary<string, object?> parameters, IReadOnlyList<CaptureDeclaration> captures, CancellationToken cancellationToken)
     {
         var path = _store.Write($"{context.Case.CaseId}.txt", "release-proof");
         context.AdapterState["toyfile.path"] = path;
@@ -102,7 +102,7 @@ internal sealed class ReadFileOperation : IOperation
     private readonly ToyFileStore _store;
     public ReadFileOperation(ToyFileStore store) => _store = store;
 
-    public Task<OperationResult> ExecuteAsync(CaseExecutionContext context, IReadOnlyDictionary<string, object?> parameters, CancellationToken cancellationToken)
+    public Task<OperationResult> ExecuteAsync(CaseExecutionContext context, IReadOnlyDictionary<string, object?> parameters, IReadOnlyList<CaptureDeclaration> captures, CancellationToken cancellationToken)
     {
         if (context.AdapterState.TryGetValue("toyfile.path", out var pathObj) && pathObj is string path
             && _store.TryRead(path, out var content) && content == "release-proof")

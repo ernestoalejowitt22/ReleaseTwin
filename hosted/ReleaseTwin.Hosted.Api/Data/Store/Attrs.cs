@@ -42,6 +42,12 @@ internal static class Keys
     public static string TokenId(Guid tokenId) => $"TOKENID#{tokenId}";
     public static string CaseReport(DateTimeOffset uploadedAt, Guid id) => $"CASEREPORT#{uploadedAt:O}#{id}";
     public static string FlagProof(DateTimeOffset uploadedAt, Guid id) => $"FLAGPROOF#{uploadedAt:O}#{id}";
+    public static string Journey(Guid journeyId) => $"JOURNEY#{journeyId}";
+
+    /// <summary>Zero-padded so lexicographic sort-key ordering matches numeric version ordering.</summary>
+    public static string JourneyVersion(int version) => $"VERSION#{version:D10}";
+
+    public static string AdapterCredential(string adapter) => $"ADAPTERCRED#{adapter}";
 
     public static DateOnly CurrentUtcPeriod() => DateOnly.FromDateTime(DateTimeOffset.UtcNow.UtcDateTime);
 }

@@ -28,7 +28,7 @@ public class CompositionRootTests
     {
         public string Name { get; }
         public NamedOperation(string name) => Name = name;
-        public Task<OperationResult> ExecuteAsync(CaseExecutionContext context, IReadOnlyDictionary<string, object?> parameters, CancellationToken cancellationToken) =>
+        public Task<OperationResult> ExecuteAsync(CaseExecutionContext context, IReadOnlyDictionary<string, object?> parameters, IReadOnlyList<CaptureDeclaration> captures, CancellationToken cancellationToken) =>
             Task.FromResult(OperationResult.Pass(Name));
     }
 

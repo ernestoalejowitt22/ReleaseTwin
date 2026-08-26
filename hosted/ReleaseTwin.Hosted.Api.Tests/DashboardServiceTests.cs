@@ -96,4 +96,70 @@ public class DashboardServiceTests
         Assert.Equal(0, view.Usage.CaseReportCount);
         Assert.Equal(0, view.Usage.FlagProofReportCount);
     }
+
+    private async Task SeedCaseReportAsync(Fixture f, Guid projectId, DateTimeOffset uploadedAt) =>
+        await f.CaseReports.AddAsync(new Data.Entities.UploadedCaseReport
+        {
+            Id = Guid.NewGuid(),
+            ProjectId = projectId,
+            CaseId = $"CASE-{Guid.NewGuid()}",
+            OracleLocator = "tickets/CASE",
+            FixtureSha256 = "abc",
+            Passed = true,
+            CleanupStatus = "AllSucceeded",
+            UploadedAt = uploadedAt,
+        });
+
+    // upload-staleness / dashboard: Stale project shows the banner
+    [Fact]
+    public async Task StaleProjectViewCarriesTheFlag()
+    {
+        var f = NewFixture();
+        var user = await f.Provisioning.GetOrCreateUserAsync("clerk-1", "alice", null);
+        var project = await f.Provisioning.CreateProjectAsync(user.OrganizationId, "P");
+
+        var now = DateTimeOffset.UtcNow;
+        for (var i = 0; i < 5; i++)
+        {
+            await SeedCaseReportAsync(f, project.Id, now.AddDays(-30 + i));
+        }
+
+        var view = await f.Dashboard.GetDashboardViewAsync(user.OrganizationId, project.Id);
+
+        Assert.True(view.IsSelectedProjectStale);
+    }
+
+    // upload-staleness / dashboard: Non-stale project shows no banner
+    [Fact]
+    public async Task ActivelyUploadingProjectViewDoesNotCarryTheFlag()
+    {
+        var f = NewFixture();
+        var user = await f.Provisioning.GetOrCreateUserAsync("clerk-1", "alice", null);
+        var project = await f.Provisioning.CreateProjectAsync(user.OrganizationId, "P");
+
+        var now = DateTimeOffset.UtcNow;
+        for (var i = 0; i < 5; i++)
+        {
+            await SeedCaseReportAsync(f, project.Id, now.AddDays(-4 + i));
+        }
+
+        var view = await f.Dashboard.GetDashboardViewAsync(user.OrganizationId, project.Id);
+
+        Assert.False(view.IsSelectedProjectStale);
+    }
+
+    // upload-staleness: A project needs a minimum upload history before staleness applies
+    [Fact]
+    public async Task TooNewProjectViewDoesNotCarryTheFlag()
+    {
+        var f = NewFixture();
+        var user = await f.Provisioning.GetOrCreateUserAsync("clerk-1", "alice", null);
+        var project = await f.Provisioning.CreateProjectAsync(user.OrganizationId, "P");
+
+        await SeedCaseReportAsync(f, project.Id, DateTimeOffset.UtcNow.AddDays(-365));
+
+        var view = await f.Dashboard.GetDashboardViewAsync(user.OrganizationId, project.Id);
+
+        Assert.False(view.IsSelectedProjectStale);
+    }
 }

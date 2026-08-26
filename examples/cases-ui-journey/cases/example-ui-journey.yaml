@@ -1,0 +1,63 @@
+id: UI-JOURNEY-DEMO-1
+oracle:
+  locator: docs/customer-pilot-guide.md
+fixture:
+  locator: example-ui-journey.json
+  sha256: 3dc8d04d9c601b33302d854488cf58c8f5deddff02b4851c070f579ed52b9cd3
+pipeline:
+  # UI leg: log in through a real browser session (the-internet.herokuapp.com is a public,
+  # credential-free login form intended for exactly this kind of automated-testing demo — swap for
+  # a real customer UI to use for real).
+  - operation: ui.navigate
+    with:
+      url: https://the-internet.herokuapp.com/login
+  - operation: ui.fill
+    with:
+      selector: "#username"
+      value: tomsmith
+  - operation: ui.fill
+    with:
+      selector: "#password"
+      value: SuperSecretPassword!
+  - operation: ui.click
+    with:
+      selector: "button[type='submit']"
+  - operation: ui.waitFor
+    with:
+      selector: "#flash"
+      state: visible
+  - operation: ui.assertVisible
+    with:
+      selector: "#flash"
+    capture:
+      - name: loginMessage
+        from: text:#flash
+  # First API leg: the UI-observed login message flows into a request body (httpbin.org stands in
+  # for the customer's own backend API).
+  - operation: http.request
+    with:
+      method: POST
+      url: https://httpbin.org/anything
+      body:
+        loginMessage: "{{loginMessage}}"
+    capture:
+      - name: traceId
+        from: json:$.origin
+  # Second API leg: a fresh value captured here flows into the third-party leg below.
+  - operation: http.request
+    with:
+      url: https://httpbin.org/uuid
+    capture:
+      - name: correlationId
+        from: json:$.uuid
+  # Third-party leg (postman-echo.com stands in for a real third party like DocuSign): both earlier
+  # captures — one that started life as UI-observed text — reach an entirely different service.
+  - operation: http.request
+    with:
+      url: https://postman-echo.com/get?trace={{traceId}}&ref={{correlationId}}
+  - operation: http.assertJsonPath
+    with:
+      path: $.args.ref
+      expected: "{{correlationId}}"
+cleanup:
+  - operation: ui.closePage

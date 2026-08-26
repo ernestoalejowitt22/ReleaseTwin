@@ -30,19 +30,19 @@ public class FlagProofRunnerTests
             _featureKey = featureKey;
         }
 
-        public Task<OperationResult> ExecuteAsync(CaseExecutionContext context, IReadOnlyDictionary<string, object?> parameters, CancellationToken cancellationToken) =>
+        public Task<OperationResult> ExecuteAsync(CaseExecutionContext context, IReadOnlyDictionary<string, object?> parameters, IReadOnlyList<CaptureDeclaration> captures, CancellationToken cancellationToken) =>
             Task.FromResult(_controller.IsEnabled(_featureKey) ? OperationResult.Pass() : OperationResult.Fail("deductible-wrong"));
     }
 
     private sealed class AlwaysPassOperation : IOperation
     {
-        public Task<OperationResult> ExecuteAsync(CaseExecutionContext context, IReadOnlyDictionary<string, object?> parameters, CancellationToken cancellationToken) =>
+        public Task<OperationResult> ExecuteAsync(CaseExecutionContext context, IReadOnlyDictionary<string, object?> parameters, IReadOnlyList<CaptureDeclaration> captures, CancellationToken cancellationToken) =>
             Task.FromResult(OperationResult.Pass());
     }
 
     private sealed class AlwaysFailOperation : IOperation
     {
-        public Task<OperationResult> ExecuteAsync(CaseExecutionContext context, IReadOnlyDictionary<string, object?> parameters, CancellationToken cancellationToken) =>
+        public Task<OperationResult> ExecuteAsync(CaseExecutionContext context, IReadOnlyDictionary<string, object?> parameters, IReadOnlyList<CaptureDeclaration> captures, CancellationToken cancellationToken) =>
             Task.FromResult(OperationResult.Fail("still-broken"));
     }
 

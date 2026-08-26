@@ -40,6 +40,13 @@ internal sealed class PipelineStepDto
 {
     public string? Operation { get; set; }
     public object? With { get; set; }
+    public List<CaptureDto>? Capture { get; set; }
+}
+
+internal sealed class CaptureDto
+{
+    public string? Name { get; set; }
+    public string? From { get; set; }
 }
 
 internal sealed class CleanupDto

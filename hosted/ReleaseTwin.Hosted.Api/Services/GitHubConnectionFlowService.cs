@@ -39,13 +39,15 @@ public sealed class GitHubConnectionFlowService
 
         var mintedState = _state.Mint(projectId);
 
-        // Narrowest scope that lists repositories: no repo-specific scope requested at all, so only
-        // the customer's public repos are ever visible to this flow. Widening to the `repo` scope
-        // (private repos) is a deliberate future call, not guessed here — see design.md.
+        // github-oauth-private-repos: classic GitHub OAuth Apps have no scope that means "list
+        // private repos without reading their content" — `repo` is the only scope covering private
+        // repos at all, and it's broader than what this app actually uses. This app's own code
+        // still never reads anything beyond the repo list itself (see project-connections spec's
+        // "A broader OAuth grant is not exercised beyond listing repositories").
         var authorizeUrl = "https://github.com/login/oauth/authorize"
             + $"?client_id={Uri.EscapeDataString(clientId)}"
             + $"&redirect_uri={Uri.EscapeDataString(redirectUri)}"
-            + "&scope=read%3Auser"
+            + "&scope=read%3Auser%20repo"
             + $"&state={Uri.EscapeDataString(mintedState)}";
 
         return new GitHubAuthorizeResult(true, authorizeUrl);
