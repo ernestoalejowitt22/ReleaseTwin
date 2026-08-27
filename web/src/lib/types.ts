@@ -81,3 +81,9 @@ export interface AdapterCredentialSummary {
   lastSetByDisplayName: string;
   updatedAt: string;
 }
+
+export interface ProjectSecretSummary {
+  name: string;
+  lastSetByDisplayName: string;
+  updatedAt: string;
+}

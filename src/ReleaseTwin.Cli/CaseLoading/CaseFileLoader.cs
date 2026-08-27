@@ -18,11 +18,20 @@ public sealed class CaseFileLoader
     private readonly string? _casesDirectory;
     private readonly string _fixturesRoot;
     private readonly IDeserializer _deserializer;
+    private readonly Func<string, string?> _resolveEnvironmentVariable;
 
-    public CaseFileLoader(string casesDirectory, string? fixturesRoot = null)
+    /// <summary>
+    /// hosted-project-secrets: <paramref name="resolveEnvironmentVariable"/> lets a caller (CliRunner)
+    /// substitute a lookup that also falls back to hosted-stored project secrets, without this loader
+    /// knowing anything about that source — defaults to today's exact live-environment behavior
+    /// (<see cref="Environment.GetEnvironmentVariable(string)"/>) when not supplied, so every existing
+    /// call site is unaffected unless it opts in.
+    /// </summary>
+    public CaseFileLoader(string casesDirectory, string? fixturesRoot = null, Func<string, string?>? resolveEnvironmentVariable = null)
     {
         _casesDirectory = casesDirectory;
         _fixturesRoot = fixturesRoot ?? Path.Combine(casesDirectory, "..", "fixtures");
+        _resolveEnvironmentVariable = resolveEnvironmentVariable ?? Environment.GetEnvironmentVariable;
         _deserializer = new DeserializerBuilder()
             .WithNamingConvention(UnderscoredNamingConvention.Instance)
             .IgnoreUnmatchedProperties()
@@ -35,12 +44,14 @@ public sealed class CaseFileLoader
     /// one and must be supplied explicitly. <see cref="LoadAll"/> is not usable on a loader built
     /// this way.
     /// </summary>
-    public static CaseFileLoader ForFixturesRoot(string fixturesRoot) => new(fixturesRootOnly: fixturesRoot);
+    public static CaseFileLoader ForFixturesRoot(string fixturesRoot, Func<string, string?>? resolveEnvironmentVariable = null) =>
+        new(fixturesRootOnly: fixturesRoot, resolveEnvironmentVariable);
 
-    private CaseFileLoader(string fixturesRootOnly)
+    private CaseFileLoader(string fixturesRootOnly, Func<string, string?>? resolveEnvironmentVariable)
     {
         _casesDirectory = null;
         _fixturesRoot = fixturesRootOnly;
+        _resolveEnvironmentVariable = resolveEnvironmentVariable ?? Environment.GetEnvironmentVariable;
         _deserializer = new DeserializerBuilder()
             .WithNamingConvention(UnderscoredNamingConvention.Instance)
             .IgnoreUnmatchedProperties()
@@ -230,7 +241,7 @@ public sealed class CaseFileLoader
                 return EnvVarPattern.Replace(s, match =>
                 {
                     var varName = match.Groups[1].Value;
-                    var resolved = Environment.GetEnvironmentVariable(varName);
+                    var resolved = _resolveEnvironmentVariable(varName);
                     if (resolved is null)
                     {
                         throw new CaseFileException(fileName, $"a parameter references undefined environment variable '{varName}'");

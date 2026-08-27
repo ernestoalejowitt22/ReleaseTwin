@@ -20,9 +20,10 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { api } from "@/lib/api";
-import type { AdapterCredentialSummary, DashboardView } from "@/lib/types";
+import type { AdapterCredentialSummary, DashboardView, ProjectSecretSummary } from "@/lib/types";
 import { IssueTokenButton } from "./issue-token-button";
 import { AdapterCredentialForm } from "./adapter-credential-form";
+import { ProjectSecretsSection } from "./project-secrets-section";
 import {
   createProject,
   disconnectConnection,
@@ -47,6 +48,9 @@ export default async function DashboardPage({
     ? await api.get<AdapterCredentialSummary[]>(`/api/adapter-credentials/${selectedProject.id}`)
     : [];
   const adapterCredentialByName = new Map(adapterCredentials.map((c) => [c.adapter, c]));
+  const projectSecrets = selectedProject
+    ? await api.get<ProjectSecretSummary[]>(`/api/project-secrets/${selectedProject.id}`)
+    : [];
 
   return (
     <main className="mx-auto flex w-full max-w-5xl flex-1 flex-col gap-6 p-6">
@@ -191,6 +195,24 @@ export default async function DashboardPage({
                   { name: "environmentKey", label: "Environment key" },
                 ]}
                 configuredMetadata={adapterCredentialByName.get("launchdarkly") ?? null}
+              />
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle>Project secrets — {selectedProject.name}</CardTitle>
+              <CardDescription>
+                Arbitrary named values a journey or case step can reference as{" "}
+                <code>{"${VAR_NAME}"}</code> — the local environment always takes precedence when
+                both are present.
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <ProjectSecretsSection
+                projectId={selectedProject.id}
+                secrets={projectSecrets}
+                isPaidTier={view.planTier === "Paid"}
               />
             </CardContent>
           </Card>

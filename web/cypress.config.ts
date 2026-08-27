@@ -133,6 +133,48 @@ export default defineConfig({
           return { casesDir };
         },
 
+        // hosted-project-secrets 7.2: writes a throwaway case referencing `${varName}` in its URL,
+        // with no matching local environment variable — the point is forcing CliRunner's hosted
+        // project-secrets fetch to be the only thing that can resolve it.
+        async writeProjectSecretCase({
+          directory,
+          caseId,
+          varName,
+        }: {
+          directory: string;
+          caseId: string;
+          varName: string;
+        }) {
+          const fs = await import("node:fs/promises");
+          const casesDir = path.join(directory, "cases");
+          const fixturesDir = path.join(directory, "fixtures");
+          await fs.mkdir(casesDir, { recursive: true });
+          await fs.mkdir(fixturesDir, { recursive: true });
+
+          await fs.writeFile(path.join(fixturesDir, `${caseId}.json`), "{}\n");
+
+          const yaml = [
+            `id: ${caseId}`,
+            "oracle:",
+            `  locator: tickets/${caseId}`,
+            "fixture:",
+            `  locator: ${caseId}.json`,
+            "pipeline:",
+            "  - operation: http.request",
+            "    with:",
+            `      method: GET`,
+            `      url: \${${varName}}/posts/1`,
+            "  - operation: http.assertJsonPath",
+            "    with:",
+            "      path: $.id",
+            "      expected: 1",
+            "",
+          ].join("\n");
+          await fs.writeFile(path.join(casesDir, `${caseId}.yaml`), yaml);
+
+          return { casesDir };
+        },
+
         // Idempotent by construction: looks up the test user before ever creating one, so running
         // this task repeatedly (every local/CI run) never creates duplicates.
         //

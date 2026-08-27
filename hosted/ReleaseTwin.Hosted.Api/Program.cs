@@ -87,6 +87,7 @@ builder.Services.AddScoped<IUsageCounterRepository, UsageCounterRepository>();
 builder.Services.AddScoped<IJourneyRepository, JourneyRepository>();
 builder.Services.AddScoped<IJourneyVersionRepository, JourneyVersionRepository>();
 builder.Services.AddScoped<IAdapterCredentialRepository, AdapterCredentialRepository>();
+builder.Services.AddScoped<IProjectSecretRepository, ProjectSecretRepository>();
 
 builder.Services.AddScoped<ITokenService, TokenService>();
 builder.Services.AddScoped<ProvisioningService>();
@@ -94,6 +95,7 @@ builder.Services.AddScoped<ConnectionService>();
 builder.Services.AddScoped<DashboardService>();
 builder.Services.AddScoped<JourneyService>();
 builder.Services.AddScoped<AdapterCredentialService>();
+builder.Services.AddScoped<ProjectSecretService>();
 builder.Services.AddScoped<GitHubConnectionFlowService>();
 builder.Services.AddSingleton<IConnectionStateService, ConnectionStateService>();
 builder.Services.AddHttpClient("GitHubConnection");
@@ -199,6 +201,8 @@ app.MapJourneyEndpoints();
 app.MapJourneyFetchEndpoints();
 app.MapAdapterCredentialEndpoints();
 app.MapAdapterCredentialFetchEndpoints();
+app.MapProjectSecretEndpoints();
+app.MapProjectSecretFetchEndpoints();
 
 if (app.Environment.IsDevelopment())
 {
