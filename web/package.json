@@ -18,7 +18,8 @@
     "e2e:run:ld": "cypress run --spec cypress/e2e/launchdarkly-real-flag-proof.cy.ts",
     "e2e:ld": "start-server-and-test e2e:api http://localhost:5199/Privacy e2e:web http://localhost:3000 e2e:run:ld",
     "e2e:run:secrets": "cypress run --spec cypress/e2e/project-secrets.cy.ts,cypress/e2e/project-secrets-runtime.cy.ts",
-    "e2e:secrets": "start-server-and-test e2e:api http://localhost:5199/Privacy e2e:web http://localhost:3000 e2e:run:secrets"
+    "e2e:secrets": "start-server-and-test e2e:api http://localhost:5199/Privacy e2e:web http://localhost:3000 e2e:run:secrets",
+    "e2e:secrets:prod": "cypress run --config baseUrl=https://releasetwin.vercel.app --env RELEASETWIN_API_URL=https://aeq4mvkh3n63sqnngc4lp7567y0mqfzr.lambda-url.us-east-1.on.aws --spec cypress/e2e/project-secrets.cy.ts,cypress/e2e/project-secrets-runtime.cy.ts"
   },
   "dependencies": {
     "@clerk/nextjs": "^7.8.1",
