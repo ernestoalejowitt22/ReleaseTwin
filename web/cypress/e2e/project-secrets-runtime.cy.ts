@@ -74,7 +74,7 @@ describe("project secrets runtime", () => {
           "runCli",
           {
             token: projectToken,
-            apiUrl: "http://localhost:5199",
+            apiUrl: (Cypress.env("RELEASETWIN_API_URL") as string | undefined) ?? "http://localhost:5199",
             casesDir,
             // Deliberately no E2E_SECRET_BASE_URL here — resolution must come from the hosted
             // fetch, not a local environment variable, or this test proves nothing.
