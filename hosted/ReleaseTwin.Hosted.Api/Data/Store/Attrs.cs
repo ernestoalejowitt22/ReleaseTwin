@@ -49,5 +49,7 @@ internal static class Keys
 
     public static string AdapterCredential(string adapter) => $"ADAPTERCRED#{adapter}";
 
+    public static string ProjectSecret(string name) => $"SECRET#{name}";
+
     public static DateOnly CurrentUtcPeriod() => DateOnly.FromDateTime(DateTimeOffset.UtcNow.UtcDateTime);
 }

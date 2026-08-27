@@ -35,11 +35,12 @@ public sealed class CliRunner
         HttpMessageHandler? httpAdapterHandlerForTesting = null,
         HttpMessageHandler? uploadHandlerForTesting = null,
         HttpMessageHandler? launchDarklyHandlerForTesting = null,
-        HttpMessageHandler? adapterCredentialsHandlerForTesting = null) =>
+        HttpMessageHandler? adapterCredentialsHandlerForTesting = null,
+        HttpMessageHandler? projectSecretsHandlerForTesting = null) =>
         RunCoreAsync(
             environment, output, cancellationToken,
             LoadLocalCasesAsync(casesDirectory),
-            azureDevOpsHandlerForTesting, httpAdapterHandlerForTesting, uploadHandlerForTesting, launchDarklyHandlerForTesting, adapterCredentialsHandlerForTesting);
+            azureDevOpsHandlerForTesting, httpAdapterHandlerForTesting, uploadHandlerForTesting, launchDarklyHandlerForTesting, adapterCredentialsHandlerForTesting, projectSecretsHandlerForTesting);
 
     /// <summary>
     /// hosted-journeys: runs one journey fetched from the hosted API at a specific, pinned version —
@@ -59,17 +60,21 @@ public sealed class CliRunner
         HttpMessageHandler? uploadHandlerForTesting = null,
         HttpMessageHandler? launchDarklyHandlerForTesting = null,
         HttpMessageHandler? journeyFetchHandlerForTesting = null,
-        HttpMessageHandler? adapterCredentialsHandlerForTesting = null) =>
+        HttpMessageHandler? adapterCredentialsHandlerForTesting = null,
+        HttpMessageHandler? projectSecretsHandlerForTesting = null) =>
         RunCoreAsync(
             environment, output, cancellationToken,
             LoadHostedJourneyAsync(journeyId, version, environment, journeyFetchHandlerForTesting),
-            azureDevOpsHandlerForTesting, httpAdapterHandlerForTesting, uploadHandlerForTesting, launchDarklyHandlerForTesting, adapterCredentialsHandlerForTesting);
+            azureDevOpsHandlerForTesting, httpAdapterHandlerForTesting, uploadHandlerForTesting, launchDarklyHandlerForTesting, adapterCredentialsHandlerForTesting, projectSecretsHandlerForTesting);
 
-    private static Func<Task<(IReadOnlyList<LoadedCase>? Cases, string? Error)>> LoadLocalCasesAsync(string casesDirectory) => () =>
+    // hosted-project-secrets: takes the effective environment-variable resolver (local environment
+    // first, hosted-fetched project secrets as fallback) built by RunCoreAsync, so both loading paths
+    // parse case files through the exact same `${VAR_NAME}` resolution.
+    private static Func<Func<string, string?>, Task<(IReadOnlyList<LoadedCase>? Cases, string? Error)>> LoadLocalCasesAsync(string casesDirectory) => resolveEnvironmentVariable =>
     {
         try
         {
-            return Task.FromResult<(IReadOnlyList<LoadedCase>?, string?)>((new CaseFileLoader(casesDirectory).LoadAll(), null));
+            return Task.FromResult<(IReadOnlyList<LoadedCase>?, string?)>((new CaseFileLoader(casesDirectory, resolveEnvironmentVariable: resolveEnvironmentVariable).LoadAll(), null));
         }
         catch (CaseFileException ex)
         {
@@ -77,8 +82,8 @@ public sealed class CliRunner
         }
     };
 
-    private static Func<Task<(IReadOnlyList<LoadedCase>? Cases, string? Error)>> LoadHostedJourneyAsync(
-        Guid journeyId, int version, IReadOnlyDictionary<string, string?> environment, HttpMessageHandler? journeyFetchHandlerForTesting) => async () =>
+    private static Func<Func<string, string?>, Task<(IReadOnlyList<LoadedCase>? Cases, string? Error)>> LoadHostedJourneyAsync(
+        Guid journeyId, int version, IReadOnlyDictionary<string, string?> environment, HttpMessageHandler? journeyFetchHandlerForTesting) => async resolveEnvironmentVariable =>
     {
         string? Get(string key) => environment.TryGetValue(key, out var value) ? value : null;
 
@@ -106,7 +111,7 @@ public sealed class CliRunner
         try
         {
             var fixturesRoot = Get("RELEASETWIN_FIXTURES_ROOT") is { Length: > 0 } root ? root : Path.Combine(Directory.GetCurrentDirectory(), "fixtures");
-            var loaded = CaseFileLoader.ForFixturesRoot(fixturesRoot).ParseYaml($"journey {journeyId}@{version}", yamlContent);
+            var loaded = CaseFileLoader.ForFixturesRoot(fixturesRoot, resolveEnvironmentVariable).ParseYaml($"journey {journeyId}@{version}", yamlContent);
             return (new[] { loaded }, null);
         }
         catch (CaseFileException ex)
@@ -119,12 +124,13 @@ public sealed class CliRunner
         IReadOnlyDictionary<string, string?> environment,
         TextWriter output,
         CancellationToken cancellationToken,
-        Func<Task<(IReadOnlyList<LoadedCase>? Cases, string? Error)>> loadCasesAsync,
+        Func<Func<string, string?>, Task<(IReadOnlyList<LoadedCase>? Cases, string? Error)>> loadCasesAsync,
         HttpMessageHandler? azureDevOpsHandlerForTesting,
         HttpMessageHandler? httpAdapterHandlerForTesting,
         HttpMessageHandler? uploadHandlerForTesting,
         HttpMessageHandler? launchDarklyHandlerForTesting,
-        HttpMessageHandler? adapterCredentialsHandlerForTesting)
+        HttpMessageHandler? adapterCredentialsHandlerForTesting,
+        HttpMessageHandler? projectSecretsHandlerForTesting)
     {
         string? Get(string key) => environment.TryGetValue(key, out var value) ? value : null;
 
@@ -260,7 +266,28 @@ public sealed class CliRunner
                 .Select(source => source.FeatureStateController)
                 .FirstOrDefault(controller => controller is not null);
 
-            var (cases, loadError) = await loadCasesAsync();
+            // hosted-project-secrets: fetch this project's stored secrets once per run (only when a
+            // project token is configured — no token, no fetch, no behavior change) and fall back to
+            // them for any `${VAR_NAME}` the local environment doesn't have. Local environment values
+            // always win and never trigger this fetch's result to be consulted for that name.
+            var projectSecrets = new Dictionary<string, string>();
+            if (apiToken is { Length: > 0 })
+            {
+                using var secretsClient = new ProjectSecretsClient(apiUrl, apiToken, projectSecretsHandlerForTesting);
+                try
+                {
+                    projectSecrets = new Dictionary<string, string>(await secretsClient.FetchAllAsync(cancellationToken));
+                }
+                catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException or ProjectSecretsFetchException)
+                {
+                    output.WriteLine($"WARN: failed to fetch hosted project secrets: {ex.Message}");
+                }
+            }
+
+            string? ResolveEnvironmentVariable(string name) =>
+                Get(name) ?? (projectSecrets.TryGetValue(name, out var secretValue) ? secretValue : null);
+
+            var (cases, loadError) = await loadCasesAsync(ResolveEnvironmentVariable);
             if (cases is null)
             {
                 output.WriteLine(loadError);

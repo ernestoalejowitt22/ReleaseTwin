@@ -80,6 +80,15 @@ public interface IAdapterCredentialRepository
     Task DeleteAsync(Guid projectId, string adapter, CancellationToken cancellationToken = default);
 }
 
+public interface IProjectSecretRepository
+{
+    /// <summary>Upserts in place — rotation replaces the stored value entirely, no history kept.</summary>
+    Task<ProjectSecret> SetAsync(Guid projectId, string name, string encryptedValue, string lastSetByUserId, string lastSetByDisplayName, CancellationToken cancellationToken = default);
+    Task<ProjectSecret?> GetAsync(Guid projectId, string name, CancellationToken cancellationToken = default);
+    Task<IReadOnlyList<ProjectSecret>> ListByProjectAsync(Guid projectId, CancellationToken cancellationToken = default);
+    Task DeleteAsync(Guid projectId, string name, CancellationToken cancellationToken = default);
+}
+
 public interface IUsageCounterRepository
 {
     /// <summary>Atomically increments the counter for (organizationId, current period) — safe under concurrent ingest requests.</summary>
