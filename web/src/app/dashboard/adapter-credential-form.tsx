@@ -3,6 +3,7 @@
 import { useActionState, useTransition } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Badge } from "@/components/ui/badge";
 import { setAdapterCredential, revokeAdapterCredential, type SetAdapterCredentialState } from "./adapter-credentials-actions";
 
 interface FieldSpec {
@@ -41,11 +42,12 @@ export function AdapterCredentialForm({
       <div className="flex items-center justify-between">
         <p className="text-sm font-medium">{title}</p>
         {configuredMetadata ? (
-          <span className="text-xs text-muted-foreground">
-            Configured by {configuredMetadata.lastSetByDisplayName} on {new Date(configuredMetadata.updatedAt).toLocaleString()}
+          <span className="flex items-center gap-2 text-xs text-muted-foreground">
+            <Badge variant="default">Configured</Badge>
+            by {configuredMetadata.lastSetByDisplayName} on {new Date(configuredMetadata.updatedAt).toLocaleString()}
           </span>
         ) : (
-          <span className="text-xs text-muted-foreground">Not configured</span>
+          <Badge variant="secondary">Not configured</Badge>
         )}
       </div>
 
