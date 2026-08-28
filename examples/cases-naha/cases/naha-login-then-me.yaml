@@ -1,0 +1,36 @@
+id: NAHA-LOGIN-THEN-ME-1
+oracle:
+  locator: naha.backend/docs/api-auth.md
+fixture:
+  locator: naha-login-then-me.json
+requires:
+  - http:generic
+pipeline:
+  # Real NAHA e2e login endpoint (naha.backend/apps/naha.api/src/routes/e2e/login.ts) — needs
+  # E2E_AUTH_ENABLED=true on that deploy plus the shared x-e2e-secret. The secret comes from
+  # ReleaseTwin's own hosted project-secrets store (NAHA_E2E_SECRET), not a local env var — this
+  # is the real, non-simulated version of the login-then-call pattern examples/example-auth-chain.yaml
+  # stands in for with public echo services.
+  - operation: http.request
+    with:
+      method: POST
+      url: https://yci4ltbs5w6pn45f4l2a4yapk40dzobr.lambda-url.us-east-1.on.aws/v1/e2e/login
+      headers:
+        x-e2e-secret: ${NAHA_E2E_SECRET}
+      body:
+        email: admin@naha.com
+    capture:
+      - name: nahaToken
+        from: json:$.token
+  # Real NAHA protected endpoint (naha.backend/apps/naha.api/src/routes/me.ts) — requires the
+  # captured Clerk session token as a bearer credential.
+  - operation: http.request
+    with:
+      method: GET
+      url: https://yci4ltbs5w6pn45f4l2a4yapk40dzobr.lambda-url.us-east-1.on.aws/api/me
+      headers:
+        Authorization: Bearer {{nahaToken}}
+  - operation: http.assertJsonPath
+    with:
+      path: $.principal.role
+      expected: admin
