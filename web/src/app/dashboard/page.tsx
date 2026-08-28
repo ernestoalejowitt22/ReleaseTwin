@@ -4,6 +4,8 @@ import { auth } from "@clerk/nextjs/server";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
+import { ThemeToggle } from "@/components/theme-toggle";
+import { PlayCircle, ListChecks, LayoutDashboard } from "lucide-react";
 import {
   Card,
   CardContent,
@@ -22,8 +24,7 @@ import {
 import { api } from "@/lib/api";
 import type { AdapterCredentialSummary, DashboardView, ProjectSecretSummary } from "@/lib/types";
 import { IssueTokenButton } from "./issue-token-button";
-import { AdapterCredentialForm } from "./adapter-credential-form";
-import { ProjectSecretsSection } from "./project-secrets-section";
+import { SetupSection } from "./setup-section";
 import {
   createProject,
   disconnectConnection,
@@ -47,7 +48,6 @@ export default async function DashboardPage({
   const adapterCredentials = selectedProject
     ? await api.get<AdapterCredentialSummary[]>(`/api/adapter-credentials/${selectedProject.id}`)
     : [];
-  const adapterCredentialByName = new Map(adapterCredentials.map((c) => [c.adapter, c]));
   const projectSecrets = selectedProject
     ? await api.get<ProjectSecretSummary[]>(`/api/project-secrets/${selectedProject.id}`)
     : [];
@@ -55,8 +55,14 @@ export default async function DashboardPage({
   return (
     <main className="mx-auto flex w-full max-w-5xl flex-1 flex-col gap-6 p-6">
       <header className="flex items-center justify-between">
-        <h1 className="text-2xl font-semibold">Dashboard</h1>
-        <UserButton />
+        <h1 className="flex items-center gap-2 text-2xl font-semibold">
+          <LayoutDashboard className="size-6" />
+          Dashboard
+        </h1>
+        <div className="flex items-center gap-2">
+          <ThemeToggle />
+          <UserButton />
+        </div>
       </header>
 
       {connectionError && (
@@ -147,232 +153,187 @@ export default async function DashboardPage({
             </div>
           )}
 
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between">
-              <CardTitle>Journeys — {selectedProject.name}</CardTitle>
-              <Link href={`/journeys?projectId=${selectedProject.id}`}>
-                <Button variant="outline" size="sm">
-                  Open builder
-                </Button>
-              </Link>
-            </CardHeader>
-            <CardContent>
-              <CardDescription>
-                Compose a multi-step pipeline visually and run it from the CLI with a pinned version.
-              </CardDescription>
-            </CardContent>
-          </Card>
+          <SetupSection
+            projectId={selectedProject.id}
+            projectName={selectedProject.name}
+            connection={view.connection}
+            adapterCredentials={adapterCredentials}
+            projectSecrets={projectSecrets}
+            isPaidTier={view.planTier === "Paid"}
+            disconnectConnection={disconnectConnection.bind(null, selectedProject.id)}
+            startGitHubConnection={startGitHubConnection.bind(null, selectedProject.id)}
+          />
 
-          <Card>
-            <CardHeader>
-              <CardTitle>Adapter credentials — {selectedProject.name}</CardTitle>
-              <CardDescription>
-                Let the CLI fetch these instead of setting them as environment variables wherever it
-                runs — environment variables still take precedence when both are present.
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="flex flex-col gap-3">
-              <AdapterCredentialForm
-                projectId={selectedProject.id}
-                adapter="azure-devops"
-                title="Azure DevOps"
-                fields={[
-                  { name: "org", label: "Organization" },
-                  { name: "project", label: "Project" },
-                  { name: "pat", label: "Personal access token", type: "password" },
-                  { name: "areaPath", label: "Area path" },
-                  { name: "variableGroupId", label: "Variable group ID" },
-                ]}
-                configuredMetadata={adapterCredentialByName.get("azure-devops") ?? null}
-              />
-              <AdapterCredentialForm
-                projectId={selectedProject.id}
-                adapter="launchdarkly"
-                title="LaunchDarkly"
-                fields={[
-                  { name: "apiToken", label: "API token", type: "password" },
-                  { name: "projectKey", label: "Project key" },
-                  { name: "environmentKey", label: "Environment key" },
-                ]}
-                configuredMetadata={adapterCredentialByName.get("launchdarkly") ?? null}
-              />
-            </CardContent>
-          </Card>
+          <div className="flex flex-col gap-3">
+            <h2 className="flex items-center gap-1.5 text-sm font-semibold tracking-wide text-muted-foreground uppercase">
+              <PlayCircle className="size-4" />
+              Run
+            </h2>
 
-          <Card>
-            <CardHeader>
-              <CardTitle>Project secrets — {selectedProject.name}</CardTitle>
-              <CardDescription>
-                Arbitrary named values a journey or case step can reference as{" "}
-                <code>{"${VAR_NAME}"}</code> — the local environment always takes precedence when
-                both are present.
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <ProjectSecretsSection
-                projectId={selectedProject.id}
-                secrets={projectSecrets}
-                isPaidTier={view.planTier === "Paid"}
-              />
-            </CardContent>
-          </Card>
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between">
+                <CardTitle>Journeys — {selectedProject.name}</CardTitle>
+                <Link href={`/journeys?projectId=${selectedProject.id}`}>
+                  <Button variant="outline" size="sm">
+                    Open builder
+                  </Button>
+                </Link>
+              </CardHeader>
+              <CardContent>
+                <CardDescription>
+                  Compose a multi-step pipeline visually and run it from the CLI with a pinned version.
+                </CardDescription>
+              </CardContent>
+            </Card>
 
-          <Card>
-            <CardHeader>
-              <CardTitle>Connection — {selectedProject.name}</CardTitle>
-            </CardHeader>
-            <CardContent>
-              {view.connection ? (
-                <div className="flex items-center justify-between">
-                  <p>
-                    Connected to{" "}
-                    <code>{view.connection.externalRepo}</code> (
-                    {view.connection.provider})
-                  </p>
-                  <form action={disconnectConnection.bind(null, selectedProject.id)}>
-                    <Button variant="outline" type="submit">
-                      Disconnect
-                    </Button>
-                  </form>
-                </div>
-              ) : (
-                <div className="flex items-center justify-between">
-                  <CardDescription>
-                    Not connected to a repository yet — labeling only, no code
-                    or credentials are ever read.
-                  </CardDescription>
-                  <form action={startGitHubConnection.bind(null, selectedProject.id)}>
-                    <Button type="submit">Connect GitHub</Button>
-                  </form>
-                </div>
-              )}
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader>
-              <CardTitle>API tokens — {selectedProject.name}</CardTitle>
-            </CardHeader>
-            <CardContent className="flex flex-col gap-4">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Prefix</TableHead>
-                    <TableHead>Created</TableHead>
-                    <TableHead>Status</TableHead>
-                    <TableHead />
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {view.tokens.map((token) => (
-                    <TableRow key={token.id}>
-                      <TableCell>
-                        <code>{token.displayPrefix}…</code>
-                      </TableCell>
-                      <TableCell>{new Date(token.createdAt).toLocaleString()}</TableCell>
-                      <TableCell>
-                        <Badge variant={token.isRevoked ? "secondary" : "default"}>
-                          {token.isRevoked ? "Revoked" : "Active"}
-                        </Badge>
-                      </TableCell>
-                      <TableCell>
-                        {!token.isRevoked && (
-                          <form action={revokeToken.bind(null, selectedProject.id, token.id)}>
-                            <Button variant="ghost" size="sm" type="submit">
-                              Revoke
-                            </Button>
-                          </form>
-                        )}
-                      </TableCell>
+            <Card>
+              <CardHeader>
+                <CardTitle>API tokens — {selectedProject.name}</CardTitle>
+              </CardHeader>
+              <CardContent className="flex flex-col gap-4">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Prefix</TableHead>
+                      <TableHead>Created</TableHead>
+                      <TableHead>Status</TableHead>
+                      <TableHead />
                     </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-              <IssueTokenButton projectId={selectedProject.id} />
-            </CardContent>
-          </Card>
+                  </TableHeader>
+                  <TableBody>
+                    {view.tokens.map((token) => (
+                      <TableRow key={token.id}>
+                        <TableCell>
+                          <code>{token.displayPrefix}…</code>
+                        </TableCell>
+                        <TableCell>{new Date(token.createdAt).toLocaleString()}</TableCell>
+                        <TableCell>
+                          <Badge variant={token.isRevoked ? "secondary" : "default"}>
+                            {token.isRevoked ? "Revoked" : "Active"}
+                          </Badge>
+                        </TableCell>
+                        <TableCell>
+                          {!token.isRevoked && (
+                            <form action={revokeToken.bind(null, selectedProject.id, token.id)}>
+                              <Button variant="ghost" size="sm" type="submit">
+                                Revoke
+                              </Button>
+                            </form>
+                          )}
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+                <IssueTokenButton projectId={selectedProject.id} />
+              </CardContent>
+            </Card>
+          </div>
 
-          <Card>
-            <CardHeader>
-              <CardTitle>Run history</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Case</TableHead>
-                    <TableHead>Outcome</TableHead>
-                    <TableHead>Classification</TableHead>
-                    <TableHead>Cleanup</TableHead>
-                    <TableHead>Uploaded</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {view.caseReports.map((report, index) => (
-                    <TableRow key={`${report.caseId}-${index}`}>
-                      <TableCell>{report.caseId}</TableCell>
-                      <TableCell>
-                        <Badge variant={report.passed ? "default" : "destructive"}>
-                          {report.passed ? "PASS" : "FAIL"}
-                        </Badge>
-                      </TableCell>
-                      <TableCell>{report.classification ?? "—"}</TableCell>
-                      <TableCell>{report.cleanupStatus}</TableCell>
-                      <TableCell>{new Date(report.uploadedAt).toLocaleString()}</TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </CardContent>
-          </Card>
+          <div className="flex flex-col gap-3">
+            <h2 className="flex items-center gap-1.5 text-sm font-semibold tracking-wide text-muted-foreground uppercase">
+              <ListChecks className="size-4" />
+              Results
+            </h2>
 
-          <Card>
-            <CardHeader>
-              <CardTitle>Flag-proof results</CardTitle>
-              <CardDescription>
-                Paired known-bad/known-good proof — shown distinctly from
-                ordinary case results above.
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Case</TableHead>
-                    <TableHead>Build</TableHead>
-                    <TableHead>Outcome</TableHead>
-                    <TableHead>Known-bad leg</TableHead>
-                    <TableHead>Known-good leg</TableHead>
-                    <TableHead>Uploaded</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {view.flagProofReports.map((report, index) => (
-                    <TableRow key={`${report.caseId}-${index}`}>
-                      <TableCell>{report.caseId}</TableCell>
-                      <TableCell>{report.buildIdentity}</TableCell>
-                      <TableCell className="font-semibold">{report.outcome}</TableCell>
-                      <TableCell>
-                        {report.knownBadLegPassed === null
-                          ? "—"
-                          : report.knownBadLegPassed
-                            ? "PASS"
-                            : "FAIL"}
-                      </TableCell>
-                      <TableCell>
-                        {report.knownGoodLegPassed === null
-                          ? "—"
-                          : report.knownGoodLegPassed
-                            ? "PASS"
-                            : "FAIL"}
-                      </TableCell>
-                      <TableCell>{new Date(report.uploadedAt).toLocaleString()}</TableCell>
+            <Card>
+              <CardHeader>
+                <CardTitle>Run history</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Case</TableHead>
+                      <TableHead>Outcome</TableHead>
+                      <TableHead>Classification</TableHead>
+                      <TableHead>Cleanup</TableHead>
+                      <TableHead>Uploaded</TableHead>
                     </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </CardContent>
-          </Card>
+                  </TableHeader>
+                  <TableBody>
+                    {view.caseReports.map((report, index) => (
+                      <TableRow key={`${report.caseId}-${index}`}>
+                        <TableCell>{report.caseId}</TableCell>
+                        <TableCell>
+                          <Badge variant={report.passed ? "default" : "destructive"}>
+                            {report.passed ? "PASS" : "FAIL"}
+                          </Badge>
+                        </TableCell>
+                        <TableCell>{report.classification ?? "—"}</TableCell>
+                        <TableCell>{report.cleanupStatus}</TableCell>
+                        <TableCell>{new Date(report.uploadedAt).toLocaleString()}</TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader>
+                <CardTitle>Flag-proof results</CardTitle>
+                <CardDescription>
+                  Paired known-bad/known-good proof — shown distinctly from
+                  ordinary case results above.
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Case</TableHead>
+                      <TableHead>Build</TableHead>
+                      <TableHead>Outcome</TableHead>
+                      <TableHead>Known-bad leg</TableHead>
+                      <TableHead>Known-good leg</TableHead>
+                      <TableHead>Uploaded</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {view.flagProofReports.map((report, index) => (
+                      <TableRow key={`${report.caseId}-${index}`}>
+                        <TableCell>{report.caseId}</TableCell>
+                        <TableCell>{report.buildIdentity}</TableCell>
+                        <TableCell>
+                          <Badge
+                            variant={
+                              report.outcome === "Passed"
+                                ? "default"
+                                : report.outcome === "Ineligible"
+                                  ? "secondary"
+                                  : "destructive"
+                            }
+                          >
+                            {report.outcome}
+                          </Badge>
+                        </TableCell>
+                        <TableCell>
+                          {report.knownBadLegPassed === null ? (
+                            "—"
+                          ) : (
+                            <Badge variant={report.knownBadLegPassed ? "default" : "destructive"}>
+                              {report.knownBadLegPassed ? "PASS" : "FAIL"}
+                            </Badge>
+                          )}
+                        </TableCell>
+                        <TableCell>
+                          {report.knownGoodLegPassed === null ? (
+                            "—"
+                          ) : (
+                            <Badge variant={report.knownGoodLegPassed ? "default" : "destructive"}>
+                              {report.knownGoodLegPassed ? "PASS" : "FAIL"}
+                            </Badge>
+                          )}
+                        </TableCell>
+                        <TableCell>{new Date(report.uploadedAt).toLocaleString()}</TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </CardContent>
+            </Card>
+          </div>
         </>
       )}
     </main>

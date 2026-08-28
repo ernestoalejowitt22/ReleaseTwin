@@ -3,6 +3,7 @@
 import { useActionState, useTransition } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Badge } from "@/components/ui/badge";
 import type { ProjectSecretSummary } from "@/lib/types";
 import { setProjectSecret, revokeProjectSecret, type SetProjectSecretState } from "./project-secrets-actions";
 
@@ -29,8 +30,9 @@ function SecretRow({ projectId, name, configuredMetadata }: {
       <div className="flex items-center justify-between">
         <p className="font-mono text-sm font-medium">{name}</p>
         {configuredMetadata && (
-          <span className="text-xs text-muted-foreground">
-            Configured by {configuredMetadata.lastSetByDisplayName} on {new Date(configuredMetadata.updatedAt).toLocaleString()}
+          <span className="flex items-center gap-2 text-xs text-muted-foreground">
+            <Badge variant="default">Configured</Badge>
+            by {configuredMetadata.lastSetByDisplayName} on {new Date(configuredMetadata.updatedAt).toLocaleString()}
           </span>
         )}
       </div>

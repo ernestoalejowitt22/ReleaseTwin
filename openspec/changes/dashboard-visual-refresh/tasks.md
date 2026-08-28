@@ -1,39 +1,39 @@
 ## 1. Color tokens
 
-- [ ] 1.1 In `web/src/app/globals.css`, replace `--primary`, `--ring`, and `--sidebar-primary` in
+- [x] 1.1 In `web/src/app/globals.css`, replace `--primary`, `--ring`, and `--sidebar-primary` in
       both the light block and the `.dark` block with real indigo chroma/hue values
       (~`oklch(0.55 0.18 275)` light-mode primary; a lighter/darker variant per block per shadcn's
       existing light/dark pairing convention). Leave `--destructive` untouched.
-- [ ] 1.2 Replace `--secondary` and `--accent` with a low-chroma tint of the same hue (not full
+- [x] 1.2 Replace `--secondary` and `--accent` with a low-chroma tint of the same hue (not full
       saturation) in both blocks, so they still recede behind primary actions.
-- [ ] 1.3 Replace `--chart-1` through `--chart-5` with a sequential lightness ramp of the same hue
+- [x] 1.3 Replace `--chart-1` through `--chart-5` with a sequential lightness ramp of the same hue
       in both blocks.
-- [ ] 1.4 Visually confirm (screenshot) the accent doesn't collide with PASS/FAIL badge colors on
+- [x] 1.4 Visually confirm (screenshot) the accent doesn't collide with PASS/FAIL badge colors on
       the dashboard's run-history table.
 
 ## 2. Badge consistency audit
 
-- [ ] 2.1 Wrap the flag-proof leg outcomes (`web/src/app/dashboard/page.tsx:354-367`) in `Badge`
+- [x] 2.1 Wrap the flag-proof leg outcomes (`web/src/app/dashboard/page.tsx:354-367`) in `Badge`
       with the appropriate variant, matching the pattern already used for case-report PASS/FAIL at
       line 315.
-- [ ] 2.2 Sweep `web/src/app/dashboard/page.tsx` and `web/src/app/journeys/**` for any other
+- [x] 2.2 Sweep `web/src/app/dashboard/page.tsx` and `web/src/app/journeys/**` for any other
       status-shaped plain-text value (configured/not-configured, revoked/active, etc.) not already
       using `Badge`, and convert each to the matching existing variant.
 
 ## 3. Dark mode
 
-- [ ] 3.1 Mount `next-themes`' `ThemeProvider` at the root in `web/src/app/layout.tsx`, wrapping the
+- [x] 3.1 Mount `next-themes`' `ThemeProvider` at the root in `web/src/app/layout.tsx`, wrapping the
       existing `ClerkProvider`/`html`/`body` structure without changing its current behavior.
-- [ ] 3.2 Add a toggle control in the dashboard header, next to the Clerk `UserButton`.
+- [x] 3.2 Add a toggle control in the dashboard header, next to the Clerk `UserButton`.
 - [ ] 3.3 Confirm (screenshot, both modes) that every page already styled via the `globals.css`
       token architecture — dashboard, journeys, sign-in, landing — renders correctly in both.
 
 ## 4. Dashboard regrouping
 
-- [ ] 4.1 Reorganize `web/src/app/dashboard/page.tsx`'s card order into three visually distinct
+- [x] 4.1 Reorganize `web/src/app/dashboard/page.tsx`'s card order into three visually distinct
       sections: Set up (Connection, Adapter credentials, Project secrets), Run (Journeys, API
       tokens), Results (Run history, Flag-proof results) — section labels, not tabs.
-- [ ] 4.2 Implement the Set-up section's collapse-when-configured behavior: a single summary line
+- [x] 4.2 Implement the Set-up section's collapse-when-configured behavior: a single summary line
       when at least one of Connection/Adapter-credentials/Project-secrets has something configured,
       expanded by default otherwise. Single derived boolean, no persistence.
 - [ ] 4.3 Confirm both states (brand-new project, fully-configured project) render as designed.
@@ -46,7 +46,7 @@
 
 ## 6. Icons
 
-- [ ] 6.1 Add `lucide-react` icons to the dashboard's section headers (one per zone from task 4) and
+- [x] 6.1 Add `lucide-react` icons to the dashboard's section headers (one per zone from task 4) and
       to the primary nav/header elements where they clarify meaning (not decoratively everywhere).
 
 ## 7. Real verification
