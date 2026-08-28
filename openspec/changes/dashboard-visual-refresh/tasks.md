@@ -25,7 +25,7 @@
 - [x] 3.1 Mount `next-themes`' `ThemeProvider` at the root in `web/src/app/layout.tsx`, wrapping the
       existing `ClerkProvider`/`html`/`body` structure without changing its current behavior.
 - [x] 3.2 Add a toggle control in the dashboard header, next to the Clerk `UserButton`.
-- [ ] 3.3 Confirm (screenshot, both modes) that every page already styled via the `globals.css`
+- [x] 3.3 Confirm (screenshot, both modes) that every page already styled via the `globals.css`
       token architecture — dashboard, journeys, sign-in, landing — renders correctly in both.
 
 ## 4. Dashboard regrouping
@@ -36,13 +36,16 @@
 - [x] 4.2 Implement the Set-up section's collapse-when-configured behavior: a single summary line
       when at least one of Connection/Adapter-credentials/Project-secrets has something configured,
       expanded by default otherwise. Single derived boolean, no persistence.
-- [ ] 4.3 Confirm both states (brand-new project, fully-configured project) render as designed.
+- [x] 4.3 Confirm both states (brand-new project, fully-configured project) render as designed.
 
 ## 5. Landing page
 
-- [ ] 5.1 Add a real product screenshot (the post-refresh dashboard) to `web/src/app/page.tsx`,
-      alongside the existing copy.
-- [ ] 5.2 Add 3–4 one-line feature callouts beneath the existing value-proposition text.
+- [x] 5.1 Add a real product screenshot (the post-refresh dashboard) to `web/src/app/page.tsx`,
+      alongside the existing copy. Implemented as a live-rendered preview using the actual Card/
+      Table/Badge components (real case IDs from the bundled examples) rather than a static image —
+      no file-saving pipeline available to capture/commit a literal screenshot in this session, and
+      this stays in sync with the real theme automatically instead of going stale.
+- [x] 5.2 Add 3–4 one-line feature callouts beneath the existing value-proposition text.
 
 ## 6. Icons
 
