@@ -71,6 +71,29 @@ export default defineConfig({
           return { username, password, currentTotpCode };
         },
 
+        // naha-real-journey: real NAHA test-account credentials (the e2e login shared secret, the
+        // deployed API's base URL, and an admin test-user email) live in AWS Secrets Manager, same
+        // convention as fetchGitHubTestAccount/fetchLaunchDarklyTestAccount above. The secret itself
+        // is stored as a ReleaseTwin project secret through the real dashboard form during the test
+        // — this task only supplies the real values to put there.
+        async fetchNahaTestAccount() {
+          const client = new SecretsManagerClient({});
+          const response = await client.send(
+            new GetSecretValueCommand({ SecretId: "releasetwin/e2e/naha-account" }),
+          );
+          if (!response.SecretString) {
+            throw new Error("releasetwin/e2e/naha-account has no SecretString value.");
+          }
+
+          const { e2eAuthSecret, apiBaseUrl, adminEmail } = JSON.parse(response.SecretString) as {
+            e2eAuthSecret: string;
+            apiBaseUrl: string;
+            adminEmail: string;
+          };
+
+          return { e2eAuthSecret, apiBaseUrl, adminEmail };
+        },
+
         // launchdarkly-real-flag-proof: real LaunchDarkly test-account credentials (API token,
         // project key, environment key only — the flag key deliberately lives in the spec file
         // itself, not the secret, so different tests can target different flags) live in AWS
