@@ -9,18 +9,20 @@ namespace ReleaseTwin.Adapters.Ui.Tests;
 /// </summary>
 internal sealed class StaticPageServer : IDisposable
 {
-    private const string Html = """
+    private const string HtmlTemplate = """
         <!DOCTYPE html>
         <html>
         <head><title>UI Adapter Test Page</title></head>
         <body>
           <p id="greeting">hello</p>
           <input id="name" />
+          <input id="secret" type="password" />
           <button id="submit" onclick="
             document.getElementById('result').innerText = 'Hello, ' + document.getElementById('name').value;
             document.getElementById('result').style.display = 'block';
           ">Submit</button>
           <div id="result" style="display:none"></div>
+          <pre id="cookies">__COOKIES__</pre>
         </body>
         </html>
         """;
@@ -54,7 +56,9 @@ internal sealed class StaticPageServer : IDisposable
                 return;
             }
 
-            var bytes = Encoding.UTF8.GetBytes(Html);
+            var cookieHeader = context.Request.Headers["Cookie"] ?? "";
+            var html = HtmlTemplate.Replace("__COOKIES__", WebUtility.HtmlEncode(cookieHeader));
+            var bytes = Encoding.UTF8.GetBytes(html);
             context.Response.ContentType = "text/html";
             context.Response.ContentLength64 = bytes.Length;
             await context.Response.OutputStream.WriteAsync(bytes);
