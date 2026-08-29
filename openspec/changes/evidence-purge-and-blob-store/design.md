@@ -54,9 +54,11 @@ Matches the table's own `${var.table_prefix}ReleaseTwinHosted` naming so a prod/
 
 The staleness digest is read-only (`Query` + `Scan`). The purge **writes** — `dynamodb:DeleteItem` on the table, plus `Scan`/`Query` to find expired rows and read each project's retention window. Plus S3 `GetObject`? No — purge only deletes, so `s3:DeleteObject` + `s3:ListBucket` on the bucket. The `hosted_api` role separately gets `s3:PutObject` + `s3:DeleteObject` (delete: not strictly needed today, but cheap and covers a future "delete this evidence now" endpoint).
 
-### D4: `EvidenceStoreTests` stay in-memory; add a focused `S3EvidenceBlobStore` test against a stub `IAmazonS3`
+### D4: No dedicated `S3EvidenceBlobStore` unit test — same convention as `SnsOperatorAlertPublisher`
 
-A hand-written `IAmazonS3` stub implementing only `PutObjectAsync`/`GetObjectAsync`/`DeleteObjectAsync` over a `Dictionary<string, byte[]>`, throwing `AmazonS3Exception { ErrorCode = "NoSuchKey" }` on a missing get — enough to prove the round-trip and the null-on-missing contract. No LocalStack / no network. The existing purge tests already cover the purge logic with `InMemoryEvidenceBlobStore`.
+Originally this planned a hand-written `IAmazonS3` stub. In practice the v4 `IAmazonS3` interface has ~250 members, so a hand stub is impractical, and the repo deliberately uses no mocking library (every fake is hand-written: `InMemoryHostedTable`, `InMemoryEvidenceBlobStore`, `InMemoryOperatorAlertPublisher`).
+
+`S3EvidenceBlobStore` is a 3-call SDK passthrough — exactly the shape of `SnsOperatorAlertPublisher`, which has no unit test either. What matters (purge deletes blobs, ingest stores them, the dashboard serves them) is already covered by `EvidenceStoreTests` / `EvidenceIngestApiTests` running against `InMemoryEvidenceBlobStore`. The S3 path's correctness is covered by `terraform plan` (the bucket + IAM exist) and a manual smoke check on first deploy.
 
 ## Risks / Trade-offs
 
