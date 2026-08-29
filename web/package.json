@@ -23,7 +23,13 @@
     "e2e:run:naha": "cypress run --spec cypress/e2e/naha-real-journey.cy.ts",
     "e2e:naha": "start-server-and-test e2e:api http://localhost:5199/Privacy e2e:web http://localhost:3000 e2e:run:naha",
     "e2e:run:evidence": "cypress run --spec cypress/e2e/evidence-capture.cy.ts",
-    "e2e:evidence": "start-server-and-test e2e:api http://localhost:5199/Privacy e2e:web http://localhost:3000 e2e:run:evidence"
+    "e2e:evidence": "start-server-and-test e2e:api http://localhost:5199/Privacy e2e:web http://localhost:3000 e2e:run:evidence",
+    "e2e:run:ui-journey": "cypress run --spec cypress/e2e/ui-journey-visual-evidence.cy.ts",
+    "e2e:ui-journey": "start-server-and-test e2e:api http://localhost:5199/Privacy e2e:web http://localhost:3000 e2e:run:ui-journey",
+    "e2e:run:naha-ui": "cypress run --spec cypress/e2e/naha-admin-ui-journey.cy.ts",
+    "e2e:naha-ui": "start-server-and-test e2e:api http://localhost:5199/Privacy e2e:web http://localhost:3000 e2e:run:naha-ui",
+    "e2e:run:evidence-all": "cypress run --spec cypress/e2e/evidence-capture.cy.ts,cypress/e2e/ui-journey-visual-evidence.cy.ts,cypress/e2e/naha-admin-ui-journey.cy.ts",
+    "e2e:evidence-all": "start-server-and-test e2e:api http://localhost:5199/Privacy e2e:web http://localhost:3000 e2e:run:evidence-all"
   },
   "dependencies": {
     "@clerk/nextjs": "^7.8.1",

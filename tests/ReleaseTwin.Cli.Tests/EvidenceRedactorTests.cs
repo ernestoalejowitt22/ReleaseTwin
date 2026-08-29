@@ -9,10 +9,10 @@ namespace ReleaseTwin.Cli.Tests;
 
 public class EvidenceRedactorTests
 {
-    private static RunEvidence OneStep(object adapterEvidence, AssertionDetail? assertion = null) =>
+    private static RunEvidence OneStep(object adapterEvidence, AssertionDetail? assertion = null, string operationName = "http.request") =>
         new("CASE-1", "t/1", new[]
         {
-            new StepEvidence(0, "http.request", StepEvidenceOutcome.Passed, TimeSpan.FromMilliseconds(5), assertion, adapterEvidence),
+            new StepEvidence(0, operationName, StepEvidenceOutcome.Passed, TimeSpan.FromMilliseconds(5), assertion, adapterEvidence),
         });
 
     private static JObject AdapterJson(RedactionResult result) =>
@@ -137,5 +137,67 @@ public class EvidenceRedactorTests
     {
         public string Action { get; set; } = "";
         public string? ScreenshotPath { get; set; }
+    }
+
+    // ---- ui.* typed-value redaction (evidence-capture delta) ----
+
+    private sealed class UiFillEvidenceLike
+    {
+        public string Action { get; set; } = "ui.fill";
+        public Dictionary<string, string?> Parameters { get; set; } = new();
+        public bool ValueIsProtected { get; set; }
+    }
+
+    [Fact]
+    public void UiFill_TypedValue_IsMaskedWithNoRule()
+    {
+        var evidence = OneStep(
+            new UiFillEvidenceLike { Parameters = new() { ["selector"] = "#username", ["value"] = "tomsmith" } },
+            operationName: "ui.fill");
+
+        var result = new EvidenceRedactor(Array.Empty<string>()).Redact(evidence, null, null, EvidenceRules.None);
+        var json = AdapterJson(result);
+
+        Assert.Equal(EvidenceRedactor.Mask, (string?)json["Parameters"]!["value"]);
+        Assert.Equal("#username", (string?)json["Parameters"]!["selector"]);
+        Assert.DoesNotContain("tomsmith", json.ToString());
+    }
+
+    [Fact]
+    public void UiFill_NonPasswordValue_CanBeReIncludedByAllowlist()
+    {
+        var evidence = OneStep(
+            new UiFillEvidenceLike { Parameters = new() { ["selector"] = "#coupon", ["value"] = "SPRING24" }, ValueIsProtected = false },
+            operationName: "ui.fill");
+        var rules = new EvidenceRules(new[] { "$.Parameters.value" }, Array.Empty<EvidenceRedactRule>());
+
+        var result = new EvidenceRedactor(Array.Empty<string>()).Redact(evidence, null, null, rules);
+
+        Assert.Equal("SPRING24", (string?)AdapterJson(result)["Parameters"]!["value"]);
+    }
+
+    [Fact]
+    public void UiFill_PasswordValue_StaysMaskedEvenAgainstAnAllowlist()
+    {
+        var evidence = OneStep(
+            new UiFillEvidenceLike { Parameters = new() { ["selector"] = "#password", ["value"] = "«password»" }, ValueIsProtected = true },
+            operationName: "ui.fill");
+        var rules = new EvidenceRules(new[] { "$.Parameters.value" }, Array.Empty<EvidenceRedactRule>());
+
+        var result = new EvidenceRedactor(Array.Empty<string>()).Redact(evidence, null, null, rules);
+
+        Assert.Equal(EvidenceRedactor.Mask, (string?)AdapterJson(result)["Parameters"]!["value"]);
+    }
+
+    [Fact]
+    public void HttpStep_ValueField_IsNotTouchedByTheUiRule()
+    {
+        var evidence = OneStep(
+            new { responseBody = new { value = "legitimate-http-value" } },
+            operationName: "http.request");
+
+        var result = new EvidenceRedactor(Array.Empty<string>()).Redact(evidence, null, null, EvidenceRules.None);
+
+        Assert.Equal("legitimate-http-value", (string?)AdapterJson(result)["responseBody"]!["value"]);
     }
 }
