@@ -204,6 +204,68 @@ data "aws_iam_policy_document" "github_actions_deploy_permissions" {
     actions   = ["dynamodb:GetItem", "dynamodb:PutItem", "dynamodb:DeleteItem"]
     resources = [data.aws_dynamodb_table.terraform_lock.arn]
   }
+
+  # operator-alerting alerting.tf: the SNS topic for operator alerts. Resource-scoped, same
+  # rationale as the dynamodb:*/lambda:* statements above (the provider makes read-back calls
+  # beyond the obvious CRUD verbs).
+  statement {
+    sid       = "OperatorAlertsSns"
+    actions   = ["sns:*"]
+    resources = ["arn:aws:sns:${var.region}:846136340491:releasetwin-dev-*"]
+  }
+
+  # operator-alerting + evidence-purge-and-blob-store: the daily-schedule EventBridge rules for
+  # the staleness digest and the evidence purge.
+  statement {
+    sid       = "ScheduledRules"
+    actions   = ["events:*"]
+    resources = ["arn:aws:events:${var.region}:846136340491:rule/releasetwin-dev-*"]
+  }
+
+  # operator-alerting alerting.tf: CloudWatch alarms (5xx / Lambda errors / throttles). Describe*
+  # is a list-type action with no resource-level scoping; the write verbs pin to the alarm ARN.
+  statement {
+    sid       = "CloudWatchAlarmsDescribe"
+    actions   = ["cloudwatch:DescribeAlarms", "cloudwatch:ListTagsForResource"]
+    resources = ["*"]
+  }
+
+  statement {
+    sid = "CloudWatchAlarmsWrite"
+    actions = [
+      "cloudwatch:PutMetricAlarm",
+      "cloudwatch:DeleteAlarms",
+      "cloudwatch:TagResource",
+      "cloudwatch:UntagResource",
+    ]
+    resources = ["arn:aws:cloudwatch:${var.region}:846136340491:alarm:releasetwin-dev-*"]
+  }
+
+  # operator-alerting alerting.tf: the CloudWatch Logs metric filter over the hosted API's log
+  # group. Describe* has no resource-level scoping; PutMetricFilter/DeleteMetricFilter pin to the
+  # log-group ARN.
+  statement {
+    sid       = "LogsMetricFilterDescribe"
+    actions   = ["logs:DescribeLogGroups", "logs:DescribeMetricFilters"]
+    resources = ["*"]
+  }
+
+  statement {
+    sid       = "LogsMetricFilterWrite"
+    actions   = ["logs:PutMetricFilter", "logs:DeleteMetricFilter"]
+    resources = ["arn:aws:logs:${var.region}:846136340491:log-group:/aws/lambda/releasetwin-dev-*:*"]
+  }
+
+  # evidence-purge-and-blob-store evidence.tf: the redacted-screenshot blob bucket. Scoped to the
+  # dev-prefixed bucket name; the separate TerraformStateBucket statement above covers state.
+  statement {
+    sid     = "EvidenceBlobBucket"
+    actions = ["s3:*"]
+    resources = [
+      "arn:aws:s3:::releasetwin-dev-*",
+      "arn:aws:s3:::releasetwin-dev-*/*",
+    ]
+  }
 }
 
 resource "aws_iam_role_policy" "github_actions_deploy" {
