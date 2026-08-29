@@ -24,6 +24,13 @@ interface StepState {
   captures: CaptureRow[];
 }
 
+type EvidenceRedactKind = "header" | "json_path" | "field" | "selector" | "region";
+
+interface EvidenceRedactRow {
+  kind: EvidenceRedactKind;
+  value: string;
+}
+
 let nextId = 0;
 function newId() {
   nextId += 1;
@@ -54,6 +61,8 @@ function buildYaml(state: {
   fixtureSha256: string;
   steps: StepState[];
   cleanup: string[];
+  evidenceCapture: string[];
+  evidenceRedact: EvidenceRedactRow[];
 }): string {
   const lines: string[] = [];
   lines.push(`id: ${yamlString(state.caseId)}`);
@@ -100,6 +109,24 @@ function buildYaml(state: {
     }
   }
 
+  const capture = state.evidenceCapture.map((p) => p.trim()).filter((p) => p.length > 0);
+  const redact = state.evidenceRedact.filter((r) => r.value.trim().length > 0);
+  if (capture.length > 0 || redact.length > 0) {
+    lines.push(`evidence:`);
+    if (capture.length > 0) {
+      lines.push(`  capture:`);
+      for (const p of capture) {
+        lines.push(`    - ${yamlString(p)}`);
+      }
+    }
+    if (redact.length > 0) {
+      lines.push(`  redact:`);
+      for (const r of redact) {
+        lines.push(`    - ${r.kind}: ${yamlString(r.value.trim())}`);
+      }
+    }
+  }
+
   return lines.join("\n") + "\n";
 }
 
@@ -110,14 +137,26 @@ export function JourneyBuilder({ journeyId, projectId }: { journeyId: string; pr
   const [fixtureSha256, setFixtureSha256] = useState("");
   const [steps, setSteps] = useState<(StepState & { id: number })[]>([]);
   const [cleanup, setCleanup] = useState<{ id: number; operation: string }[]>([]);
+  const [evidenceCaptureText, setEvidenceCaptureText] = useState("");
+  const [evidenceRedact, setEvidenceRedact] = useState<{ id: number; kind: EvidenceRedactKind; value: string }[]>([]);
   const [savedVersion, setSavedVersion] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
   const router = useRouter();
 
   const yaml = useMemo(
-    () => buildYaml({ caseId, oracleLocator, fixtureLocator, fixtureSha256, steps, cleanup: cleanup.map((c) => c.operation) }),
-    [caseId, oracleLocator, fixtureLocator, fixtureSha256, steps, cleanup],
+    () =>
+      buildYaml({
+        caseId,
+        oracleLocator,
+        fixtureLocator,
+        fixtureSha256,
+        steps,
+        cleanup: cleanup.map((c) => c.operation),
+        evidenceCapture: evidenceCaptureText.split("\n"),
+        evidenceRedact: evidenceRedact.map(({ kind, value }) => ({ kind, value })),
+      }),
+    [caseId, oracleLocator, fixtureLocator, fixtureSha256, steps, cleanup, evidenceCaptureText, evidenceRedact],
   );
 
   function addStep() {
@@ -311,6 +350,75 @@ export function JourneyBuilder({ journeyId, projectId }: { journeyId: string; pr
         >
           Add cleanup step
         </Button>
+      </div>
+
+      <div className="flex flex-col gap-3">
+        <h3 className="text-sm font-semibold">Evidence redaction (optional)</h3>
+        <p className="text-xs text-muted-foreground">
+          Rules the CLI applies to captured evidence before upload. Built-in redaction (auth headers,
+          credential-shaped fields, resolved secrets) always runs regardless of what you set here.
+        </p>
+        <div className="flex flex-col gap-1">
+          <label className="text-xs font-medium text-muted-foreground">
+            Allowlist — JSONPaths / field names to keep (one per line)
+          </label>
+          <Textarea
+            data-testid="evidence-capture"
+            value={evidenceCaptureText}
+            onChange={(e) => setEvidenceCaptureText(e.target.value)}
+            rows={3}
+            className="font-mono text-xs"
+            placeholder={"$.order.id\n$.response.status"}
+          />
+        </div>
+        <div className="flex flex-col gap-2">
+          <label className="text-xs font-medium text-muted-foreground">Denylist — extra things to mask</label>
+          {evidenceRedact.map((row) => (
+            <div key={row.id} className="flex gap-2">
+              <select
+                data-testid="evidence-redact-kind"
+                className="rounded-md border bg-transparent px-2 text-sm"
+                value={row.kind}
+                onChange={(e) =>
+                  setEvidenceRedact((prev) =>
+                    prev.map((r) => (r.id === row.id ? { ...r, kind: e.target.value as EvidenceRedactKind } : r)),
+                  )
+                }
+              >
+                <option value="json_path">json_path</option>
+                <option value="header">header</option>
+                <option value="field">field</option>
+                <option value="selector">selector</option>
+                <option value="region">region</option>
+              </select>
+              <Input
+                data-testid="evidence-redact-value"
+                value={row.value}
+                onChange={(e) =>
+                  setEvidenceRedact((prev) => prev.map((r) => (r.id === row.id ? { ...r, value: e.target.value } : r)))
+                }
+                placeholder="$.customer.email  /  X-Trace  /  10,20,100,40"
+              />
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                onClick={() => setEvidenceRedact((prev) => prev.filter((r) => r.id !== row.id))}
+              >
+                Remove
+              </Button>
+            </div>
+          ))}
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            className="self-start"
+            onClick={() => setEvidenceRedact((prev) => [...prev, { id: newId(), kind: "json_path", value: "" }])}
+          >
+            Add redaction rule
+          </Button>
+        </div>
       </div>
 
       <div className="flex flex-col gap-2">

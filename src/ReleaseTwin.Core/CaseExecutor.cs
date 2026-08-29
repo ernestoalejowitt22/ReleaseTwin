@@ -25,10 +25,20 @@ public sealed class CaseExecutor
         _resourceSerializer = resourceSerializer ?? new SemaphoreResourceSerializer();
     }
 
+    /// <summary>Runs a case and returns only its report — unchanged from before evidence capture existed.</summary>
     public async Task<CaseReport> ExecuteAsync(TestCase testCase, CancellationToken cancellationToken = default)
+        => (await ExecuteAsync(testCase, ExecutionOptions.Default, cancellationToken)).Report;
+
+    /// <summary>
+    /// Runs a case with explicit options. When <see cref="ExecutionOptions.CaptureEvidence"/> is
+    /// false the returned <see cref="CaseExecutionResult.Evidence"/> is null and the report is
+    /// byte-for-byte what the report-only overload produces.
+    /// </summary>
+    public async Task<CaseExecutionResult> ExecuteAsync(TestCase testCase, ExecutionOptions options, CancellationToken cancellationToken = default)
     {
         var stopwatch = Stopwatch.StartNew();
-        var context = new CaseExecutionContext { Case = testCase };
+        var capture = options.CaptureEvidence;
+        var context = new CaseExecutionContext { Case = testCase, CaptureEvidence = capture };
 
         var resourceLock = testCase.ResourceKey is null
             ? null
@@ -40,7 +50,7 @@ public sealed class CaseExecutor
             {
                 if (!_capabilities.IsAvailable(capability.Name))
                 {
-                    return Report(testCase, stopwatch, passed: false, FailureClassification.Infrastructure, $"missing-capability:{capability.Name}", CleanupStatus.NotRun);
+                    return Result(testCase, stopwatch, passed: false, FailureClassification.Infrastructure, $"missing-capability:{capability.Name}", CleanupStatus.NotRun, capture, AllNotExecuted(testCase, capture));
                 }
             }
 
@@ -51,7 +61,7 @@ public sealed class CaseExecutor
 
             if (!VerifyFixture(testCase.Fixture))
             {
-                return Report(testCase, stopwatch, passed: false, FailureClassification.Infrastructure, "fixture-integrity-mismatch", CleanupStatus.NotRun);
+                return Result(testCase, stopwatch, passed: false, FailureClassification.Infrastructure, "fixture-integrity-mismatch", CleanupStatus.NotRun, capture, AllNotExecuted(testCase, capture));
             }
 
             foreach (var declaration in testCase.Prerequisites)
@@ -69,12 +79,12 @@ public sealed class CaseExecutor
                     ? FailureClassification.Prerequisite
                     : FailureClassification.Infrastructure;
                 var haltedCleanupStatus = await RunCleanupAsync(testCase, context, cancellationToken);
-                return Report(testCase, stopwatch, passed: false, prerequisiteClassification, result.Detail, haltedCleanupStatus);
+                return Result(testCase, stopwatch, passed: false, prerequisiteClassification, result.Detail, haltedCleanupStatus, capture, AllNotExecuted(testCase, capture));
             }
 
-            var (passed, classification, detail) = await RunPipelineAsync(testCase, context, cancellationToken);
+            var (passed, classification, detail, steps) = await RunPipelineAsync(testCase, context, capture, cancellationToken);
             var cleanupStatus = await RunCleanupAsync(testCase, context, cancellationToken);
-            return Report(testCase, stopwatch, passed, classification, detail, cleanupStatus);
+            return Result(testCase, stopwatch, passed, classification, detail, cleanupStatus, capture, steps);
         }
         finally
         {
@@ -82,11 +92,14 @@ public sealed class CaseExecutor
         }
     }
 
-    private async Task<(bool Passed, FailureClassification? Classification, string? Detail)> RunPipelineAsync(
-        TestCase testCase, CaseExecutionContext context, CancellationToken cancellationToken)
+    private async Task<(bool Passed, FailureClassification? Classification, string? Detail, List<StepEvidence>? Steps)> RunPipelineAsync(
+        TestCase testCase, CaseExecutionContext context, bool capture, CancellationToken cancellationToken)
     {
-        foreach (var step in testCase.Pipeline)
+        var steps = capture ? new List<StepEvidence>() : null;
+
+        for (var i = 0; i < testCase.Pipeline.Count; i++)
         {
+            var step = testCase.Pipeline[i];
             _operations.TryGet(step.OperationName, out var operation);
 
             IReadOnlyDictionary<string, object?> resolvedParameters;
@@ -96,11 +109,15 @@ public sealed class CaseExecutor
             }
             catch (MissingCaptureException ex)
             {
-                return (false, FailureClassification.Infrastructure, $"missing-capture:{ex.CaptureName}");
+                RecordStep(steps, i, step, StepEvidenceOutcome.Failed, TimeSpan.Zero, operation, capture);
+                MarkRemainingNotExecuted(steps, testCase, i + 1, capture);
+                return (false, FailureClassification.Infrastructure, $"missing-capture:{ex.CaptureName}", steps);
             }
 
+            var stepStopwatch = capture ? Stopwatch.StartNew() : null;
             var (succeeded, stepDetail, isTimeout, stepCaptures) =
                 await ExecuteStepWithRetryAsync(operation!, context, step, resolvedParameters, cancellationToken);
+            stepStopwatch?.Stop();
 
             if (succeeded)
             {
@@ -111,23 +128,80 @@ public sealed class CaseExecutor
             }
 
             var effectivelyPassed = step.ExpectFailure ? !succeeded : succeeded;
+
+            var outcome = effectivelyPassed
+                ? (step.ExpectFailure ? StepEvidenceOutcome.ExpectedFailure : StepEvidenceOutcome.Passed)
+                : isTimeout ? StepEvidenceOutcome.Timeout
+                : step.ExpectFailure ? StepEvidenceOutcome.Failed
+                : StepEvidenceOutcome.Failed;
+            RecordStep(steps, i, step, outcome, stepStopwatch?.Elapsed ?? TimeSpan.Zero, operation, capture);
+
             if (effectivelyPassed)
             {
                 continue;
             }
 
+            MarkRemainingNotExecuted(steps, testCase, i + 1, capture);
+
             if (step.ExpectFailure)
             {
                 // The declared-to-fail operation unexpectedly succeeded: a distinct classification
                 // from an ordinary assertion failure, since it signals the oracle didn't behave as declared.
-                return (false, FailureClassification.Unstable, "expected-failure-did-not-occur");
+                return (false, FailureClassification.Unstable, "expected-failure-did-not-occur", steps);
             }
 
             var classification = isTimeout ? FailureClassification.Infrastructure : FailureClassification.Product;
-            return (false, classification, stepDetail);
+            return (false, classification, stepDetail, steps);
         }
 
-        return (true, null, null);
+        return (true, null, null, steps);
+    }
+
+    private static void RecordStep(List<StepEvidence>? steps, int index, PipelineStep step, StepEvidenceOutcome outcome, TimeSpan duration, IOperation? operation, bool capture)
+    {
+        if (!capture || steps is null)
+        {
+            return;
+        }
+
+        EvidenceContribution? contribution = null;
+        if (operation is IEvidenceEmittingOperation emitter)
+        {
+            contribution = emitter.DrainEvidence();
+        }
+
+        steps.Add(new StepEvidence(
+            index,
+            step.OperationName,
+            outcome,
+            duration,
+            contribution?.Assertion,
+            contribution?.Adapter));
+    }
+
+    private static void MarkRemainingNotExecuted(List<StepEvidence>? steps, TestCase testCase, int fromIndex, bool capture)
+    {
+        if (!capture || steps is null)
+        {
+            return;
+        }
+
+        for (var i = fromIndex; i < testCase.Pipeline.Count; i++)
+        {
+            steps.Add(new StepEvidence(i, testCase.Pipeline[i].OperationName, StepEvidenceOutcome.NotExecuted, TimeSpan.Zero));
+        }
+    }
+
+    private static List<StepEvidence>? AllNotExecuted(TestCase testCase, bool capture)
+    {
+        if (!capture)
+        {
+            return null;
+        }
+
+        var steps = new List<StepEvidence>();
+        MarkRemainingNotExecuted(steps, testCase, 0, capture: true);
+        return steps;
     }
 
     private static readonly IReadOnlyDictionary<string, string> EmptyCaptures = new Dictionary<string, string>();
@@ -219,6 +293,17 @@ public sealed class CaseExecutor
                 throw new UnknownReferenceException($"Unknown cleanup operation '{declaration.OperationName}'");
             }
         }
+    }
+
+    private static CaseExecutionResult Result(
+        TestCase testCase, Stopwatch stopwatch, bool passed, FailureClassification? classification, string? detail, CleanupStatus cleanupStatus,
+        bool capture, IReadOnlyList<StepEvidence>? steps)
+    {
+        var report = Report(testCase, stopwatch, passed, classification, detail, cleanupStatus);
+        var evidence = capture
+            ? new RunEvidence(testCase.CaseId, testCase.Oracle.Locator, steps ?? Array.Empty<StepEvidence>())
+            : null;
+        return new CaseExecutionResult(report, evidence);
     }
 
     private static CaseReport Report(
