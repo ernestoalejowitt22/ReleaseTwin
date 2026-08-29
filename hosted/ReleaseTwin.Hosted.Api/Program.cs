@@ -1,6 +1,7 @@
 using System.Security.Claims;
 using Amazon.AspNetCore.DataProtection.SSM;
 using Amazon.DynamoDBv2;
+using Amazon.S3;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.IdentityModel.Tokens;
@@ -90,11 +91,33 @@ builder.Services.AddScoped<IAdapterCredentialRepository, AdapterCredentialReposi
 builder.Services.AddScoped<IProjectSecretRepository, ProjectSecretRepository>();
 builder.Services.AddScoped<IRunEvidenceRepository, RunEvidenceRepository>();
 
-// evidence-store: screenshot blobs live outside the single table. Filesystem-backed; the directory
-// is configurable (a persistent volume / EFS mount in a real deploy), defaulting under temp.
-builder.Services.AddSingleton<IEvidenceBlobStore>(_ => new FileSystemEvidenceBlobStore(
-    builder.Configuration["Evidence:BlobDirectory"]
-    ?? Path.Combine(Path.GetTempPath(), "releasetwin-evidence-blobs")));
+// evidence-store: screenshot blobs live outside the single table. evidence-purge-and-blob-store:
+// S3-backed when Evidence:BlobBucket is set (the only store that survives Lambda's ephemeral
+// filesystem and works across concurrent instances); filesystem otherwise, for local dev.
+var evidenceBlobBucket = builder.Configuration["Evidence:BlobBucket"];
+if (!string.IsNullOrWhiteSpace(evidenceBlobBucket))
+{
+    builder.Services.AddSingleton<IAmazonS3>(_ =>
+    {
+        var config = new AmazonS3Config();
+        if (!string.IsNullOrWhiteSpace(builder.Configuration["Aws:Region"]))
+        {
+            config.RegionEndpoint = Amazon.RegionEndpoint.GetBySystemName(builder.Configuration["Aws:Region"]);
+        }
+
+        // SDK default credential chain (env / shared config / IAM role) — never a hardcoded key,
+        // same rule as the DynamoDB and SNS clients.
+        return new AmazonS3Client(config);
+    });
+    builder.Services.AddSingleton<IEvidenceBlobStore>(sp =>
+        new S3EvidenceBlobStore(sp.GetRequiredService<IAmazonS3>(), evidenceBlobBucket));
+}
+else
+{
+    builder.Services.AddSingleton<IEvidenceBlobStore>(_ => new FileSystemEvidenceBlobStore(
+        builder.Configuration["Evidence:BlobDirectory"]
+        ?? Path.Combine(Path.GetTempPath(), "releasetwin-evidence-blobs")));
+}
 builder.Services.AddScoped<EvidenceIngestService>();
 builder.Services.AddScoped<EvidencePurgeService>();
 

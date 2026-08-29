@@ -33,6 +33,27 @@ project stale for a week appears in the digest every day it's stale.
    `<prefix>releasetwin-staleness-digest`) and confirm the digest email's content looks right
    before trusting the daily schedule.
 
+## Evidence storage & purge
+
+`dashboard-evidence-viewer` lets a Paid-tier customer opt into uploading a redacted run-evidence
+document (per-step request/response summaries, assertion detail, screenshots). Two pieces of
+operator infrastructure back it, wired by `evidence-purge-and-blob-store`:
+
+| Resource | Role | Where it's defined |
+|---|---|---|
+| `<prefix>releasetwin-evidence-blobs` S3 bucket | Holds the redacted screenshot PNGs (one object per screenshot id). Private, SSE-S3, **no lifecycle rule** — the app deletes on each project's own retention window, not a fixed age. | `hosted/terraform/evidence.tf` |
+| `<prefix>releasetwin-evidence-purge` Lambda | Runs `EvidencePurgeService` once a day via `<prefix>releasetwin-evidence-purge-daily` EventBridge rule — deletes every evidence document (and its blobs) older than its project's `EvidenceRetentionDays` (default 30, max 365), leaving the metadata report row untouched. | `hosted/terraform/evidence.tf` |
+
+Same "second Lambda sharing the HTTP function's artifact, discriminated by `RELEASETWIN_LAMBDA_TASK`"
+pattern as the staleness digest — except the purge role is read-**write** on the table
+(`dynamodb:DeleteItem`), since it removes expired rows. The API function sets `Evidence__BlobBucket`,
+which is what switches its blob store from the local-dev filesystem to S3.
+
+**One-time setup:** after `terraform apply` creates the bucket + purge Lambda, redeploy the API
+package so it picks up `Evidence__BlobBucket`, then manually invoke the purge Lambda once
+(`aws lambda invoke` against `<prefix>releasetwin-evidence-purge`) and confirm its log line
+(`evidence_purge_run purged_count=...`) before trusting the daily schedule.
+
 ## Why this shape
 
 See `design.md`'s Decisions for the full reasoning; the short version: single operator, single
