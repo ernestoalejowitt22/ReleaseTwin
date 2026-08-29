@@ -10,9 +10,9 @@ public sealed record DashboardConnectionView(string Provider, string ExternalRep
 
 public sealed record DashboardTokenView(Guid Id, string DisplayPrefix, DateTimeOffset CreatedAt, bool IsRevoked);
 
-public sealed record DashboardCaseReportView(string CaseId, bool Passed, string? Classification, string CleanupStatus, DateTimeOffset UploadedAt);
+public sealed record DashboardCaseReportView(string CaseId, bool Passed, string? Classification, string CleanupStatus, DateTimeOffset UploadedAt, Guid ReportId, string EvidenceStatus);
 
-public sealed record DashboardFlagProofReportView(string CaseId, string BuildIdentity, string Outcome, bool? KnownBadLegPassed, bool? KnownGoodLegPassed, DateTimeOffset UploadedAt);
+public sealed record DashboardFlagProofReportView(string CaseId, string BuildIdentity, string Outcome, bool? KnownBadLegPassed, bool? KnownGoodLegPassed, DateTimeOffset UploadedAt, Guid ReportId, string EvidenceStatus);
 
 /// <summary>usage-metering: organization-wide report counts for the current period, independent of which project is selected — see dashboard spec's "Dashboard shows the organization's current usage".</summary>
 public sealed record DashboardUsageSummary(int CaseReportCount, int FlagProofReportCount, DateOnly PeriodStart);
@@ -44,6 +44,7 @@ public sealed class DashboardService
     private readonly ICaseReportRepository _caseReports;
     private readonly IFlagProofReportRepository _flagProofReports;
     private readonly IUsageCounterRepository _usage;
+    private readonly IRunEvidenceRepository _runEvidence;
 
     public DashboardService(
         IOrganizationRepository organizations,
@@ -52,7 +53,8 @@ public sealed class DashboardService
         IApiTokenRepository tokens,
         ICaseReportRepository caseReports,
         IFlagProofReportRepository flagProofReports,
-        IUsageCounterRepository usage)
+        IUsageCounterRepository usage,
+        IRunEvidenceRepository runEvidence)
     {
         _organizations = organizations;
         _projects = projects;
@@ -61,6 +63,7 @@ public sealed class DashboardService
         _caseReports = caseReports;
         _flagProofReports = flagProofReports;
         _usage = usage;
+        _runEvidence = runEvidence;
     }
 
     public async Task<DashboardView> GetDashboardViewAsync(Guid organizationId, Guid? projectId, CancellationToken cancellationToken = default)
@@ -92,6 +95,28 @@ public sealed class DashboardService
         var caseReports = await _caseReports.ListByProjectAsync(selectedProject.Id, cancellationToken);
         var flagProofReports = await _flagProofReports.ListByProjectAsync(selectedProject.Id, cancellationToken);
 
+        // evidence-store: per-report evidence state for the dashboard drill-down.
+        var evidenceEntitled = planTier == PlanTier.Paid;
+        var evidenceByReport = evidenceEntitled
+            ? (await _runEvidence.ListByProjectAsync(selectedProject.Id, cancellationToken)).ToDictionary(e => e.ReportId)
+            : new Dictionary<Guid, Data.Entities.UploadedRunEvidence>();
+        var now = DateTimeOffset.UtcNow;
+
+        string EvidenceStatus(Guid reportId)
+        {
+            if (!evidenceEntitled)
+            {
+                return "not-entitled";
+            }
+
+            if (!evidenceByReport.TryGetValue(reportId, out var evidence))
+            {
+                return "none";
+            }
+
+            return evidence.UploadedAt.AddDays(selectedProject.EvidenceRetentionDays) < now ? "expired" : "available";
+        }
+
         // upload-staleness spec: judged from this project's own combined upload timeline, not
         // case reports or flag-proof reports alone.
         var uploadTimestamps = caseReports.Select(r => r.UploadedAt)
@@ -104,8 +129,8 @@ public sealed class DashboardService
             new DashboardProjectSummary(selectedProject.Id, selectedProject.Name),
             connection is null ? null : new DashboardConnectionView(connection.Provider, connection.ExternalRepo, connection.ConnectedAt),
             tokens.Select(t => new DashboardTokenView(t.Id, t.DisplayPrefix, t.CreatedAt, t.IsRevoked)).ToList(),
-            caseReports.Select(r => new DashboardCaseReportView(r.CaseId, r.Passed, r.Classification, r.CleanupStatus, r.UploadedAt)).ToList(),
-            flagProofReports.Select(r => new DashboardFlagProofReportView(r.CaseId, r.BuildIdentity, r.Outcome, r.KnownBadLegPassed, r.KnownGoodLegPassed, r.UploadedAt)).ToList(),
+            caseReports.Select(r => new DashboardCaseReportView(r.CaseId, r.Passed, r.Classification, r.CleanupStatus, r.UploadedAt, r.Id, EvidenceStatus(r.Id))).ToList(),
+            flagProofReports.Select(r => new DashboardFlagProofReportView(r.CaseId, r.BuildIdentity, r.Outcome, r.KnownBadLegPassed, r.KnownGoodLegPassed, r.UploadedAt, r.Id, EvidenceStatus(r.Id))).ToList(),
             usage,
             planTier,
             isStale);

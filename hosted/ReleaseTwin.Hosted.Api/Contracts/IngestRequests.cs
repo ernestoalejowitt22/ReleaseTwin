@@ -1,3 +1,5 @@
+using System.Text.Json;
+
 namespace ReleaseTwin.Hosted.Api.Contracts;
 
 /// <summary>
@@ -18,6 +20,14 @@ public sealed class IngestCaseReportRequest
     public string? FailureDetail { get; init; }
     public required string CleanupStatus { get; init; }
     public required long DurationMs { get; init; }
+
+    /// <summary>
+    /// evidence-capture: an optional, already-redacted evidence document. Opaque here — the ingest
+    /// API never inspects it for sensitive content (redaction is the caller's completed
+    /// responsibility, done in their CLI). Absent ⇒ the request is exactly the pre-evidence shape.
+    /// This carries no field for a credential or token value.
+    /// </summary>
+    public JsonElement? Evidence { get; init; }
 }
 
 public sealed class IngestFlagProofReportRequest
@@ -28,4 +38,7 @@ public sealed class IngestFlagProofReportRequest
     public required string Outcome { get; init; }
     public bool? KnownBadLegPassed { get; init; }
     public bool? KnownGoodLegPassed { get; init; }
+
+    /// <summary>evidence-capture: see <see cref="IngestCaseReportRequest.Evidence"/>.</summary>
+    public JsonElement? Evidence { get; init; }
 }

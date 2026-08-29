@@ -4,6 +4,7 @@ using ReleaseTwin.Adapters.Http;
 using ReleaseTwin.Adapters.LaunchDarkly;
 using ReleaseTwin.Adapters.Ui;
 using ReleaseTwin.Cli.CaseLoading;
+using ReleaseTwin.Cli.Evidence;
 using ReleaseTwin.Cli.Upload;
 using ReleaseTwin.Core;
 
@@ -36,11 +37,12 @@ public sealed class CliRunner
         HttpMessageHandler? uploadHandlerForTesting = null,
         HttpMessageHandler? launchDarklyHandlerForTesting = null,
         HttpMessageHandler? adapterCredentialsHandlerForTesting = null,
-        HttpMessageHandler? projectSecretsHandlerForTesting = null) =>
+        HttpMessageHandler? projectSecretsHandlerForTesting = null,
+        HttpMessageHandler? evidenceConfigHandlerForTesting = null) =>
         RunCoreAsync(
             environment, output, cancellationToken,
             LoadLocalCasesAsync(casesDirectory),
-            azureDevOpsHandlerForTesting, httpAdapterHandlerForTesting, uploadHandlerForTesting, launchDarklyHandlerForTesting, adapterCredentialsHandlerForTesting, projectSecretsHandlerForTesting);
+            azureDevOpsHandlerForTesting, httpAdapterHandlerForTesting, uploadHandlerForTesting, launchDarklyHandlerForTesting, adapterCredentialsHandlerForTesting, projectSecretsHandlerForTesting, evidenceConfigHandlerForTesting);
 
     /// <summary>
     /// hosted-journeys: runs one journey fetched from the hosted API at a specific, pinned version —
@@ -61,11 +63,12 @@ public sealed class CliRunner
         HttpMessageHandler? launchDarklyHandlerForTesting = null,
         HttpMessageHandler? journeyFetchHandlerForTesting = null,
         HttpMessageHandler? adapterCredentialsHandlerForTesting = null,
-        HttpMessageHandler? projectSecretsHandlerForTesting = null) =>
+        HttpMessageHandler? projectSecretsHandlerForTesting = null,
+        HttpMessageHandler? evidenceConfigHandlerForTesting = null) =>
         RunCoreAsync(
             environment, output, cancellationToken,
             LoadHostedJourneyAsync(journeyId, version, environment, journeyFetchHandlerForTesting),
-            azureDevOpsHandlerForTesting, httpAdapterHandlerForTesting, uploadHandlerForTesting, launchDarklyHandlerForTesting, adapterCredentialsHandlerForTesting, projectSecretsHandlerForTesting);
+            azureDevOpsHandlerForTesting, httpAdapterHandlerForTesting, uploadHandlerForTesting, launchDarklyHandlerForTesting, adapterCredentialsHandlerForTesting, projectSecretsHandlerForTesting, evidenceConfigHandlerForTesting);
 
     // hosted-project-secrets: takes the effective environment-variable resolver (local environment
     // first, hosted-fetched project secrets as fallback) built by RunCoreAsync, so both loading paths
@@ -130,7 +133,8 @@ public sealed class CliRunner
         HttpMessageHandler? uploadHandlerForTesting,
         HttpMessageHandler? launchDarklyHandlerForTesting,
         HttpMessageHandler? adapterCredentialsHandlerForTesting,
-        HttpMessageHandler? projectSecretsHandlerForTesting)
+        HttpMessageHandler? projectSecretsHandlerForTesting,
+        HttpMessageHandler? evidenceConfigHandlerForTesting = null)
     {
         string? Get(string key) => environment.TryGetValue(key, out var value) ? value : null;
 
@@ -141,6 +145,35 @@ public sealed class CliRunner
         IngestClient? ingestClient = apiToken is { Length: > 0 }
             ? new IngestClient(apiUrl, apiToken, uploadHandlerForTesting)
             : null;
+
+        // evidence-capture (cli-runner delta): capture is opt-in and off by default. An explicit
+        // RELEASETWIN_EVIDENCE=on|off wins over the hosted per-project default; the hosted default is
+        // only consulted when a token is configured and the env var did not decide. Capture only
+        // actually runs when there is also a token to upload through.
+        var envEvidenceToggle = ParseToggle(Get("RELEASETWIN_EVIDENCE"));
+        var captureEvidence = false;
+        // The hosted per-project default is only consulted against a real hosted platform — i.e.
+        // when RELEASETWIN_API_URL is explicitly configured (or a test supplies a handler).
+        var hostedConfigReachable = evidenceConfigHandlerForTesting is not null || Get("RELEASETWIN_API_URL") is { Length: > 0 };
+        if (ingestClient is not null)
+        {
+            if (envEvidenceToggle is { } explicitChoice)
+            {
+                captureEvidence = explicitChoice;
+            }
+            else if (hostedConfigReachable)
+            {
+                using var evidenceConfigClient = new EvidenceConfigClient(apiUrl, apiToken!, evidenceConfigHandlerForTesting);
+                try
+                {
+                    captureEvidence = (await evidenceConfigClient.FetchAsync(cancellationToken)).CaptureDefault;
+                }
+                catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException or EvidenceConfigFetchException)
+                {
+                    output.WriteLine($"WARN: failed to fetch hosted evidence config: {ex.Message}");
+                }
+            }
+        }
 
         var present = AzureDevOpsEnvironmentVariables.Where(key => !string.IsNullOrWhiteSpace(Get(key))).ToList();
         var missing = AzureDevOpsEnvironmentVariables.Except(present).ToList();
@@ -287,6 +320,17 @@ public sealed class CliRunner
             string? ResolveEnvironmentVariable(string name) =>
                 Get(name) ?? (projectSecrets.TryGetValue(name, out var secretValue) ? secretValue : null);
 
+            // evidence-capture: values the redactor must mask wherever they surface in captured
+            // evidence — every hosted project secret, plus the credential-bearing environment
+            // variables this run may have used.
+            var secretsToMask = projectSecrets.Values
+                .Concat(new[] { "AZDO_PAT", "LAUNCHDARKLY_API_TOKEN", "RELEASETWIN_API_TOKEN" }.Select(Get))
+                .Where(v => !string.IsNullOrEmpty(v))
+                .Select(v => v!)
+                .ToList();
+            var redactor = new EvidenceRedactor(secretsToMask);
+            var executionOptions = new ExecutionOptions { CaptureEvidence = captureEvidence && ingestClient is not null };
+
             var (cases, loadError) = await loadCasesAsync(ResolveEnvironmentVariable);
             if (cases is null)
             {
@@ -310,7 +354,8 @@ public sealed class CliRunner
                     }
 
                     var flagProofRunner = new FlagProofRunner(executor, catalog, featureStateController);
-                    var result = await flagProofRunner.RunAsync(testCase, flagProof.FeatureKey, flagProof.BuildIdentity, cancellationToken: cancellationToken);
+                    var flagProofExecution = await flagProofRunner.RunAsync(testCase, flagProof.FeatureKey, flagProof.BuildIdentity, executionOptions, cancellationToken: cancellationToken);
+                    var result = flagProofExecution.Result;
 
                     if (result.Outcome == FlagProofOutcome.Passed)
                     {
@@ -327,7 +372,18 @@ public sealed class CliRunner
                     {
                         try
                         {
-                            await ingestClient.UploadFlagProofReportAsync(result, cancellationToken);
+                            RedactionResult? evidence = null;
+                            if (flagProofExecution.KnownBadEvidence is not null || flagProofExecution.KnownGoodEvidence is not null)
+                            {
+                                var seed = flagProofExecution.KnownBadEvidence ?? flagProofExecution.KnownGoodEvidence!;
+                                evidence = redactor.Redact(seed, flagProofExecution.KnownBadEvidence, flagProofExecution.KnownGoodEvidence, loadedCase.Evidence);
+                            }
+
+                            var evidenceAccepted = await ingestClient.UploadFlagProofReportAsync(result, evidence, cancellationToken);
+                            if (evidence is not null && !evidenceAccepted)
+                            {
+                                output.WriteLine($"WARN evidence not accepted for {result.CaseId} (report uploaded; check your plan tier)");
+                            }
                         }
                         catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException)
                         {
@@ -340,7 +396,8 @@ public sealed class CliRunner
                     continue;
                 }
 
-                var report = await executor.ExecuteAsync(testCase, cancellationToken);
+                var execution = await executor.ExecuteAsync(testCase, executionOptions, cancellationToken);
+                var report = execution.Report;
                 if (report.Passed)
                 {
                     passed++;
@@ -356,7 +413,15 @@ public sealed class CliRunner
                 {
                     try
                     {
-                        await ingestClient.UploadCaseReportAsync(report, cancellationToken);
+                        var evidence = execution.Evidence is null
+                            ? null
+                            : redactor.Redact(execution.Evidence, null, null, loadedCase.Evidence);
+
+                        var evidenceAccepted = await ingestClient.UploadCaseReportAsync(report, evidence, cancellationToken);
+                        if (evidence is not null && !evidenceAccepted)
+                        {
+                            output.WriteLine($"WARN evidence not accepted for {report.CaseId} (report uploaded; check your plan tier)");
+                        }
                     }
                     catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException)
                     {
@@ -378,6 +443,14 @@ public sealed class CliRunner
             ingestClient?.Dispose();
         }
     }
+
+    /// <summary>Parses an on/off-style toggle env var. Null when unset or unrecognized (defer to the hosted default).</summary>
+    private static bool? ParseToggle(string? value) => value?.Trim().ToLowerInvariant() switch
+    {
+        "on" or "1" or "true" or "yes" => true,
+        "off" or "0" or "false" or "no" => false,
+        _ => null,
+    };
 
     /// <summary>
     /// hosted-adapter-credentials: attempts a hosted fetch for one adapter's credentials, returning

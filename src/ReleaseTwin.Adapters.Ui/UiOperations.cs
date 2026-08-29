@@ -3,12 +3,14 @@ using ReleaseTwin.Core;
 
 namespace ReleaseTwin.Adapters.Ui;
 
-internal sealed class NavigateOperation : IOperation
+internal sealed class NavigateOperation : UiOperationBase
 {
     private readonly IBrowser _browser;
     public NavigateOperation(IBrowser browser) => _browser = browser;
 
-    public async Task<OperationResult> ExecuteAsync(CaseExecutionContext context, IReadOnlyDictionary<string, object?> parameters, IReadOnlyList<CaptureDeclaration> captures, CancellationToken cancellationToken)
+    protected override string ActionName => "ui.navigate";
+
+    protected override async Task<OperationResult> RunAsync(CaseExecutionContext context, IReadOnlyDictionary<string, object?> parameters, IReadOnlyList<CaptureDeclaration> captures, CancellationToken cancellationToken)
     {
         if (!parameters.TryGetValue("url", out var urlObj) || urlObj is not string url || string.IsNullOrWhiteSpace(url))
         {
@@ -28,12 +30,14 @@ internal sealed class NavigateOperation : IOperation
     }
 }
 
-internal sealed class ClickOperation : IOperation
+internal sealed class ClickOperation : UiOperationBase
 {
     private readonly IBrowser _browser;
     public ClickOperation(IBrowser browser) => _browser = browser;
 
-    public async Task<OperationResult> ExecuteAsync(CaseExecutionContext context, IReadOnlyDictionary<string, object?> parameters, IReadOnlyList<CaptureDeclaration> captures, CancellationToken cancellationToken)
+    protected override string ActionName => "ui.click";
+
+    protected override async Task<OperationResult> RunAsync(CaseExecutionContext context, IReadOnlyDictionary<string, object?> parameters, IReadOnlyList<CaptureDeclaration> captures, CancellationToken cancellationToken)
     {
         if (!parameters.TryGetValue("selector", out var selectorObj) || selectorObj is not string selector || string.IsNullOrWhiteSpace(selector))
         {
@@ -56,12 +60,14 @@ internal sealed class ClickOperation : IOperation
         parameters.TryGetValue("timeoutMs", out var value) && value is not null ? Convert.ToSingle(value) : null;
 }
 
-internal sealed class FillOperation : IOperation
+internal sealed class FillOperation : UiOperationBase
 {
     private readonly IBrowser _browser;
     public FillOperation(IBrowser browser) => _browser = browser;
 
-    public async Task<OperationResult> ExecuteAsync(CaseExecutionContext context, IReadOnlyDictionary<string, object?> parameters, IReadOnlyList<CaptureDeclaration> captures, CancellationToken cancellationToken)
+    protected override string ActionName => "ui.fill";
+
+    protected override async Task<OperationResult> RunAsync(CaseExecutionContext context, IReadOnlyDictionary<string, object?> parameters, IReadOnlyList<CaptureDeclaration> captures, CancellationToken cancellationToken)
     {
         if (!parameters.TryGetValue("selector", out var selectorObj) || selectorObj is not string selector || string.IsNullOrWhiteSpace(selector))
         {
@@ -86,12 +92,14 @@ internal sealed class FillOperation : IOperation
     }
 }
 
-internal sealed class WaitForOperation : IOperation
+internal sealed class WaitForOperation : UiOperationBase
 {
     private readonly IBrowser _browser;
     public WaitForOperation(IBrowser browser) => _browser = browser;
 
-    public async Task<OperationResult> ExecuteAsync(CaseExecutionContext context, IReadOnlyDictionary<string, object?> parameters, IReadOnlyList<CaptureDeclaration> captures, CancellationToken cancellationToken)
+    protected override string ActionName => "ui.waitFor";
+
+    protected override async Task<OperationResult> RunAsync(CaseExecutionContext context, IReadOnlyDictionary<string, object?> parameters, IReadOnlyList<CaptureDeclaration> captures, CancellationToken cancellationToken)
     {
         if (!parameters.TryGetValue("selector", out var selectorObj) || selectorObj is not string selector || string.IsNullOrWhiteSpace(selector))
         {
@@ -129,12 +137,14 @@ internal sealed class WaitForOperation : IOperation
     };
 }
 
-internal sealed class AssertVisibleOperation : IOperation
+internal sealed class AssertVisibleOperation : UiOperationBase
 {
     private readonly IBrowser _browser;
     public AssertVisibleOperation(IBrowser browser) => _browser = browser;
 
-    public async Task<OperationResult> ExecuteAsync(CaseExecutionContext context, IReadOnlyDictionary<string, object?> parameters, IReadOnlyList<CaptureDeclaration> captures, CancellationToken cancellationToken)
+    protected override string ActionName => "ui.assertVisible";
+
+    protected override async Task<OperationResult> RunAsync(CaseExecutionContext context, IReadOnlyDictionary<string, object?> parameters, IReadOnlyList<CaptureDeclaration> captures, CancellationToken cancellationToken)
     {
         if (!parameters.TryGetValue("selector", out var selectorObj) || selectorObj is not string selector || string.IsNullOrWhiteSpace(selector))
         {

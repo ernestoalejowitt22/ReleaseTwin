@@ -1,7 +1,9 @@
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Routing;
+using System.Text.Json;
 using ReleaseTwin.Hosted.Api.Data.Repositories;
+using ReleaseTwin.Hosted.Api.Data.Store;
 using ReleaseTwin.Hosted.Api.Services;
 
 namespace ReleaseTwin.Hosted.Api.Endpoints;
@@ -89,6 +91,54 @@ public static class DashboardEndpoints
 
             await provisioning.RevokeTokenAsync(tokenId);
             return Results.NoContent();
+        });
+
+        // evidence-store / dashboard: the redacted evidence document for one report, org-scoped.
+        group.MapGet("/reports/{reportId:guid}/evidence", async (
+            Guid reportId, Guid projectId, IProjectRepository projects, IRunEvidenceRepository evidence,
+            CurrentOrganizationAccessor currentOrg) =>
+        {
+            var orgId = currentOrg.OrganizationId;
+            if (orgId is null || await projects.GetAsync(orgId.Value, projectId) is null)
+            {
+                return Results.Forbid();
+            }
+
+            var stored = await evidence.GetByReportAsync(projectId, reportId);
+            if (stored is null)
+            {
+                return Results.NotFound();
+            }
+
+            using var doc = JsonDocument.Parse(stored.DocumentJson);
+            return Results.Ok(new
+            {
+                document = doc.RootElement.Clone(),
+                stored.ScreenshotIds,
+                stored.UploadedAt,
+            });
+        });
+
+        group.MapGet("/evidence-screenshots/{screenshotId}", async (
+            string screenshotId, Guid projectId, Guid reportId,
+            IProjectRepository projects, IRunEvidenceRepository evidence, IEvidenceBlobStore blobs,
+            CurrentOrganizationAccessor currentOrg) =>
+        {
+            var orgId = currentOrg.OrganizationId;
+            if (orgId is null || await projects.GetAsync(orgId.Value, projectId) is null)
+            {
+                return Results.Forbid();
+            }
+
+            // The screenshot must belong to an evidence document in this project.
+            var stored = await evidence.GetByReportAsync(projectId, reportId);
+            if (stored is null || !stored.ScreenshotIds.Contains(screenshotId))
+            {
+                return Results.NotFound();
+            }
+
+            var bytes = await blobs.GetAsync(screenshotId);
+            return bytes is null ? Results.NotFound() : Results.File(bytes, "image/png");
         });
 
         group.MapDelete("/projects/{projectId:guid}/connection", async (Guid projectId, ConnectionService connections, CurrentOrganizationAccessor currentOrg) =>
