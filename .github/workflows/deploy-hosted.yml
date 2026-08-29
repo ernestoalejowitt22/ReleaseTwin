@@ -1,20 +1,18 @@
 name: Deploy Hosted API
 
-# Auto-deploys the hosted API + its terraform footprint whenever hosted code or infra lands on
-# main (this reverses hosted-platform-deployment design.md's original "manual only" call — a
-# deliberate change once the single dev environment made every merge a de-facto deploy anyway).
-# The paths filter keeps frontend-only / docs-only / non-hosted merges from triggering a no-op
-# apply. `workflow_dispatch` stays for manual runs and prefix/region overrides.
-#
-# Still OIDC, no stored AWS key. Remote S3 state (main.tf) means each run is an incremental apply,
-# and the concurrency group serializes overlapping merges against the state lock.
+# Auto-deploy on merge to main is wired up (push trigger below) but currently DISABLED — the
+# `releasetwin-github-actions-deploy` role (hosted/terraform-bootstrap) is missing permissions
+# for resources that landed after the last manual deploy: SNS + EventBridge + CloudWatch Logs
+# (operator-alerting's alerting.tf) and s3:CreateBucket for a new bucket (evidence-purge-and-blob-
+# store's evidence.tf). Re-apply the bootstrap under MFA with those permissions added, run one
+# manual deploy to confirm, then re-enable the `push:` trigger.
 on:
-  push:
-    branches: [main]
-    paths:
-      - "hosted/ReleaseTwin.Hosted.Api/**"
-      - "hosted/terraform/**"
-      - ".github/workflows/deploy-hosted.yml"
+  # push:
+  #   branches: [main]
+  #   paths:
+  #     - "hosted/ReleaseTwin.Hosted.Api/**"
+  #     - "hosted/terraform/**"
+  #     - ".github/workflows/deploy-hosted.yml"
   workflow_dispatch:
     inputs:
       table_prefix:
