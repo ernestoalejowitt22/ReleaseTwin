@@ -11,6 +11,22 @@ internal sealed class CaseFileDto
     public List<CleanupDto>? Cleanup { get; set; }
     public string? ResourceKey { get; set; }
     public FlagProofDto? FlagProof { get; set; }
+    public EvidenceDto? Evidence { get; set; }
+}
+
+internal sealed class EvidenceDto
+{
+    public List<string>? Capture { get; set; }
+    public List<EvidenceRedactDto>? Redact { get; set; }
+}
+
+internal sealed class EvidenceRedactDto
+{
+    public string? Header { get; set; }
+    public string? JsonPath { get; set; }
+    public string? Field { get; set; }
+    public string? Selector { get; set; }
+    public string? Region { get; set; }
 }
 
 internal sealed class FlagProofDto
