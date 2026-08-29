@@ -1,9 +1,20 @@
 name: Deploy Hosted API
 
-# hosted-platform-deployment design.md: manually triggered only — not wired to push/PR like
-# hosted-ci.yml. This solves *who/what can run terraform apply* (via OIDC, no stored AWS secret),
-# not *when* a deploy happens; that stays a deliberate action.
+# Auto-deploys the hosted API + its terraform footprint whenever hosted code or infra lands on
+# main (this reverses hosted-platform-deployment design.md's original "manual only" call — a
+# deliberate change once the single dev environment made every merge a de-facto deploy anyway).
+# The paths filter keeps frontend-only / docs-only / non-hosted merges from triggering a no-op
+# apply. `workflow_dispatch` stays for manual runs and prefix/region overrides.
+#
+# Still OIDC, no stored AWS key. Remote S3 state (main.tf) means each run is an incremental apply,
+# and the concurrency group serializes overlapping merges against the state lock.
 on:
+  push:
+    branches: [main]
+    paths:
+      - "hosted/ReleaseTwin.Hosted.Api/**"
+      - "hosted/terraform/**"
+      - ".github/workflows/deploy-hosted.yml"
   workflow_dispatch:
     inputs:
       table_prefix:
@@ -16,6 +27,10 @@ on:
 permissions:
   id-token: write # required to request the OIDC token that's exchanged for AWS credentials
   contents: read
+
+concurrency:
+  group: deploy-hosted
+  cancel-in-progress: false
 
 jobs:
   deploy:
@@ -43,7 +58,8 @@ jobs:
       - uses: aws-actions/configure-aws-credentials@v4
         with:
           role-to-assume: ${{ vars.AWS_DEPLOY_ROLE_ARN }}
-          aws-region: ${{ inputs.region }}
+          # inputs.* is empty on a push trigger — fall back to the same defaults workflow_dispatch uses.
+          aws-region: ${{ inputs.region || 'us-east-1' }}
 
       - uses: hashicorp/setup-terraform@v3
         with:
@@ -64,8 +80,8 @@ jobs:
         working-directory: hosted/terraform
         run: |
           terraform apply -auto-approve \
-            -var="table_prefix=${{ inputs.table_prefix }}" \
-            -var="region=${{ inputs.region }}" \
+            -var="table_prefix=${{ inputs.table_prefix || 'releasetwin-dev-' }}" \
+            -var="region=${{ inputs.region || 'us-east-1' }}" \
             -var="github_client_id=${{ vars.GH_OAUTH_CLIENT_ID }}" \
             -var="github_client_secret=${{ secrets.GH_OAUTH_CLIENT_SECRET }}" \
             -var="github_callback_url=${{ vars.GH_OAUTH_CALLBACK_URL }}" \
