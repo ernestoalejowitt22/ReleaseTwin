@@ -27,6 +27,9 @@ public interface IProjectRepository
 
     /// <summary>operator-alerting design.md: every project across every organization, for the daily staleness digest — the one caller with no natural organization partition key to scope a Query to. Backed by a full-table Scan (see IHostedTable.ScanByEntityTypeAsync); not for use on any per-request path.</summary>
     Task<IReadOnlyList<Project>> ListAllAsync(CancellationToken cancellationToken = default);
+
+    /// <summary>evidence-store: set this project's evidence capture default and retention window. Caller validates the window against <see cref="Project.MaxEvidenceRetentionDays"/>.</summary>
+    Task SetEvidenceConfigAsync(Guid organizationId, Guid projectId, bool captureDefault, int retentionDays, CancellationToken cancellationToken = default);
 }
 
 public interface IApiTokenRepository
@@ -55,6 +58,21 @@ public interface IFlagProofReportRepository
 {
     Task AddAsync(UploadedFlagProofReport report, CancellationToken cancellationToken = default);
     Task<IReadOnlyList<UploadedFlagProofReport>> ListByProjectAsync(Guid projectId, CancellationToken cancellationToken = default);
+}
+
+public interface IRunEvidenceRepository
+{
+    Task AddAsync(UploadedRunEvidence evidence, CancellationToken cancellationToken = default);
+
+    /// <summary>The single evidence document stored for one report, or null. Scoped to the project it belongs to.</summary>
+    Task<UploadedRunEvidence?> GetByReportAsync(Guid projectId, Guid reportId, CancellationToken cancellationToken = default);
+
+    Task<IReadOnlyList<UploadedRunEvidence>> ListByProjectAsync(Guid projectId, CancellationToken cancellationToken = default);
+
+    /// <summary>evidence-store purge: every stored evidence document across every project. Full-table scan, purge-job only.</summary>
+    Task<IReadOnlyList<UploadedRunEvidence>> ListAllAsync(CancellationToken cancellationToken = default);
+
+    Task DeleteAsync(Guid projectId, Guid reportId, CancellationToken cancellationToken = default);
 }
 
 public interface IJourneyRepository

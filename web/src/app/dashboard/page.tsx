@@ -22,9 +22,15 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { api } from "@/lib/api";
-import type { AdapterCredentialSummary, DashboardView, ProjectSecretSummary } from "@/lib/types";
+import type {
+  AdapterCredentialSummary,
+  DashboardView,
+  EvidenceConfigView,
+  ProjectSecretSummary,
+} from "@/lib/types";
 import { IssueTokenButton } from "./issue-token-button";
 import { SetupSection } from "./setup-section";
+import { EvidenceSettingsSection } from "./evidence-settings-section";
 import {
   createProject,
   disconnectConnection,
@@ -51,6 +57,9 @@ export default async function DashboardPage({
   const projectSecrets = selectedProject
     ? await api.get<ProjectSecretSummary[]>(`/api/project-secrets/${selectedProject.id}`)
     : [];
+  const evidenceConfig = selectedProject
+    ? await api.get<EvidenceConfigView>(`/api/projects/${selectedProject.id}/evidence-config`)
+    : null;
 
   return (
     <main className="mx-auto flex w-full max-w-5xl flex-1 flex-col gap-6 p-6">
@@ -164,6 +173,10 @@ export default async function DashboardPage({
             startGitHubConnection={startGitHubConnection.bind(null, selectedProject.id)}
           />
 
+          {evidenceConfig && (
+            <EvidenceSettingsSection projectId={selectedProject.id} config={evidenceConfig} />
+          )}
+
           <div className="flex flex-col gap-3">
             <h2 className="flex items-center gap-1.5 text-sm font-semibold tracking-wide text-muted-foreground uppercase">
               <PlayCircle className="size-4" />
@@ -248,6 +261,7 @@ export default async function DashboardPage({
                       <TableHead>Outcome</TableHead>
                       <TableHead>Classification</TableHead>
                       <TableHead>Cleanup</TableHead>
+                      <TableHead>Evidence</TableHead>
                       <TableHead>Uploaded</TableHead>
                     </TableRow>
                   </TableHeader>
@@ -262,6 +276,13 @@ export default async function DashboardPage({
                         </TableCell>
                         <TableCell>{report.classification ?? "—"}</TableCell>
                         <TableCell>{report.cleanupStatus}</TableCell>
+                        <TableCell>
+                          <EvidenceCell
+                            status={report.evidenceStatus}
+                            reportId={report.reportId}
+                            projectId={selectedProject.id}
+                          />
+                        </TableCell>
                         <TableCell>{new Date(report.uploadedAt).toLocaleString()}</TableCell>
                       </TableRow>
                     ))}
@@ -287,6 +308,7 @@ export default async function DashboardPage({
                       <TableHead>Outcome</TableHead>
                       <TableHead>Known-bad leg</TableHead>
                       <TableHead>Known-good leg</TableHead>
+                      <TableHead>Evidence</TableHead>
                       <TableHead>Uploaded</TableHead>
                     </TableRow>
                   </TableHeader>
@@ -326,6 +348,13 @@ export default async function DashboardPage({
                             </Badge>
                           )}
                         </TableCell>
+                        <TableCell>
+                          <EvidenceCell
+                            status={report.evidenceStatus}
+                            reportId={report.reportId}
+                            projectId={selectedProject.id}
+                          />
+                        </TableCell>
                         <TableCell>{new Date(report.uploadedAt).toLocaleString()}</TableCell>
                       </TableRow>
                     ))}
@@ -338,4 +367,33 @@ export default async function DashboardPage({
       )}
     </main>
   );
+}
+
+function EvidenceCell({
+  status,
+  reportId,
+  projectId,
+}: {
+  status: import("@/lib/types").EvidenceStatus;
+  reportId: string;
+  projectId: string;
+}) {
+  if (status === "available") {
+    return (
+      <Link
+        href={`/dashboard/reports/${reportId}/evidence?projectId=${projectId}`}
+        className="text-sm underline"
+      >
+        View
+      </Link>
+    );
+  }
+
+  const label =
+    status === "expired"
+      ? "Expired"
+      : status === "not-entitled"
+        ? "Upgrade to store"
+        : "—";
+  return <span className="text-sm text-muted-foreground">{label}</span>;
 }

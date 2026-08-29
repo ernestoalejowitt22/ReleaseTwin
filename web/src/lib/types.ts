@@ -16,12 +16,17 @@ export interface DashboardTokenView {
   isRevoked: boolean;
 }
 
+/** evidence-store: per-report evidence state — see DashboardService.EvidenceStatus. */
+export type EvidenceStatus = "none" | "available" | "expired" | "not-entitled";
+
 export interface DashboardCaseReportView {
   caseId: string;
   passed: boolean;
   classification: string | null;
   cleanupStatus: string;
   uploadedAt: string;
+  reportId: string;
+  evidenceStatus: EvidenceStatus;
 }
 
 export interface DashboardFlagProofReportView {
@@ -31,6 +36,54 @@ export interface DashboardFlagProofReportView {
   knownBadLegPassed: boolean | null;
   knownGoodLegPassed: boolean | null;
   uploadedAt: string;
+  reportId: string;
+  evidenceStatus: EvidenceStatus;
+}
+
+export interface EvidenceAssertion {
+  expression: string;
+  expected: string | null;
+  observed: string | null;
+}
+
+export interface EvidenceScreenshotRef {
+  id: string;
+  bestEffortRedacted: boolean;
+}
+
+export interface EvidenceStep {
+  index: number;
+  operationName: string;
+  outcome: string;
+  durationMs: number;
+  assertion: EvidenceAssertion | null;
+  adapter: unknown;
+  screenshots: EvidenceScreenshotRef[] | null;
+}
+
+export interface EvidenceLeg {
+  leg: string | null;
+  steps: EvidenceStep[];
+}
+
+export interface EvidenceDocument {
+  caseId: string;
+  oracleLocator: string;
+  legs: EvidenceLeg[];
+  redactionNote: string | null;
+}
+
+export interface EvidenceDetailView {
+  document: EvidenceDocument;
+  screenshotIds: string[];
+  uploadedAt: string;
+}
+
+export interface EvidenceConfigView {
+  captureDefault: boolean;
+  retentionDays: number;
+  maxRetentionDays: number;
+  available: boolean;
 }
 
 export interface DashboardUsageSummary {

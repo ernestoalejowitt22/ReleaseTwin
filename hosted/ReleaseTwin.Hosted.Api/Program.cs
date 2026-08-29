@@ -88,6 +88,15 @@ builder.Services.AddScoped<IJourneyRepository, JourneyRepository>();
 builder.Services.AddScoped<IJourneyVersionRepository, JourneyVersionRepository>();
 builder.Services.AddScoped<IAdapterCredentialRepository, AdapterCredentialRepository>();
 builder.Services.AddScoped<IProjectSecretRepository, ProjectSecretRepository>();
+builder.Services.AddScoped<IRunEvidenceRepository, RunEvidenceRepository>();
+
+// evidence-store: screenshot blobs live outside the single table. Filesystem-backed; the directory
+// is configurable (a persistent volume / EFS mount in a real deploy), defaulting under temp.
+builder.Services.AddSingleton<IEvidenceBlobStore>(_ => new FileSystemEvidenceBlobStore(
+    builder.Configuration["Evidence:BlobDirectory"]
+    ?? Path.Combine(Path.GetTempPath(), "releasetwin-evidence-blobs")));
+builder.Services.AddScoped<EvidenceIngestService>();
+builder.Services.AddScoped<EvidencePurgeService>();
 
 builder.Services.AddScoped<ITokenService, TokenService>();
 builder.Services.AddScoped<ProvisioningService>();
@@ -210,6 +219,19 @@ if (Environment.GetEnvironmentVariable("RELEASETWIN_LAMBDA_TASK") == "StalenessD
     return;
 }
 
+// evidence-store: a second scheduled Lambda task, same host pattern as the staleness digest —
+// deletes evidence past each project's retention window once a day.
+if (Environment.GetEnvironmentVariable("RELEASETWIN_LAMBDA_TASK") == "EvidencePurge")
+{
+    await Amazon.Lambda.RuntimeSupport.LambdaBootstrapBuilder.Create(async (Stream _, Amazon.Lambda.Core.ILambdaContext _) =>
+    {
+        using var scope = app.Services.CreateScope();
+        await scope.ServiceProvider.GetRequiredService<EvidencePurgeService>().RunAsync();
+        return new MemoryStream();
+    }).Build().RunAsync();
+    return;
+}
+
 if (!app.Environment.IsDevelopment())
 {
     app.UseExceptionHandler("/Error");
@@ -250,6 +272,7 @@ app.MapAdapterCredentialEndpoints();
 app.MapAdapterCredentialFetchEndpoints();
 app.MapProjectSecretEndpoints();
 app.MapProjectSecretFetchEndpoints();
+app.MapEvidenceConfigEndpoints();
 
 if (app.Environment.IsDevelopment())
 {

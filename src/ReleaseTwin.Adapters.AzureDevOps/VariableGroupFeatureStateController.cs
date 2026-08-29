@@ -21,11 +21,12 @@ public sealed class VariableGroupFeatureStateController : IFeatureStateControlle
         _client.SetVariableGroupValueAsync(_variableGroupId, featureKey, enabled ? "true" : "false", cancellationToken);
 }
 
-internal sealed class ReadVariableGroupValueOperation : IOperation
+internal sealed class ReadVariableGroupValueOperation : IOperation, IEvidenceEmittingOperation
 {
     private readonly AzureDevOpsClient _client;
     private readonly int _variableGroupId;
     private readonly string _variableName;
+    private readonly EvidenceBuffer _evidence = new();
 
     public ReadVariableGroupValueOperation(AzureDevOpsClient client, int variableGroupId, string variableName)
     {
@@ -34,9 +35,14 @@ internal sealed class ReadVariableGroupValueOperation : IOperation
         _variableName = variableName;
     }
 
+    public EvidenceContribution? DrainEvidence() => _evidence.Drain();
+
     public async Task<OperationResult> ExecuteAsync(CaseExecutionContext context, IReadOnlyDictionary<string, object?> parameters, IReadOnlyList<CaptureDeclaration> captures, CancellationToken cancellationToken)
     {
+        _evidence.Clear();
         var value = await _client.GetVariableGroupValueAsync(_variableGroupId, _variableName, cancellationToken);
+        _evidence.Set(new EvidenceContribution(
+            new AssertionDetail($"variableGroup[{_variableGroupId}].{_variableName}", "true", value ?? "<unset>")));
         return value == "true"
             ? OperationResult.Pass(value)
             : OperationResult.Fail(value ?? "variable not set");
