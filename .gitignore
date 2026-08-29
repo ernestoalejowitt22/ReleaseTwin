@@ -22,3 +22,6 @@ web/.env*.local
 # IDE
 .vs/
 .idea/
+
+# Local Cypress evidence screenshots copied out of cypress/screenshots for review
+/evidence-artifacts/
