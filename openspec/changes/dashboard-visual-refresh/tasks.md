@@ -22,8 +22,19 @@
 
 ## 3. Dark mode
 
-- [x] 3.1 Mount `next-themes`' `ThemeProvider` at the root in `web/src/app/layout.tsx`, wrapping the
-      existing `ClerkProvider`/`html`/`body` structure without changing its current behavior.
+- [x] 3.1 Mount a `ThemeProvider` at the root in `web/src/app/layout.tsx`, wrapping the existing
+      `ClerkProvider`/`html`/`body` structure without changing its current behavior. Pivoted away
+      from the `next-themes` package itself (uninstalled) — reproduced for real that it
+      unconditionally renders an inline `<script>` as part of its client-rendered tree, and this
+      project's exact Next.js 16 / React 19 combination throws "Encountered a script tag while
+      rendering React component" on any client-side re-render of it, blanking the whole page. Not
+      next-themes-specific: a plain JSX `<script>` and even Next's own official `next/script`
+      (`strategy="beforeInteractive"`) hit the identical failure, confirmed against a real `next dev`
+      server with a fresh `.next` cache. Hand-rolled `theme-provider.tsx` instead (React context +
+      `useSyncExternalStore`, no `<script>` element anywhere) — see its own comment for the full
+      writeup. Practical consequence, accepted and documented rather than silently dropped: no
+      anti-flash-of-wrong-theme mechanism exists (that normally requires a pre-hydration script), so
+      a cold load can briefly show the light theme before the client-side read applies the real one.
 - [x] 3.2 Add a toggle control in the dashboard header, next to the Clerk `UserButton`.
 - [x] 3.3 Confirm (screenshot, both modes) that every page already styled via the `globals.css`
       token architecture — dashboard, journeys, sign-in, landing — renders correctly in both.
@@ -51,6 +62,17 @@
 
 - [x] 6.1 Add `lucide-react` icons to the dashboard's section headers (one per zone from task 4) and
       to the primary nav/header elements where they clarify meaning (not decoratively everywhere).
+
+## 8. Typography (resolves design.md's Open Question)
+
+- [x] 8.1 Found and fixed a real, pre-existing bug while testing dark mode locally: `globals.css`'s
+      `@theme inline` block defined `--font-sans: var(--font-sans)` — a circular self-reference that
+      never actually resolved to the real Geist font `next/font` binds to `--font-geist-sans` on
+      `<html>`. Confirmed via computed style: the *entire page* (not just headings) was rendering in
+      the browser's serif fallback, not Geist. Fixed to `--font-sans: var(--font-geist-sans)`. This
+      also resolves design.md's deferred serif/sans Open Question — `--font-heading` was already
+      aliased to `--font-sans`, so fixing the one line moves both body and headings to a real,
+      modern sans-serif face, matching the Linear/Vercel-style alternative design.md left open.
 
 ## 7. Real verification
 

@@ -104,10 +104,20 @@ demonstrates it. Lowest-risk way to close that gap without inventing new marketi
   named explicitly rather than presented as objective; revisit if the design partner (or a future
   customer) pushes back once it's live — the token architecture makes changing the single hue value
   cheap later.
+- **`next-themes` is unusable in this project's exact Next.js/React combination** — its
+  unconditionally-rendered inline `<script>` throws "Encountered a script tag while rendering React
+  component" on any client-side re-render, blanking the page. Not next-themes-specific: a plain JSX
+  `<script>` and Next's own official `next/script` (`beforeInteractive`) hit the identical failure.
+  → Mitigated by hand-rolling `theme-provider.tsx` (context + `useSyncExternalStore`, no `<script>`
+  anywhere) instead of depending on the package; `next-themes` uninstalled. Accepted consequence: no
+  anti-flash-of-wrong-theme script, so a cold load can briefly show the light theme first — see
+  tasks.md 3.1 for the full writeup.
 
 ## Open Questions
 
-- **Serif/sans heading mix**: keep the current editorial serif-heading/sans-body pairing
-  intentionally, or move to an all-sans look? Doesn't block the color/component/layout work above —
-  can be decided and applied independently once this pass is live, since it's a single
-  `--font-heading` token change with no structural dependency on anything else here.
+Resolved during implementation: `globals.css`'s `--font-sans: var(--font-sans)` was a circular
+self-reference that never actually resolved to the real Geist font — the *entire page*, not just
+headings, was silently falling back to the browser's serif default (confirmed via computed style).
+Fixing that one line (`--font-sans: var(--font-geist-sans)`) answers the serif/sans question by
+construction, since `--font-heading` was already aliased to `--font-sans`: both body and headings
+now render in the real, modern Geist sans-serif face. See tasks.md 8.1.

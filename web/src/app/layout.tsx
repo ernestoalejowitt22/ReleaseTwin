@@ -5,6 +5,15 @@ import { Toaster } from "@/components/ui/sonner";
 import { ThemeProvider } from "@/components/theme-provider";
 import "./globals.css";
 
+// dashboard-visual-refresh: no anti-flash-of-wrong-theme script here — every form of <script>
+// element tried (a plain JSX <script>, next-themes' own internal one, and even Next's own official
+// next/script with strategy="beforeInteractive") reproducibly blanks the entire page under this
+// project's exact Next.js 16 / React 19 combination ("Encountered a script tag while rendering
+// React component", confirmed against a real `next dev` server with a fresh .next cache, not an
+// HMR artifact). Accepted trade-off, documented rather than silently dropped: a cold load can
+// briefly flash the light theme before ThemeProvider's client-side read applies the real one. See
+// theme-provider.tsx for the full writeup and design.md's Risks section.
+
 const geistSans = Geist({
   variable: "--font-geist-sans",
   subsets: ["latin"],
