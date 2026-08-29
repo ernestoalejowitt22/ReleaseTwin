@@ -1,18 +1,19 @@
 "use client";
 
 import { useSyncExternalStore } from "react";
-import { useTheme } from "next-themes";
 import { Moon, Sun } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { useTheme } from "@/components/theme-provider";
 
 const noopSubscribe = () => () => {};
 
 /**
- * dashboard-visual-refresh: next-themes' own docs recommend a `useState`+`useEffect` "mounted" flag
- * to avoid a hydration mismatch (theme is unknown on the server), but this project's eslint config
- * flags synchronous setState-in-effect as an error — useSyncExternalStore is the modern, lint-clean
- * equivalent: false on the server/first client render, true once hydrated, no render-triggering
- * effect involved.
+ * dashboard-visual-refresh: theme is unknown on the server, so `resolvedTheme` defaults to "light"
+ * until ThemeProvider's mount effect reads localStorage — rendering the toggle before that resolves
+ * would flash the wrong icon and risk a hydration mismatch. The conventional fix is a
+ * `useState`+`useEffect` "mounted" flag, but this project's eslint config flags synchronous
+ * setState-in-effect as an error — useSyncExternalStore is the modern, lint-clean equivalent: false
+ * on the server/first client render, true once hydrated, no render-triggering effect involved.
  */
 function useIsMounted() {
   return useSyncExternalStore(
