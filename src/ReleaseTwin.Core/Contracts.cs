@@ -4,6 +4,13 @@ public sealed class CaseExecutionContext
 {
     public required TestCase Case { get; init; }
 
+    /// <summary>
+    /// evidence-capture: true when the caller asked for run evidence. Operations may read this to
+    /// decide whether to do extra work (e.g. take a screenshot) that is wasted when capture is off.
+    /// Operations that emit cheap evidence unconditionally can ignore it.
+    /// </summary>
+    public bool CaptureEvidence { get; init; }
+
     /// <summary>Adapter-owned state bag. Core never reads or writes specific keys here.</summary>
     public IDictionary<string, object?> AdapterState { get; } = new Dictionary<string, object?>();
 

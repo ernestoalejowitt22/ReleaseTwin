@@ -33,6 +33,15 @@ public sealed record FlagProofResult(
     CaseReport? KnownGoodLeg);
 
 /// <summary>
+/// evidence-capture: a flag-proof result plus the per-leg run evidence, produced only when the
+/// caller asked for evidence. Each <see cref="RunEvidence.Leg"/> is "known-bad" or "known-good".
+/// </summary>
+public sealed record FlagProofExecutionResult(
+    FlagProofResult Result,
+    RunEvidence? KnownBadEvidence,
+    RunEvidence? KnownGoodEvidence);
+
+/// <summary>
 /// Runs a case twice against the same fixture and build — once with the target feature known-bad,
 /// once known-good — and reports one combined release-proof result.
 /// </summary>
@@ -55,19 +64,34 @@ public sealed class FlagProofRunner
         string buildIdentity,
         string requiredCapability = "flag-control:runtime",
         CancellationToken cancellationToken = default)
+        => (await RunAsync(testCase, featureKey, buildIdentity, ExecutionOptions.Default, requiredCapability, cancellationToken)).Result;
+
+    /// <summary>
+    /// Runs the paired legs with explicit options. With <see cref="ExecutionOptions.CaptureEvidence"/>
+    /// off, the returned per-leg evidence is null and the <see cref="FlagProofResult"/> is identical
+    /// to what the report-only overload produces.
+    /// </summary>
+    public async Task<FlagProofExecutionResult> RunAsync(
+        TestCase testCase,
+        string featureKey,
+        string buildIdentity,
+        ExecutionOptions options,
+        string requiredCapability = "flag-control:runtime",
+        CancellationToken cancellationToken = default)
     {
         if (!_capabilities.IsAvailable(requiredCapability))
         {
-            return new FlagProofResult(testCase.CaseId, testCase.Oracle, buildIdentity, FlagProofOutcome.Ineligible, null, null);
+            var ineligible = new FlagProofResult(testCase.CaseId, testCase.Oracle, buildIdentity, FlagProofOutcome.Ineligible, null, null);
+            return new FlagProofExecutionResult(ineligible, null, null);
         }
 
         await _featureStateController.SetStateAsync(featureKey, enabled: false, cancellationToken);
-        var knownBad = await _executor.ExecuteAsync(testCase, cancellationToken);
+        var knownBad = await _executor.ExecuteAsync(testCase, options, cancellationToken);
 
         await _featureStateController.SetStateAsync(featureKey, enabled: true, cancellationToken);
-        var knownGood = await _executor.ExecuteAsync(testCase, cancellationToken);
+        var knownGood = await _executor.ExecuteAsync(testCase, options, cancellationToken);
 
-        var outcome = (knownBad.Passed, knownGood.Passed) switch
+        var outcome = (knownBad.Report.Passed, knownGood.Report.Passed) switch
         {
             (false, true) => FlagProofOutcome.Passed,
             (true, true) => FlagProofOutcome.WeakOracle,
@@ -75,6 +99,10 @@ public sealed class FlagProofRunner
             (true, false) => FlagProofOutcome.Inverted,
         };
 
-        return new FlagProofResult(testCase.CaseId, testCase.Oracle, buildIdentity, outcome, knownBad, knownGood);
+        var result = new FlagProofResult(testCase.CaseId, testCase.Oracle, buildIdentity, outcome, knownBad.Report, knownGood.Report);
+        return new FlagProofExecutionResult(
+            result,
+            knownBad.Evidence is null ? null : knownBad.Evidence with { Leg = "known-bad" },
+            knownGood.Evidence is null ? null : knownGood.Evidence with { Leg = "known-good" });
     }
 }

@@ -24,9 +24,10 @@ public class DashboardServiceTests
         var caseReports = new CaseReportRepository(table);
         var flagProofReports = new FlagProofReportRepository(table);
         var usage = new UsageCounterRepository(table);
+        var runEvidence = new RunEvidenceRepository(table);
 
         var provisioning = new ProvisioningService(users, organizations, projects, tokens, new TokenService());
-        var dashboard = new DashboardService(organizations, projects, connections, tokens, caseReports, flagProofReports, usage);
+        var dashboard = new DashboardService(organizations, projects, connections, tokens, caseReports, flagProofReports, usage, runEvidence);
         return new Fixture(provisioning, dashboard, connections, caseReports);
     }
 

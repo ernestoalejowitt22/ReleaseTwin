@@ -37,6 +37,15 @@ public sealed class ProjectRepository : IProjectRepository
     public async Task<bool> ExistsInOrganizationAsync(Guid organizationId, Guid projectId, CancellationToken cancellationToken = default) =>
         await GetAsync(organizationId, projectId, cancellationToken) is not null;
 
+    public async Task SetEvidenceConfigAsync(Guid organizationId, Guid projectId, bool captureDefault, int retentionDays, CancellationToken cancellationToken = default)
+    {
+        var project = await GetAsync(organizationId, projectId, cancellationToken)
+            ?? throw new InvalidOperationException($"Cannot set evidence config: project {projectId} not found in organization {organizationId}.");
+        project.EvidenceCaptureDefault = captureDefault;
+        project.EvidenceRetentionDays = retentionDays;
+        await _table.PutItemAsync(ToItem(project), cancellationToken: cancellationToken);
+    }
+
     public async Task<IReadOnlyList<Project>> ListAllAsync(CancellationToken cancellationToken = default)
     {
         var items = await _table.ScanByEntityTypeAsync("Project", cancellationToken);
@@ -52,6 +61,8 @@ public sealed class ProjectRepository : IProjectRepository
         ["Name"] = Attrs.S(project.Name),
         ["CreatedAt"] = Attrs.S(project.CreatedAt.ToString("O")),
         ["OrganizationId"] = Attrs.S(project.OrganizationId.ToString()),
+        ["EvidenceCaptureDefault"] = Attrs.Bool(project.EvidenceCaptureDefault),
+        ["EvidenceRetentionDays"] = Attrs.N(project.EvidenceRetentionDays),
     };
 
     private static Project ToProject(Dictionary<string, Amazon.DynamoDBv2.Model.AttributeValue> item) => new()
@@ -60,5 +71,7 @@ public sealed class ProjectRepository : IProjectRepository
         Name = item.GetS("Name"),
         CreatedAt = item.GetDateTimeOffset("CreatedAt"),
         OrganizationId = item.GetGuid("OrganizationId"),
+        EvidenceCaptureDefault = item.TryGetValue("EvidenceCaptureDefault", out var cap) && cap.BOOL == true,
+        EvidenceRetentionDays = (int)item.GetNOrDefault("EvidenceRetentionDays", Project.DefaultEvidenceRetentionDays),
     };
 }

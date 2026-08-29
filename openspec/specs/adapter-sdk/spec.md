@@ -3,9 +3,7 @@
 ## Purpose
 
 Defines the composition-root contract that lets one or more adapters contribute named operations, prerequisite checks, cleanup handlers, and capability declarations to the core without any adapter-specific code existing inside the core package.
-
 ## Requirements
-
 ### Requirement: Core has no adapter-specific references
 The core package SHALL NOT reference any concrete operation, client, or vendor name belonging to a specific adapter (for example, no QFE, QFEM, eSign, or DocuSign references, and no references to any adapter built to validate this contract). All product-specific identifiers SHALL originate from adapter registration code.
 
@@ -62,3 +60,19 @@ An adapter SHALL NOT contain a hardcoded credential (API token, key, password, o
 #### Scenario: Adapter source contains no credential literal
 - **WHEN** an adapter's source code is inspected
 - **THEN** no API token, key, password, or connection secret appears as a hardcoded literal
+
+### Requirement: An operation may attach structured evidence to its result
+The operation contract SHALL provide an optional way for an operation to attach a structured evidence value to the result it returns. An operation that attaches nothing SHALL behave exactly as before, and the core SHALL neither require evidence nor fail a step for its absence. The evidence value's shape is adapter-defined; the core treats it opaquely.
+
+#### Scenario: Operation without evidence is unaffected
+- **WHEN** an operation returns a result without attaching evidence
+- **THEN** the step executes and reports exactly as it did before this capability, with no evidence recorded for it
+
+#### Scenario: Operation-attached evidence reaches the evidence record
+- **WHEN** an operation attaches structured evidence and the run has evidence aggregation enabled
+- **THEN** that evidence appears in the run's evidence record under that step, unmodified by the core
+
+#### Scenario: Core defines no adapter-specific evidence shape
+- **WHEN** the core contracts are inspected
+- **THEN** they define evidence only as an opaque value, with no field or type naming a specific adapter, protocol, or vendor
+
