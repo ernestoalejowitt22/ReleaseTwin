@@ -123,6 +123,104 @@ public class UiAdapterTests : IAsyncLifetime
         Assert.Equal(CleanupStatus.AllSucceeded, report.CleanupStatus);
     }
 
+    // ui-adapter delta: a cookie seeded by one step is visible to a later navigation — proving both
+    // ui.setCookie and that all ui.* steps in a run share one browser context.
+    [Fact]
+    public async Task SeededCookieIsSentOnALaterNavigation()
+    {
+        var executor = BuildExecutor();
+
+        var report = await executor.ExecuteAsync(BuildCase("UI-COOKIE-1", new[]
+        {
+            new PipelineStep("ui.setCookie", With: new Dictionary<string, object?>
+            {
+                ["name"] = "sid",
+                ["value"] = "e2e-value",
+                ["domain"] = "127.0.0.1",
+            }),
+            new PipelineStep("ui.navigate", With: new Dictionary<string, object?> { ["url"] = _server.Url }),
+            new PipelineStep("ui.waitFor", With: new Dictionary<string, object?>
+            {
+                ["selector"] = "text=sid=e2e-value",
+                ["timeoutMs"] = 3000,
+            }),
+        }, new[] { new CleanupDeclaration("ui.closePage") }));
+
+        Assert.True(report.Passed, report.FailureDetail);
+        Assert.Equal(CleanupStatus.AllSucceeded, report.CleanupStatus);
+    }
+
+    [Fact]
+    public async Task WithoutSetCookieTheNavigationSeesNoCookie()
+    {
+        var executor = BuildExecutor();
+
+        var report = await executor.ExecuteAsync(BuildCase("UI-COOKIE-2", new[]
+        {
+            new PipelineStep("ui.navigate", With: new Dictionary<string, object?> { ["url"] = _server.Url }),
+            new PipelineStep("ui.waitFor", With: new Dictionary<string, object?>
+            {
+                ["selector"] = "text=sid=e2e-value",
+                ["timeoutMs"] = 1500,
+            }),
+        }, new[] { new CleanupDeclaration("ui.closePage") }));
+
+        Assert.False(report.Passed);
+    }
+
+    [Theory]
+    [InlineData("neither", null, null)]
+    [InlineData("both", "http://127.0.0.1/", "127.0.0.1")]
+    [InlineData("relative-url", "not-a-url", null)]
+    public async Task SetCookieRejectsAMalformedScope(string _, string? url, string? domain)
+    {
+        var executor = BuildExecutor();
+
+        var with = new Dictionary<string, object?> { ["name"] = "x", ["value"] = "y" };
+        if (url is not null)
+        {
+            with["url"] = url;
+        }
+
+        if (domain is not null)
+        {
+            with["domain"] = domain;
+        }
+
+        var report = await executor.ExecuteAsync(BuildCase("UI-COOKIE-3", new[]
+        {
+            new PipelineStep("ui.setCookie", With: with),
+        }, new[] { new CleanupDeclaration("ui.closePage") }));
+
+        Assert.False(report.Passed);
+        Assert.Equal(CleanupStatus.AllSucceeded, report.CleanupStatus);
+    }
+
+    // evidence-capture delta: a value typed into a password field is masked in the adapter, before
+    // it can reach uploaded evidence, and flagged so no allowlist entry re-exposes it.
+    [Fact]
+    public async Task FillIntoAPasswordFieldMasksTheValueInEvidence()
+    {
+        var executor = BuildExecutor();
+
+        var result = await executor.ExecuteAsync(BuildCase("UI-PW-1", new[]
+        {
+            new PipelineStep("ui.navigate", With: new Dictionary<string, object?> { ["url"] = _server.Url }),
+            new PipelineStep("ui.fill", With: new Dictionary<string, object?> { ["selector"] = "#secret", ["value"] = "hunter2" }),
+            new PipelineStep("ui.fill", With: new Dictionary<string, object?> { ["selector"] = "#name", ["value"] = "not-secret" }),
+        }, new[] { new CleanupDeclaration("ui.closePage") }), new ExecutionOptions { CaptureEvidence = true });
+
+        Assert.True(result.Report.Passed, result.Report.FailureDetail);
+        var pwStep = Assert.IsType<UiStepEvidence>(result.Evidence!.Steps[1].AdapterEvidence);
+        Assert.True(pwStep.ValueIsProtected);
+        Assert.Equal("«password»", pwStep.Parameters["value"]);
+        Assert.DoesNotContain("hunter2", System.Text.Json.JsonSerializer.Serialize(result.Evidence));
+
+        var plainStep = Assert.IsType<UiStepEvidence>(result.Evidence.Steps[2].AdapterEvidence);
+        Assert.False(plainStep.ValueIsProtected);
+        Assert.Equal("not-secret", plainStep.Parameters["value"]);
+    }
+
     [Fact]
     public void KnownOperationCapabilitiesMatchesWhatRegisterContributes()
     {

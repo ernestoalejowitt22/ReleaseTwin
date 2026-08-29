@@ -78,7 +78,7 @@ public sealed class EvidenceRedactor
                     RedactString(step.Assertion.Expected, rules),
                     RedactString(step.Assertion.Observed, rules));
 
-            var (adapterJson, stepScreenshots) = RedactAdapterEvidence(step.AdapterEvidence, rules, screenshots);
+            var (adapterJson, stepScreenshots) = RedactAdapterEvidence(step.AdapterEvidence, step.OperationName, rules, screenshots);
 
             result.Add(new EvidenceStepDocument(
                 step.Index,
@@ -94,7 +94,7 @@ public sealed class EvidenceRedactor
     }
 
     private (JToken? Json, IReadOnlyList<EvidenceScreenshotRef>? Screenshots) RedactAdapterEvidence(
-        object? adapterEvidence, EvidenceRules rules, List<RedactedScreenshot> screenshots)
+        object? adapterEvidence, string operationName, EvidenceRules rules, List<RedactedScreenshot> screenshots)
     {
         if (adapterEvidence is null)
         {
@@ -116,12 +116,25 @@ public sealed class EvidenceRedactor
 
         try
         {
+            // evidence-capture delta: a value typed into the UI is never uploaded verbatim. A
+            // password-field value is masked in the adapter and marked protected — the allowlist
+            // must not re-expose it; an ordinary ui.* `value` is masked here but stays re-includable.
+            var valueIsProtected = operationName.StartsWith("ui.", StringComparison.Ordinal)
+                && token is JObject uiObj && uiObj["ValueIsProtected"]?.Type == JTokenType.Boolean
+                && (bool)uiObj["ValueIsProtected"]!;
+
             // Capture allowlisted originals before we start masking.
             var preserved = CaptureAllowlisted(token, rules);
 
             ApplyBuiltIn(token);
             ApplyCaseDenylist(token, rules);
-            RestoreAllowlisted(token, preserved);
+
+            if (operationName.StartsWith("ui.", StringComparison.Ordinal))
+            {
+                MaskByPropertyName(token, "value");
+            }
+
+            RestoreAllowlisted(token, preserved, blockValueRestore: valueIsProtected);
 
             // Never leave a screenshot path in the JSON.
             StripScreenshotPaths(token);
@@ -309,7 +322,7 @@ public sealed class EvidenceRedactor
         return preserved;
     }
 
-    private void RestoreAllowlisted(JToken root, Dictionary<string, JToken> preserved)
+    private void RestoreAllowlisted(JToken root, Dictionary<string, JToken> preserved, bool blockValueRestore = false)
     {
         foreach (var (path, original) in preserved)
         {
@@ -322,6 +335,12 @@ public sealed class EvidenceRedactor
             // The allowlist can re-include a value a built-in *key-name* rule dropped, but never a
             // hard-denied header (Authorization/Cookie/...) — those stay masked regardless.
             if (current.Parent is JProperty p && BuiltInHeaderDrop.Contains(p.Name, StringComparer.OrdinalIgnoreCase))
+            {
+                continue;
+            }
+
+            // A UI step's value that was typed into a password field stays masked regardless.
+            if (blockValueRestore && current.Parent is JProperty vp && string.Equals(vp.Name, "value", StringComparison.OrdinalIgnoreCase))
             {
                 continue;
             }

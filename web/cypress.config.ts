@@ -94,6 +94,59 @@ export default defineConfig({
           return { e2eAuthSecret, apiBaseUrl, adminEmail };
         },
 
+        // ui-journey-visual-evidence: the NAHA *admin UI* target — the deployed `e2e-admin` Vercel
+        // alias plus the cookie its E2E-auth middleware gates on (naha_e2e_role=admin). Reuses the
+        // same releasetwin/e2e/naha-account secret as fetchNahaTestAccount (adding two keys), so
+        // there's one place for NAHA e2e config. Fails with a setup hint if the keys are absent.
+        async fetchNahaAdminUiTarget() {
+          const client = new SecretsManagerClient({});
+          const response = await client.send(
+            new GetSecretValueCommand({ SecretId: "releasetwin/e2e/naha-account" }),
+          );
+          if (!response.SecretString) {
+            throw new Error("releasetwin/e2e/naha-account has no SecretString value.");
+          }
+
+          const parsed = JSON.parse(response.SecretString) as {
+            e2eAuthSecret?: string;
+            apiBaseUrl?: string;
+            adminEmail?: string;
+            adminUiBaseUrl?: string;
+            roleCookieName?: string;
+            roleCookieValue?: string;
+          };
+
+          const missing = (
+            [
+              ["adminUiBaseUrl", parsed.adminUiBaseUrl],
+              ["roleCookieName", parsed.roleCookieName],
+              ["roleCookieValue", parsed.roleCookieValue],
+              ["apiBaseUrl", parsed.apiBaseUrl],
+              ["e2eAuthSecret", parsed.e2eAuthSecret],
+              ["adminEmail", parsed.adminEmail],
+            ] as const
+          )
+            .filter(([, v]) => !v)
+            .map(([k]) => k);
+
+          if (missing.length > 0) {
+            throw new Error(
+              `releasetwin/e2e/naha-account is missing key(s) for the admin UI target: ${missing.join(", ")}. ` +
+                "Add adminUiBaseUrl (the naha-admin e2e-admin Vercel alias), roleCookieName (naha_e2e_role), " +
+                "and roleCookieValue (admin) to that secret.",
+            );
+          }
+
+          return {
+            adminUiBaseUrl: parsed.adminUiBaseUrl!.replace(/\/$/, ""),
+            roleCookieName: parsed.roleCookieName!,
+            roleCookieValue: parsed.roleCookieValue!,
+            apiBaseUrl: parsed.apiBaseUrl!.replace(/\/$/, ""),
+            e2eAuthSecret: parsed.e2eAuthSecret!,
+            adminEmail: parsed.adminEmail!,
+          };
+        },
+
         // launchdarkly-real-flag-proof: real LaunchDarkly test-account credentials (API token,
         // project key, environment key only — the flag key deliberately lives in the spec file
         // itself, not the secret, so different tests can target different flags) live in AWS
@@ -308,10 +361,12 @@ export default defineConfig({
           token,
           apiUrl,
           journeyRef,
+          env,
         }: {
           token: string;
           apiUrl: string;
           journeyRef: string;
+          env?: Record<string, string>;
         }) {
           try {
             const { stdout, stderr } = await execFileAsync(
@@ -324,6 +379,9 @@ export default defineConfig({
                   RELEASETWIN_API_TOKEN: token,
                   RELEASETWIN_API_URL: apiUrl,
                   RELEASETWIN_FIXTURES_ROOT: path.join(repoRoot, "examples", "fixtures"),
+                  // ui-journey-visual-evidence: lets a spec turn on the UI adapter + evidence capture
+                  // (RELEASETWIN_UI_ENABLED / RELEASETWIN_EVIDENCE), same passthrough runCli already has.
+                  ...env,
                 },
                 maxBuffer: 10 * 1024 * 1024,
               },
