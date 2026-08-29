@@ -24,7 +24,9 @@ describe("journey builder", () => {
     cy.contains("h1", "Dashboard").should("be.visible");
 
     const projectName = `e2e-journey-${Date.now()}`;
-    cy.get('input[name="name"]').type(projectName);
+    // Scoped by placeholder, not just `[name="name"]` — once a project is selected, its "Set up"
+    // section's project-secrets add-secret form also has an `input[name="name"]` on this same page.
+    cy.get('input[placeholder="New project name"]').type(projectName);
     cy.contains("button", "Create project").click();
     cy.contains(projectName).should("be.visible");
 

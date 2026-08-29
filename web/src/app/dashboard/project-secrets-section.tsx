@@ -32,6 +32,7 @@ function SecretRow({ projectId, name, configuredMetadata }: {
         {configuredMetadata && (
           <span className="flex items-center gap-2 text-xs text-muted-foreground">
             <Badge variant="default">Configured</Badge>
+            {" "}
             by {configuredMetadata.lastSetByDisplayName} on {new Date(configuredMetadata.updatedAt).toLocaleString()}
           </span>
         )}

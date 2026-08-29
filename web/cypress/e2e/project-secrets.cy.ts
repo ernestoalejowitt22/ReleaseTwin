@@ -54,6 +54,7 @@ describe("project secrets", () => {
       });
 
     cy.reload();
+    cy.expandSetupSection();
     cy.screenshot("project-secrets/01-configured");
 
     cy.contains(`Project secrets — ${projectName}`)
@@ -78,6 +79,7 @@ describe("project secrets", () => {
       });
 
     cy.reload();
+    cy.expandSetupSection();
     cy.contains(`Project secrets — ${projectName}`)
       .parents(".rounded-xl")
       .within(() => {
@@ -90,6 +92,7 @@ describe("project secrets", () => {
       });
 
     cy.reload();
+    cy.expandSetupSection();
     cy.contains(`Project secrets — ${projectName}`)
       .parents(".rounded-xl")
       .within(() => {
