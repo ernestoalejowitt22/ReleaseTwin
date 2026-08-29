@@ -195,7 +195,53 @@ public sealed class CaseFileLoader
             string.IsNullOrWhiteSpace(dto.ResourceKey) ? null : new ResourceKey(dto.ResourceKey),
             requiredCapabilities);
 
-        return new LoadedCase(testCase, ResolveFlagProof(fileName, dto.FlagProof));
+        return new LoadedCase(testCase, ResolveFlagProof(fileName, dto.FlagProof), ResolveEvidenceRules(fileName, dto.Evidence));
+    }
+
+    private static EvidenceRules ResolveEvidenceRules(string fileName, EvidenceDto? dto)
+    {
+        if (dto is null)
+        {
+            return EvidenceRules.None;
+        }
+
+        var allow = (dto.Capture ?? new List<string>())
+            .Select(c =>
+            {
+                if (string.IsNullOrWhiteSpace(c))
+                {
+                    throw new CaseFileException(fileName, "an evidence.capture entry is empty");
+                }
+
+                return c.Trim();
+            })
+            .ToList();
+
+        var redact = (dto.Redact ?? new List<EvidenceRedactDto>())
+            .Select(r =>
+            {
+                var set = new List<(EvidenceRedactKind Kind, string? Value)>
+                {
+                    (EvidenceRedactKind.Header, r.Header),
+                    (EvidenceRedactKind.JsonPath, r.JsonPath),
+                    (EvidenceRedactKind.Field, r.Field),
+                    (EvidenceRedactKind.Selector, r.Selector),
+                    (EvidenceRedactKind.Region, r.Region),
+                }
+                .Where(x => !string.IsNullOrWhiteSpace(x.Value))
+                .ToList();
+
+                if (set.Count != 1)
+                {
+                    throw new CaseFileException(fileName,
+                        "an evidence.redact rule must set exactly one of: header, json_path, field, selector, region");
+                }
+
+                return new EvidenceRedactRule(set[0].Kind, set[0].Value!.Trim());
+            })
+            .ToList();
+
+        return new EvidenceRules(allow, redact);
     }
 
     private static FlagProofDeclaration? ResolveFlagProof(string fileName, FlagProofDto? dto)

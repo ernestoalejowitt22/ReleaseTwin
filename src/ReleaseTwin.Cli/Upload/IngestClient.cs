@@ -1,4 +1,7 @@
 using System.Net.Http.Json;
+using System.Text;
+using Newtonsoft.Json.Linq;
+using ReleaseTwin.Cli.Evidence;
 using ReleaseTwin.Core;
 
 namespace ReleaseTwin.Cli.Upload;
@@ -8,6 +11,9 @@ namespace ReleaseTwin.Cli.Upload;
 /// here — the CLI and the hosted API are separate solutions/deployments and deliberately don't share
 /// a compiled type, matching how the ingest contract is meant to evolve independently of both sides'
 /// internals.
+///
+/// evidence-capture: an optional, already-redacted <see cref="EvidenceDocument"/> may ride along with
+/// a report. When it is absent the request body is byte-for-byte what it was before evidence existed.
 /// </summary>
 public sealed class IngestClient : IDisposable
 {
@@ -22,7 +28,8 @@ public sealed class IngestClient : IDisposable
         _client.DefaultRequestHeaders.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", apiToken);
     }
 
-    public async Task UploadCaseReportAsync(CaseReport report, CancellationToken cancellationToken)
+    /// <summary>Uploads a case report. Returns whether an accompanying evidence document was accepted (true when none was sent).</summary>
+    public async Task<bool> UploadCaseReportAsync(CaseReport report, RedactionResult? evidence, CancellationToken cancellationToken)
     {
         var payload = new
         {
@@ -36,11 +43,10 @@ public sealed class IngestClient : IDisposable
             durationMs = (long)report.Duration.TotalMilliseconds,
         };
 
-        using var response = await _client.PostAsJsonAsync("/api/ingest/case-report", payload, cancellationToken);
-        response.EnsureSuccessStatusCode();
+        return await SendAsync("/api/ingest/case-report", payload, evidence, cancellationToken);
     }
 
-    public async Task UploadFlagProofReportAsync(FlagProofResult result, CancellationToken cancellationToken)
+    public async Task<bool> UploadFlagProofReportAsync(FlagProofResult result, RedactionResult? evidence, CancellationToken cancellationToken)
     {
         var payload = new
         {
@@ -52,9 +58,78 @@ public sealed class IngestClient : IDisposable
             knownGoodLegPassed = result.KnownGoodLeg?.Passed,
         };
 
-        using var response = await _client.PostAsJsonAsync("/api/ingest/flag-proof-report", payload, cancellationToken);
-        response.EnsureSuccessStatusCode();
+        return await SendAsync("/api/ingest/flag-proof-report", payload, evidence, cancellationToken);
     }
 
+    private async Task<bool> SendAsync(string path, object reportPayload, RedactionResult? evidence, CancellationToken cancellationToken)
+    {
+        HttpResponseMessage response;
+
+        if (evidence is null)
+        {
+            // No evidence: unchanged JSON POST, byte-for-byte as before this capability.
+            response = await _client.PostAsJsonAsync(path, reportPayload, cancellationToken);
+        }
+        else if (evidence.Screenshots.Count == 0)
+        {
+            // The evidence document rides as an `evidence` property on the report object itself.
+            var body = JObject.FromObject(reportPayload);
+            body["evidence"] = JObject.FromObject(evidence.Document, CamelCase);
+            response = await _client.PostAsync(path,
+                new StringContent(body.ToString(), Encoding.UTF8, "application/json"),
+                cancellationToken);
+        }
+        else
+        {
+            var reportJson = JObject.FromObject(reportPayload);
+            reportJson["evidence"] = JObject.FromObject(evidence.Document, CamelCase);
+
+            using var multipart = new MultipartFormDataContent
+            {
+                { new StringContent(reportJson.ToString(), Encoding.UTF8, "application/json"), "report" },
+            };
+
+            foreach (var screenshot in evidence.Screenshots)
+            {
+                var part = new ByteArrayContent(screenshot.PngBytes);
+                part.Headers.ContentType = new System.Net.Http.Headers.MediaTypeHeaderValue("image/png");
+                multipart.Add(part, $"screenshot:{screenshot.Id}", $"{screenshot.Id}.png");
+            }
+
+            response = await _client.PostAsync(path, multipart, cancellationToken);
+        }
+
+        using (response)
+        {
+            response.EnsureSuccessStatusCode();
+
+            if (evidence is null)
+            {
+                return true;
+            }
+
+            try
+            {
+                var result = await response.Content.ReadFromJsonAsync<IngestAck>(cancellationToken: cancellationToken);
+                return result?.EvidenceAccepted ?? true;
+            }
+            catch
+            {
+                return true;
+            }
+        }
+    }
+
+    private static readonly Newtonsoft.Json.JsonSerializer CamelCase = Newtonsoft.Json.JsonSerializer.Create(new Newtonsoft.Json.JsonSerializerSettings
+    {
+        ContractResolver = new Newtonsoft.Json.Serialization.CamelCasePropertyNamesContractResolver(),
+        NullValueHandling = Newtonsoft.Json.NullValueHandling.Ignore,
+    });
+
     public void Dispose() => _client.Dispose();
+
+    private sealed class IngestAck
+    {
+        public bool EvidenceAccepted { get; set; } = true;
+    }
 }
