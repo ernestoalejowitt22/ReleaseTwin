@@ -146,9 +146,8 @@ export default async function EvidenceDetailPage({
               </CardTitle>
               <CardDescription>
                 {detail.document.redactionNote ??
-                  "Redacted by your CLI before upload."}{" "}
-                Screenshots are best-effort-redacted. Uploaded{" "}
-                {new Date(detail.uploadedAt).toLocaleString()}.
+                  "Redacted by your CLI before upload. Screenshots are best-effort-redacted."}{" "}
+                Uploaded {new Date(detail.uploadedAt).toLocaleString()}.
               </CardDescription>
             </CardHeader>
           </Card>

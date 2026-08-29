@@ -21,7 +21,9 @@
     "e2e:secrets": "start-server-and-test e2e:api http://localhost:5199/Privacy e2e:web http://localhost:3000 e2e:run:secrets",
     "e2e:secrets:prod": "cypress run --config baseUrl=https://releasetwin.vercel.app --env RELEASETWIN_API_URL=https://aeq4mvkh3n63sqnngc4lp7567y0mqfzr.lambda-url.us-east-1.on.aws --spec cypress/e2e/project-secrets.cy.ts,cypress/e2e/project-secrets-runtime.cy.ts",
     "e2e:run:naha": "cypress run --spec cypress/e2e/naha-real-journey.cy.ts",
-    "e2e:naha": "start-server-and-test e2e:api http://localhost:5199/Privacy e2e:web http://localhost:3000 e2e:run:naha"
+    "e2e:naha": "start-server-and-test e2e:api http://localhost:5199/Privacy e2e:web http://localhost:3000 e2e:run:naha",
+    "e2e:run:evidence": "cypress run --spec cypress/e2e/evidence-capture.cy.ts",
+    "e2e:evidence": "start-server-and-test e2e:api http://localhost:5199/Privacy e2e:web http://localhost:3000 e2e:run:evidence"
   },
   "dependencies": {
     "@clerk/nextjs": "^7.8.1",

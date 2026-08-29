@@ -31,7 +31,7 @@ export function EvidenceSettingsSection({
   );
 
   return (
-    <Card>
+    <Card data-testid="evidence-settings">
       <CardHeader>
         <CardTitle>Evidence capture</CardTitle>
         <CardDescription>
