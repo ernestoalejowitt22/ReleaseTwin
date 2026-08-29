@@ -56,6 +56,10 @@ jobs:
       # design.md two-pass apply: GitHubConnection__* vars/secrets are empty until the GitHub OAuth
       # App is registered (needs the Vercel URL, which needs this workflow's own first-pass output)
       # — re-running this workflow with those set updates the Lambda's env vars in place.
+      # operator-alerting: OPERATOR_ALERT_EMAIL is a plain repo variable (not a secret — it's just
+      # an address), same treatment as GH_OAUTH_CLIENT_ID. Left unset, alerting.tf creates the SNS
+      # topic with no subscription and the digest Lambda logs a warning instead of publishing — set
+      # this repo variable before relying on this change for real (tasks.md group 1).
       - name: Terraform apply
         working-directory: hosted/terraform
         run: |
@@ -64,9 +68,11 @@ jobs:
             -var="region=${{ inputs.region }}" \
             -var="github_client_id=${{ vars.GH_OAUTH_CLIENT_ID }}" \
             -var="github_client_secret=${{ secrets.GH_OAUTH_CLIENT_SECRET }}" \
-            -var="github_callback_url=${{ vars.GH_OAUTH_CALLBACK_URL }}"
+            -var="github_callback_url=${{ vars.GH_OAUTH_CALLBACK_URL }}" \
+            -var="operator_alert_email=${{ vars.OPERATOR_ALERT_EMAIL }}"
 
       - name: Function URL
         working-directory: hosted/terraform
         run: |
           echo "Function URL: $(terraform output -raw function_url)" >> "$GITHUB_STEP_SUMMARY"
+          echo "Operator alerts SNS topic: $(terraform output -raw operator_alerts_topic_arn)" >> "$GITHUB_STEP_SUMMARY"

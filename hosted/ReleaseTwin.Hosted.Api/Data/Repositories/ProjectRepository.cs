@@ -37,6 +37,12 @@ public sealed class ProjectRepository : IProjectRepository
     public async Task<bool> ExistsInOrganizationAsync(Guid organizationId, Guid projectId, CancellationToken cancellationToken = default) =>
         await GetAsync(organizationId, projectId, cancellationToken) is not null;
 
+    public async Task<IReadOnlyList<Project>> ListAllAsync(CancellationToken cancellationToken = default)
+    {
+        var items = await _table.ScanByEntityTypeAsync("Project", cancellationToken);
+        return items.Select(ToProject).ToList();
+    }
+
     private static Dictionary<string, Amazon.DynamoDBv2.Model.AttributeValue> ToItem(Project project) => new()
     {
         ["PK"] = Attrs.S(Keys.Org(project.OrganizationId)),

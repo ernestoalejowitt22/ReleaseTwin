@@ -11,6 +11,8 @@
     <PackageReference Include="Microsoft.AspNetCore.Authentication.JwtBearer" Version="10.0.0" />
     <PackageReference Include="AWSSDK.DynamoDBv2" Version="4.0.5" />
     <PackageReference Include="Amazon.AspNetCore.DataProtection.SSM" Version="4.0.3" />
+    <!-- operator-alerting: the daily staleness digest publishes to SNS. -->
+    <PackageReference Include="AWSSDK.SimpleNotificationService" Version="4.0.100" />
   </ItemGroup>
 
 </Project>

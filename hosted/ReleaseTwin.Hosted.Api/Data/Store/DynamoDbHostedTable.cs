@@ -82,6 +82,28 @@ public sealed class DynamoDbHostedTable : IHostedTable
         return response.Items;
     }
 
+    public async Task<IReadOnlyList<Dictionary<string, AttributeValue>>> ScanByEntityTypeAsync(string entityType, CancellationToken cancellationToken = default)
+    {
+        var results = new List<Dictionary<string, AttributeValue>>();
+        Dictionary<string, AttributeValue>? lastEvaluatedKey = null;
+
+        do
+        {
+            var response = await _client.ScanAsync(new ScanRequest
+            {
+                TableName = _tableName,
+                FilterExpression = "EntityType = :entityType",
+                ExpressionAttributeValues = new Dictionary<string, AttributeValue> { [":entityType"] = Attrs.S(entityType) },
+                ExclusiveStartKey = lastEvaluatedKey,
+            }, cancellationToken);
+
+            results.AddRange(response.Items);
+            lastEvaluatedKey = response.LastEvaluatedKey is { Count: > 0 } ? response.LastEvaluatedKey : null;
+        } while (lastEvaluatedKey is not null);
+
+        return results;
+    }
+
     public async Task UpdateItemAddAsync(string pk, string sk, IReadOnlyDictionary<string, long> increments, IReadOnlyDictionary<string, AttributeValue> itemIfNew, CancellationToken cancellationToken = default)
     {
         var names = new Dictionary<string, string>();

@@ -24,6 +24,9 @@ public interface IProjectRepository
     Task<Project?> GetAsync(Guid organizationId, Guid projectId, CancellationToken cancellationToken = default);
     Task<IReadOnlyList<Project>> ListByOrganizationAsync(Guid organizationId, CancellationToken cancellationToken = default);
     Task<bool> ExistsInOrganizationAsync(Guid organizationId, Guid projectId, CancellationToken cancellationToken = default);
+
+    /// <summary>operator-alerting design.md: every project across every organization, for the daily staleness digest — the one caller with no natural organization partition key to scope a Query to. Backed by a full-table Scan (see IHostedTable.ScanByEntityTypeAsync); not for use on any per-request path.</summary>
+    Task<IReadOnlyList<Project>> ListAllAsync(CancellationToken cancellationToken = default);
 }
 
 public interface IApiTokenRepository
