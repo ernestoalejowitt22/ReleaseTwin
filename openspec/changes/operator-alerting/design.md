@@ -13,6 +13,13 @@ See proposal.md - Why. Two relevant facts about the current implementation shape
   honest solution — not a query pattern to build indexes for prematurely.
 - Deployment is Lambda behind a Function URL (`hosted-platform-deployment`), terraform-managed in
   `hosted/terraform/`. There is no existing scheduled/cron infrastructure anywhere in the stack.
+- Confirmed during implementation: no request-level log line existed at all before this change —
+  both `appsettings.json` and `appsettings.Development.json` set the `Microsoft.AspNetCore`
+  logging category to `Warning`, which suppresses the framework's own built-in
+  request-finished log line (`Information`-level). The 5xx metric filter below has a real request
+  log line to match against only because `Program.cs` now emits one explicitly, in the `Program`
+  category (left at the `Information` default) rather than relying on the framework's own,
+  format-unstable one.
 
 ## Goals / Non-Goals
 
@@ -57,15 +64,25 @@ Subscription confirmation is a one-time manual click in the operator's inbox aft
 apply` — documented in the migration plan below, not automated (SNS doesn't support
 auto-confirming an email subscription, by design, to prevent spam).
 
-**Staleness digest: a scheduled entry point in the existing Lambda, not a second Lambda.**
-`AddAWSLambdaHosting(LambdaEventSource.HttpApi)` already switches the app's hosting model based on
-the Lambda event source at runtime. Rather than stand up a second deployable, the same handler can
-branch on event source (EventBridge Scheduled Event vs. HTTP API) and run a small scan-and-judge
-routine instead of serving a request. This keeps deployment topology exactly as simple as it is
-today — one Lambda, one artifact, one set of environment variables — at the cost of a small
-branch in the entry point. Alternative considered: a second, dedicated Lambda function — rejected
-for now as unnecessary duplication of deployment config (env vars, IAM role, VPC settings if any)
-for a single daily invocation; revisit if the entry-point branching gets unwieldy.
+**Staleness digest: two Lambda *function* resources sharing one deployment artifact, not one
+function branching on event source. Refined during implementation — see below.**
+The original plan here was "the same Lambda branches on event source (EventBridge Scheduled Event
+vs. HTTP API)." That doesn't actually work with `AddAWSLambdaHosting(LambdaEventSource.HttpApi)`:
+it marshals every invocation as an API Gateway HTTP API v2 proxy request through the ASP.NET Core
+pipeline, and an EventBridge Scheduled Event has a completely different JSON shape that pipeline
+was never built to accept — there's no supported way to route it through the same request
+pipeline, and a Lambda function's environment variables are static per function, not per
+invocation, so they can't discriminate at request time either. The actual implementation instead
+declares a second `aws_lambda_function` resource (`hosted/terraform/alerting.tf`) pointing at the
+exact same build artifact (`lambda-package.zip`) as the HTTP function, differing only in its
+environment (`RELEASETWIN_LAMBDA_TASK=StalenessDigest`) and IAM role (read-only DynamoDB +
+`sns:Publish`, vs. the HTTP function's read/write role). `Program.cs` checks that environment
+variable immediately after `builder.Build()`; when set, it runs its own independent
+`Amazon.Lambda.RuntimeSupport.LambdaBootstrapBuilder` loop (using the built app only as a DI
+container — never `app.Run()`, never any ASP.NET Core hosting) instead of the normal web pipeline.
+Net effect: still one build, one artifact, one codebase — the "no separate build pipeline"
+motivation for avoiding a second Lambda is preserved — just realized as two thin function
+resources instead of one function juggling two incompatible event shapes.
 
 **Full-table Scan for cross-organization project listing.**
 `ProjectRepository` gains a new `ListAllAsync` (or the scheduled routine queries `IHostedTable`

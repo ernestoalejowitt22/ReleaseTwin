@@ -27,6 +27,14 @@ public interface IHostedTable
     /// <summary>Query a GSI (eventually consistent, per real DynamoDB semantics — never used for the security-critical token lookup).</summary>
     Task<IReadOnlyList<Dictionary<string, AttributeValue>>> QueryGsiAsync(string indexName, string gsiPk, CancellationToken cancellationToken = default);
 
+    /// <summary>
+    /// operator-alerting design.md: a full-table Scan filtered to a given <c>EntityType</c> — the
+    /// only way to list items across every organization's partition, since every other read here is
+    /// scoped to one organization's own PK. Deliberately not optimized (see design.md's Decisions) —
+    /// used by exactly one caller, once a day, against a table sized for a handful of customers.
+    /// </summary>
+    Task<IReadOnlyList<Dictionary<string, AttributeValue>>> ScanByEntityTypeAsync(string entityType, CancellationToken cancellationToken = default);
+
     /// <summary>Atomic increment (DynamoDB's native `ADD`) — creates the item with the given starting attributes if it doesn't exist yet.</summary>
     Task UpdateItemAddAsync(string pk, string sk, IReadOnlyDictionary<string, long> increments, IReadOnlyDictionary<string, AttributeValue> itemIfNew, CancellationToken cancellationToken = default);
 

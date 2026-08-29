@@ -102,6 +102,16 @@ builder.Services.AddHttpClient("GitHubConnection");
 builder.Services.AddHttpContextAccessor();
 builder.Services.AddScoped<CurrentOrganizationAccessor>();
 
+// operator-alerting: the region here is the same one the API already runs in — no separate
+// configuration needed. The client is cheap to construct and only actually used by the scheduled
+// digest invocation (see the RELEASETWIN_LAMBDA_TASK branch below), but registering it
+// unconditionally keeps this section a single, uniform list of services rather than splitting
+// registration by which Lambda function will end up using it.
+builder.Services.AddSingleton<Amazon.SimpleNotificationService.IAmazonSimpleNotificationService>(_ =>
+    new Amazon.SimpleNotificationService.AmazonSimpleNotificationServiceClient());
+builder.Services.AddScoped<IOperatorAlertPublisher, SnsOperatorAlertPublisher>();
+builder.Services.AddScoped<StalenessDigestService>();
+
 // design.md: two distinct, explicitly-named auth schemes — "ClerkJwt" for web-originated (BFF)
 // requests from the Next.js frontend, and ApiTokenDefaults.Scheme for the CLI's ingest uploads.
 // Both are now Bearer-shaped (the old cookie scheme made them structurally impossible to confuse;
@@ -179,11 +189,48 @@ builder.Services.AddAuthorization();
 
 var app = builder.Build();
 
+// operator-alerting design.md: two Lambda *function* resources share this one deployment artifact
+// (see hosted/terraform/alerting.tf) — the HTTP-serving function (unchanged, this env var unset)
+// and a second, scheduled function that sets RELEASETWIN_LAMBDA_TASK=StalenessDigest. An
+// EventBridge Scheduled Event's payload has nothing in common with the API Gateway HTTP API v2
+// proxy shape AddAWSLambdaHosting(LambdaEventSource.HttpApi) expects, so it can't be routed through
+// the same ASP.NET Core request pipeline below — instead this branch runs its own, independent
+// Lambda Runtime API loop via LambdaBootstrapBuilder, using `app` only as a already-built DI
+// container (its web-hosting pieces — Kestrel, endpoint routing, app.Run() — are never touched in
+// this branch). The two functions never run concurrently, so there's no conflict over which
+// runtime loop is "the" one for a given process.
+if (Environment.GetEnvironmentVariable("RELEASETWIN_LAMBDA_TASK") == "StalenessDigest")
+{
+    await Amazon.Lambda.RuntimeSupport.LambdaBootstrapBuilder.Create(async (Stream _, Amazon.Lambda.Core.ILambdaContext _) =>
+    {
+        using var scope = app.Services.CreateScope();
+        await scope.ServiceProvider.GetRequiredService<StalenessDigestService>().RunAsync();
+        return new MemoryStream();
+    }).Build().RunAsync();
+    return;
+}
+
 if (!app.Environment.IsDevelopment())
 {
     app.UseExceptionHandler("/Error");
     app.UseHsts();
 }
+
+// operator-alerting: no request-level log line existed at all before this — "Microsoft.AspNetCore"
+// (the category the framework's own built-in request-finished log uses) is set to Warning in both
+// appsettings files, so status codes never reached the logs, let alone CloudWatch. This is a
+// deliberately minimal, stable-format line (not the framework's own, whose exact text isn't a
+// contract) so the CloudWatch Logs metric filter added alongside it has something durable to match
+// against — see the "Program" category, left at the Information default.
+app.Use(async (context, next) =>
+{
+    await next();
+    app.Logger.LogInformation(
+        "http_request_completed status={StatusCode} method={Method} path={Path}",
+        context.Response.StatusCode,
+        context.Request.Method,
+        context.Request.Path);
+});
 
 app.UseHttpsRedirection();
 app.UseStaticFiles();

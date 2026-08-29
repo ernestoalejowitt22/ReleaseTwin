@@ -60,6 +60,15 @@ public sealed class InMemoryHostedTable : IHostedTable
         return Task.FromResult<IReadOnlyList<Dictionary<string, AttributeValue>>>(matches);
     }
 
+    public Task<IReadOnlyList<Dictionary<string, AttributeValue>>> ScanByEntityTypeAsync(string entityType, CancellationToken cancellationToken = default)
+    {
+        var matches = _items.Values
+            .Where(v => v.TryGetValue("EntityType", out var v1) && v1.S == entityType)
+            .Select(Clone)
+            .ToList();
+        return Task.FromResult<IReadOnlyList<Dictionary<string, AttributeValue>>>(matches);
+    }
+
     public Task UpdateItemAddAsync(string pk, string sk, IReadOnlyDictionary<string, long> increments, IReadOnlyDictionary<string, AttributeValue> itemIfNew, CancellationToken cancellationToken = default)
     {
         lock (_writeLock)
