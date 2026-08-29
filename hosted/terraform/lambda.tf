@@ -58,6 +58,26 @@ resource "aws_iam_role_policy" "hosted_api_dynamodb" {
   policy = data.aws_iam_policy_document.hosted_api_dynamodb.json
 }
 
+# evidence-purge-and-blob-store: the API writes a redacted screenshot blob on ingest (and could
+# delete one from a future "delete this evidence now" endpoint). Reads go through the same store on
+# the dashboard's BFF screenshot proxy. Bucket defined in evidence.tf.
+data "aws_iam_policy_document" "hosted_api_evidence_s3" {
+  statement {
+    actions = [
+      "s3:PutObject",
+      "s3:GetObject",
+      "s3:DeleteObject",
+    ]
+    resources = ["${aws_s3_bucket.evidence_blobs.arn}/*"]
+  }
+}
+
+resource "aws_iam_role_policy" "hosted_api_evidence_s3" {
+  name   = "evidence-blob-s3-access"
+  role   = aws_iam_role.hosted_api.id
+  policy = data.aws_iam_policy_document.hosted_api_evidence_s3.json
+}
+
 # hosted-adapter-credentials design.md Migration Plan: the real-AWS path persists the Data
 # Protection key ring (used by ConnectionStateService and AdapterCredentialService) to SSM Parameter
 # Store as SecureString (PersistKeysToAWSSystemsManager) — without this, ANY code path that creates
@@ -118,6 +138,8 @@ resource "aws_lambda_function" "hosted_api" {
       GitHubConnection__ClientId     = var.github_client_id
       GitHubConnection__ClientSecret = var.github_client_secret
       GitHubConnection__CallbackUrl  = var.github_callback_url
+      # evidence-purge-and-blob-store: presence of this switches the blob store from filesystem to S3.
+      Evidence__BlobBucket = aws_s3_bucket.evidence_blobs.id
     }
   }
 }
