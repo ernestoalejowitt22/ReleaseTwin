@@ -52,7 +52,7 @@ export function SetupSection({
           Set up
         </h2>
         <CollapsibleTrigger asChild>
-          <Button variant="ghost" size="sm" className="gap-1.5 text-xs">
+          <Button variant="ghost" size="sm" className="gap-1.5 text-xs" data-testid="setup-toggle">
             {open ? <ChevronDown className="size-3.5" /> : <ChevronRight className="size-3.5" />}
             {configuredCount === 0
               ? "Nothing configured yet"

@@ -25,7 +25,9 @@ describe("adapter credentials", () => {
     cy.contains("h1", "Dashboard").should("be.visible");
 
     const projectName = `e2e-adapter-cred-${Date.now()}`;
-    cy.get('input[name="name"]').type(projectName);
+    // Scoped by placeholder, not just `[name="name"]` — once a project is selected, its "Set up"
+    // section's project-secrets add-secret form also has an `input[name="name"]` on this same page.
+    cy.get('input[placeholder="New project name"]').type(projectName);
     cy.contains("button", "Create project").click();
     cy.contains(projectName).should("be.visible");
 
@@ -44,6 +46,7 @@ describe("adapter credentials", () => {
       });
 
     cy.reload();
+    cy.expandSetupSection();
     cy.screenshot("adapter-credentials/01-configured");
 
     cy.contains(`Adapter credentials — ${projectName}`)
@@ -68,6 +71,7 @@ describe("adapter credentials", () => {
       });
 
     cy.reload();
+    cy.expandSetupSection();
     cy.contains(`Adapter credentials — ${projectName}`)
       .parents(".rounded-xl")
       .within(() => {
@@ -80,6 +84,7 @@ describe("adapter credentials", () => {
       });
 
     cy.reload();
+    cy.expandSetupSection();
     cy.contains(`Adapter credentials — ${projectName}`)
       .parents(".rounded-xl")
       .within(() => {

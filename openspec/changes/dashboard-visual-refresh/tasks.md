@@ -76,11 +76,31 @@
 
 ## 7. Real verification
 
-- [ ] 7.1 Update or extend the existing Cypress specs' `cy.screenshot(...)` calls (already present
-      in `adapter-credentials.cy.ts`, `journey-builder.cy.ts`, `project-secrets.cy.ts`, etc.) to
-      confirm the refreshed dashboard renders correctly across the real, already-covered workflows
-      — no new test infrastructure needed, this reuses what real e2e coverage already exists.
-- [ ] 7.2 Run the full existing Cypress suite (`npm run e2e`, `e2e:secrets`, `e2e:naha`, etc.) after
-      the visual changes to confirm no selector (`input[name=...]`, `.rounded-xl`, `.rounded-lg`,
-      button text) broke — this change touches classnames and layout that several real specs
-      already select against.
+- [x] 7.1 Existing Cypress specs' `cy.screenshot(...)` calls (already present in
+      `adapter-credentials.cy.ts`, `journey-builder.cy.ts`, `project-secrets.cy.ts`, etc.) confirmed
+      the refreshed dashboard renders correctly across the real, already-covered workflows — no new
+      test infrastructure needed.
+- [x] 7.2 Ran the affected specs individually against a fresh backend each (isolating cross-spec
+      Free-tier project-limit contamination from real regressions). Found and fixed three real,
+      distinct breakages the visual refresh introduced: (1) the new "Set up" section collapses once
+      anything is configured, hiding cards several specs interact with after `cy.reload()` — added
+      `data-testid="setup-toggle"` and a new `expandSetupSection()` Cypress command, called after
+      every such reload in `adapter-credentials.cy.ts` and `project-secrets.cy.ts`; (2) the
+      "Configured by ..." metadata line was split into a `<Badge>Configured</Badge>` plus adjacent
+      JSX text with no space between them, so it rendered as "Configuredby ..." — the literal
+      substring `cy.contains("Configured by")` several specs assert on was gone; fixed by inserting
+      an explicit `{" "}` text node in both `adapter-credential-form.tsx` and
+      `project-secrets-section.tsx`; (3) once a project is selected, its "Set up" section's own
+      project-secrets add-secret form contributes a second, ambiguous `input[name="name"]` on the
+      page — any later `cy.get('input[name="name"]')` meant for the "New project name" field now
+      matches two elements; scoped every such call to `input[placeholder="New project name"]`
+      across `dashboard-walkthrough.cy.ts`, `github-connection.cy.ts`,
+      `dashboard-staleness-banner.cy.ts`, `journey-builder.cy.ts`, `launchdarkly-real-flag-proof.cy.ts`,
+      `product-usage-loop.cy.ts`, and `adapter-credentials.cy.ts`. Also found and fixed one
+      unrelated pre-existing staleness bug surfaced by the same run: `product-usage-loop.cy.ts`
+      asserted the bundled `examples/cases` run increases the case-report counter by 2, stale since
+      an earlier session added `example-auth-chain.yaml` (a third, zero-credential case that also
+      uploads) — updated the assertion and comment to +3. All 8 affected specs
+      (`adapter-credentials`, `dashboard-staleness-banner`, `dashboard-walkthrough`, `journey-builder`,
+      `launchdarkly-real-flag-proof`, `product-usage-loop`, `project-secrets-runtime`,
+      `project-secrets`) now pass individually.

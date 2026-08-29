@@ -24,7 +24,9 @@ describe("product usage loop", () => {
     cy.contains("h1", "Dashboard").should("be.visible");
 
     const projectName = `e2e-usage-loop-${Date.now()}`;
-    cy.get('input[name="name"]').type(projectName);
+    // Scoped by placeholder, not just `[name="name"]` — once a project is selected, its "Set up"
+    // section's project-secrets add-secret form also has an `input[name="name"]` on this same page.
+    cy.get('input[placeholder="New project name"]').type(projectName);
     cy.contains("button", "Create project").click();
     cy.contains(projectName).should("be.visible");
 
@@ -80,12 +82,13 @@ describe("product usage loop", () => {
     cy.contains(projectName).should("be.visible");
     cy.contains("HTTP-DEMO-1").should("be.visible");
 
-    // The case-report counter increases by 2, not 1: running the real, bundled `examples/cases`
+    // The case-report counter increases by 3, not 1: running the real, bundled `examples/cases`
     // directory (matching exactly what the dashboard tells a customer to copy-paste) also executes
     // `example-claim.yaml` (CLM-042), which fails without Azure DevOps credentials but still uploads
-    // as a regular case report — confirmed empirically during implementation. `example-flag-proof.
-    // yaml`'s case is skipped before upload entirely (no Azure DevOps adapter installed), so it
-    // doesn't affect this counter.
+    // as a regular case report, and `example-auth-chain.yaml` (AUTH-CHAIN-DEMO-1), a zero-credential
+    // HTTP case that passes and uploads like HTTP-DEMO-1 — both confirmed empirically. `example-
+    // flag-proof.yaml`'s case is skipped before upload entirely (no Azure DevOps adapter installed),
+    // so it doesn't affect this counter.
     cy.get("@baselineCaseReportCount").then((baseline) => {
       cy.contains("case reports")
         .parent()
@@ -93,7 +96,7 @@ describe("product usage loop", () => {
         .invoke("text")
         .then((text) => {
           const updated = Number(text.trim());
-          expect(updated).to.eq((baseline as unknown as number) + 2);
+          expect(updated).to.eq((baseline as unknown as number) + 3);
         });
     });
   });

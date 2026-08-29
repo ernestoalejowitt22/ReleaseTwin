@@ -37,7 +37,9 @@ describe("dashboard walkthrough", () => {
     cy.screenshot("dashboard-walkthrough/01-signed-in");
 
     const projectName = `e2e-project-${Date.now()}`;
-    cy.get('input[name="name"]').type(projectName);
+    // Scoped by placeholder, not just `[name="name"]` — once a project is selected, its "Set up"
+    // section's project-secrets add-secret form also has an `input[name="name"]` on this same page.
+    cy.get('input[placeholder="New project name"]').type(projectName);
     cy.contains("button", "Create project").click();
 
     cy.contains(projectName).should("be.visible");
@@ -52,7 +54,7 @@ describe("dashboard walkthrough", () => {
         cy.contains("Free plan").should("be.visible");
 
         const secondProjectName = `e2e-project-${Date.now()}-2`;
-        cy.get('input[name="name"]').type(secondProjectName);
+        cy.get('input[placeholder="New project name"]').type(secondProjectName);
         cy.contains("button", "Create project").click();
         cy.contains("Free plan is limited to 1 project").should("be.visible");
         cy.contains(secondProjectName).should("not.exist");
@@ -63,7 +65,7 @@ describe("dashboard walkthrough", () => {
         cy.contains("button", "Upgrade").should("not.exist");
         cy.screenshot("dashboard-walkthrough/02c-upgraded");
 
-        cy.get('input[name="name"]').type(secondProjectName);
+        cy.get('input[placeholder="New project name"]').type(secondProjectName);
         cy.contains("button", "Create project").click();
         cy.contains(secondProjectName).should("be.visible");
         cy.screenshot("dashboard-walkthrough/02d-second-project-after-upgrade");

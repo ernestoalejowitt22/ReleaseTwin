@@ -30,7 +30,9 @@ describe("github connection flow", () => {
     // plan-tier-gating: this org may already be at its Free-tier project limit from another spec
     // run earlier in the same suite — reuse the existing project in that case rather than failing.
     const projectName = `e2e-github-${Date.now()}`;
-    cy.get('input[name="name"]').type(projectName);
+    // Scoped by placeholder, not just `[name="name"]` — once a project is selected, its "Set up"
+    // section's project-secrets add-secret form also has an `input[name="name"]` on this same page.
+    cy.get('input[placeholder="New project name"]').type(projectName);
     cy.contains("button", "Create project").click();
     cy.get("body").then(($body) => {
       if ($body.text().includes("Free plan is limited to 1 project")) {
