@@ -172,10 +172,19 @@ internal sealed class ClosePageCleanup : ICleanupOperation
 {
     public async Task<CleanupResult> ExecuteAsync(CaseExecutionContext context, CancellationToken cancellationToken)
     {
-        if (context.AdapterState.TryGetValue("ui.page", out var existing) && existing is IPage page)
+        if (context.AdapterState.TryGetValue(UiOperationSupport.ContextKey, out var existingContext) && existingContext is IBrowserContext browserContext)
+        {
+            // Closing the context closes every page it opened.
+            await browserContext.CloseAsync();
+            context.AdapterState.Remove(UiOperationSupport.ContextKey);
+            context.AdapterState.Remove(UiOperationSupport.PageKey);
+            return new CleanupResult(true);
+        }
+
+        if (context.AdapterState.TryGetValue(UiOperationSupport.PageKey, out var existing) && existing is IPage page)
         {
             await page.CloseAsync();
-            context.AdapterState.Remove("ui.page");
+            context.AdapterState.Remove(UiOperationSupport.PageKey);
         }
 
         return new CleanupResult(true);

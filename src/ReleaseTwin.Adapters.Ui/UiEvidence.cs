@@ -12,7 +12,8 @@ public sealed record UiStepEvidence(
     string Action,
     IReadOnlyDictionary<string, string?> Parameters,
     string? ScreenshotPath,
-    string? ScreenshotSelector);
+    string? ScreenshotSelector,
+    bool ValueIsProtected = false);
 
 /// <summary>
 /// Base for ui.* operations: owns the per-step evidence buffer and the drain hook, so each concrete
@@ -54,10 +55,35 @@ internal abstract class UiOperationBase : IOperation, IEvidenceEmittingOperation
             recorded[key] = value?.ToString();
         }
 
+        context.AdapterState.TryGetValue(UiOperationSupport.PageKey, out var pageObj);
+        var page = pageObj as IPage;
+
+        // evidence-capture: a value typed into a password field is masked here, before the value ever
+        // leaves the adapter, so no per-case rule and no later allowlist entry can re-expose it.
+        var valueIsProtected = false;
+        if (page is not null && !page.IsClosed && recorded.ContainsKey("value")
+            && parameters.TryGetValue("selector", out var selObj) && selObj is string selector && !string.IsNullOrWhiteSpace(selector))
+        {
+            try
+            {
+                var inputType = await page.EvalOnSelectorAsync<string?>(selector, "el => el && el.type ? String(el.type) : null");
+                if (string.Equals(inputType, "password", StringComparison.OrdinalIgnoreCase))
+                {
+                    recorded["value"] = "«password»";
+                    valueIsProtected = true;
+                }
+            }
+            catch
+            {
+                // best-effort — if we can't inspect the element, the CLI redactor still masks a
+                // ui.* step's `value` by default (just re-includable via an allowlist entry).
+            }
+        }
+
         string? screenshotPath = null;
         try
         {
-            if (context.AdapterState.TryGetValue("ui.page", out var pageObj) && pageObj is IPage page && !page.IsClosed)
+            if (page is not null && !page.IsClosed)
             {
                 screenshotPath = Path.Combine(Path.GetTempPath(), $"rt-evidence-{Guid.NewGuid():N}.png");
                 await page.ScreenshotAsync(new PageScreenshotOptions { Path = screenshotPath });
@@ -70,7 +96,7 @@ internal abstract class UiOperationBase : IOperation, IEvidenceEmittingOperation
 
         lock (_lock)
         {
-            _pending = new UiStepEvidence(ActionName, recorded, screenshotPath, null);
+            _pending = new UiStepEvidence(ActionName, recorded, screenshotPath, null, valueIsProtected);
         }
     }
 

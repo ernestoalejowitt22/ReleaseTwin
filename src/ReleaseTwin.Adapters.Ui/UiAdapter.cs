@@ -47,6 +47,7 @@ public sealed class UiAdapter : IAdapterModule, IDisposable
         ["ui.fill"] = "browser:chromium",
         ["ui.waitFor"] = "browser:chromium",
         ["ui.assertVisible"] = "browser:chromium",
+        ["ui.setCookie"] = "browser:chromium",
         ["ui.closePage"] = "browser:chromium",
     };
 
@@ -58,6 +59,7 @@ public sealed class UiAdapter : IAdapterModule, IDisposable
             .AddOperation("ui.fill", new FillOperation(_browser))
             .AddOperation("ui.waitFor", new WaitForOperation(_browser))
             .AddOperation("ui.assertVisible", new AssertVisibleOperation(_browser))
+            .AddOperation("ui.setCookie", new SetCookieOperation(_browser))
             .AddCleanup("ui.closePage", new ClosePageCleanup())
             .AddCapability("browser:chromium");
     }
