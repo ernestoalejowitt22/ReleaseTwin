@@ -2,7 +2,7 @@
 
 ## Purpose
 
-Defines paired known-bad/known-good execution of the same case against the same immutable build and fixture, reported as a single release-proof result that can detect a weak oracle — the mechanic the the initial design brief identifies as the product's most differentiated capability.
+Defines paired known-bad/known-good execution of the same case against the same immutable build and fixture, reported as a single release-proof result that can detect a weak oracle — the product.s most differentiated capability.
 
 ## Requirements
 
