@@ -23,6 +23,9 @@ web/.env*.local
 .vs/
 .idea/
 
+# Claude Code — machine-local settings only; shared config lives in settings.json
+.claude/settings.local.json
+
 # Local Cypress evidence screenshots copied out of cypress/screenshots for review
 /evidence-artifacts/
 
