@@ -1,0 +1,29 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(openspec status *)",
+      "Bash(openspec instructions *)",
+      "Bash(openspec validate *)",
+      "Bash(openspec list *)",
+      "Bash(openspec show *)",
+      "Bash(dotnet build *)",
+      "Bash(dotnet test *)",
+      "Bash(npx tsc *)",
+      "Bash(npx eslint *)",
+      "Bash(npx cypress run *)"
+    ]
+  },
+  "hooks": {
+    "PostToolUse": [
+      {
+        "matcher": "Edit|Write|MultiEdit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "f=$(jq -r '.tool_input.file_path // empty'); case \"$f\" in *web/*.ts|*web/*.tsx) cd \"$(git rev-parse --show-toplevel)/web\" && npx tsc --noEmit 2>&1 | tail -20 ;; esac; exit 0"
+          }
+        ]
+      }
+    ]
+  }
+}
