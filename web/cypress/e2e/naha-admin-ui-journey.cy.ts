@@ -116,23 +116,38 @@ describe("naha admin ui journey", () => {
       addStep(2, "ui.assertVisible");
       stepParam(2, "selector", '[data-testid="admin-home"]', 0);
 
+      // ui-session-video-polish: tour two more admin routes so Act 2 of the demo clip shows real,
+      // changing customer UI instead of a single page load. Each navigate + assertVisible is a real
+      // browser round-trip against the deployed NAHA e2e app.
+      addStep(3, "ui.navigate");
+      stepParam(3, "url", `${adminUiBaseUrl}/companies`, 0);
+
+      addStep(4, "ui.assertVisible");
+      stepParam(4, "selector", '[data-testid="companies-page"]', 0);
+
+      addStep(5, "ui.navigate");
+      stepParam(5, "url", `${adminUiBaseUrl}/policies`, 0);
+
+      addStep(6, "ui.assertVisible");
+      stepParam(6, "selector", '[data-testid="policies-page"]', 0);
+
       // API bridge — NAHA's own e2e login, then a protected endpoint.
-      addStep(3, "http.request");
-      stepParam(3, "url", `${apiBaseUrl}/v1/e2e/login`, 0);
-      stepParam(3, "method", "POST", 1);
-      stepParam(3, "body", `{"email": "${adminEmail}"}`, 2);
-      stepHeader(3, "x-e2e-secret", "${NAHA_E2E_SECRET}");
-      cy.get('[data-testid="step-3"] [data-testid="captures"]').contains("button", "Add capture").click();
-      cy.get('[data-testid="step-3"] [data-testid="capture-name"]').type("nahaToken");
-      cy.get('[data-testid="step-3"] [data-testid="capture-from"]').type("json:$.token");
+      addStep(7, "http.request");
+      stepParam(7, "url", `${apiBaseUrl}/v1/e2e/login`, 0);
+      stepParam(7, "method", "POST", 1);
+      stepParam(7, "body", `{"email": "${adminEmail}"}`, 2);
+      stepHeader(7, "x-e2e-secret", "${NAHA_E2E_SECRET}");
+      cy.get('[data-testid="step-7"] [data-testid="captures"]').contains("button", "Add capture").click();
+      cy.get('[data-testid="step-7"] [data-testid="capture-name"]').type("nahaToken");
+      cy.get('[data-testid="step-7"] [data-testid="capture-from"]').type("json:$.token");
 
-      addStep(4, "http.request");
-      stepParam(4, "url", `${apiBaseUrl}/api/me`, 0);
-      stepHeader(4, "Authorization", "Bearer {{nahaToken}}");
+      addStep(8, "http.request");
+      stepParam(8, "url", `${apiBaseUrl}/api/me`, 0);
+      stepHeader(8, "Authorization", "Bearer {{nahaToken}}");
 
-      addStep(5, "http.assertJsonPath");
-      stepParam(5, "path", "$.principal.role", 0);
-      stepParam(5, "expected", "admin", 1);
+      addStep(9, "http.assertJsonPath");
+      stepParam(9, "path", "$.principal.role", 0);
+      stepParam(9, "expected", "admin", 1);
 
       cy.contains("button", "Add cleanup step").click();
       cy.get('input[placeholder="ui.closePage"]').type("ui.closePage");

@@ -6,6 +6,7 @@ const SECTIONS = [
   { href: "/docs/quickstart", label: "Quickstart" },
   { href: "/docs/case-files", label: "Case files" },
   { href: "/docs/hosted-platform", label: "Hosted platform" },
+  { href: "/docs/ci", label: "CI & GitHub Actions" },
   { href: "/docs/security", label: "Security & credentials" },
 ] as const;
 
