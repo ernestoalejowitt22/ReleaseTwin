@@ -1,6 +1,6 @@
 ## Why
 
-The assessment's Phase 3 ("design partners") assumes something a partner can actually run — "run the extracted tool in two or three external CI environments." Nothing runnable exists yet: Phase 1 and Phase 2 deliberately deferred CLI/packaging, per docs/installation-model.md, in favor of proving the core/adapter-sdk seam first. That seam is now proven (a real, non-toy Azure DevOps adapter shipped without unplanned core changes). This change builds the minimal CLI needed to give a design partner something concrete, in parallel with the user pursuing design-partner conversations directly (business development, not part of this change).
+Phase 3 (.design partners.) assumes something a partner can actually run — "run the extracted tool in two or three external CI environments." Nothing runnable exists yet: Phase 1 and Phase 2 deliberately deferred CLI/packaging, per docs/installation-model.md, in favor of proving the core/adapter-sdk seam first. That seam is now proven (a real, non-toy Azure DevOps adapter shipped without unplanned core changes). This change builds the minimal CLI needed to give a design partner something concrete, in parallel with the user pursuing design-partner conversations directly (business development, not part of this change).
 
 ## What Changes
 

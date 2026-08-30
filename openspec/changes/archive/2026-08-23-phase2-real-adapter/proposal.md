@@ -1,6 +1,6 @@
 ## Why
 
-Phase 1 (`phase1-core-extraction`) proved the core/adapter-sdk seam against two adapters we invented ourselves — a weak test, since we could unconsciously shape them to fit. The commercialization assessment's actual go/no-go criterion for the abstraction requires an adapter built against something that was **not** designed with this core in mind: "if the adapter can be added without modifying the core model or runner, the abstraction has demonstrated commercial leverage."
+Phase 1 (`phase1-core-extraction`) proved the core/adapter-sdk seam against two adapters we invented ourselves — a weak test, since we could unconsciously shape them to fit. the project.s own go/no-go criterion for the abstraction requires an adapter built against something that was **not** designed with this core in mind: "if the adapter can be added without modifying the core model or runner, the abstraction has demonstrated commercial leverage."
 
 This change builds that real adapter — against Azure DevOps — and, per [docs/installation-model.md](../../../docs/installation-model.md), keeps it compatible with how a customer would eventually need to install and configure it, even though no CLI or distribution mechanism is built yet. That awareness applies to every phase going forward, not just this one; this change makes it concrete for the first time as a testable requirement.
 

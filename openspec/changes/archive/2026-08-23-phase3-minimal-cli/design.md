@@ -17,8 +17,8 @@ See proposal.md - Why. This design covers the YAML case format, how fixtures res
 
 ## Decisions
 
-### D1: YAML case format — a trimmed subset of the assessment's illustrative syntax
-The commercialization assessment already sketched an illustrative case format. This change implements the subset that maps onto capabilities that actually exist:
+### D1: YAML case format — a trimmed subset of an early illustrative syntax
+an early design note already sketched an illustrative case format. This change implements the subset that maps onto capabilities that actually exist:
 
 ```yaml
 id: CLM-042
@@ -40,7 +40,7 @@ cleanup:
 resource_key: TeamProject\Area
 ```
 
-Omitted from the assessment's original illustrative syntax: `assertions:` (would require operation parameterization — out of scope, see Goals/Non-Goals) and `external_checks:` (Playwright connector — not built, later phase). `requires:` maps directly to `TestCase.RequiredCapabilities`, which already exists in Core.
+Omitted from that early illustrative syntax: `assertions:` (would require operation parameterization — out of scope, see Goals/Non-Goals) and `external_checks:` (Playwright connector — not built, later phase). `requires:` maps directly to `TestCase.RequiredCapabilities`, which already exists in Core.
 
 ### D2: Adapter selection is hardcoded for this slice
 `Program.cs` registers exactly the Azure DevOps adapter, configured from environment variables (`AZDO_ORG`, `AZDO_PROJECT`, `AZDO_PAT`, plus an area path and variable-group ID). No config-driven adapter selection yet. Alternative considered: a generic `adapters.yaml` naming which adapters to load — rejected as premature given there's only one real adapter to select between; revisit once a second real adapter (Phase 2's own suggestion of eventually adding GitHub/Bitbucket) exists.

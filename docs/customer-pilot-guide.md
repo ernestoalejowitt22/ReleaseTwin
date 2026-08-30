@@ -1,6 +1,6 @@
 # Customer usage and pilot guide
 
-Grounds "how would customers use it" in what's literally built today, not the aspirational version. Written to prep design-partner conversations honestly — see the assessment's own warning: *"the mistake would be advertising the advanced workflow as five-minute setup."*
+Grounds "how would customers use it" in what's literally built today, not the aspirational version. An honest account of what is built versus aspirational — so nobody oversells real release-proof coverage as a five-minute setup.
 
 ## Update (hosted-self-serve-platform): self-serve onboarding now exists — with real limits
 
@@ -67,18 +67,17 @@ Either way: this is real, scoped engineering work that should be shaped by what 
 
 **Say:**
 - "The core mechanics — prerequisite ownership, cleanup, failure classification, and flag proof — are real and working today. Here's a live demo against a sandbox org."
-- "Testing your actual workflow is a scoped build-out, done together as part of the pilot" — this is what the assessment's suggested pilot structure already assumes (6-8 weeks, one critical workflow, assisted setup).
-- The pilot pricing range from the assessment ($5,000-$15,000) is a hypothesis to test, not a fixed quote.
+- "Testing your actual workflow is a scoped build-out, done together as part of the pilot" — a scoped engagement, one critical workflow, assisted setup.
 
 **Don't say:**
 - "It already works with your system" — it doesn't yet, for anyone but Azure DevOps, and only in the fixed-operation shape.
-- Anything implying a five-minute setup for real release-proof coverage — the assessment is explicit that 1-2 engineering days is the honest target once fixtures, vendors, and flags are real.
+- Anything implying a five-minute setup for real release-proof coverage — 1-2 engineering days is the honest target once fixtures, vendors, and flags are real.
 - "There's a hosted dashboard" without the caveat that it's Stage 1, free-only, and execution is still entirely local/CI-side — don't let "hosted control plane exists" get heard as "you don't need to run anything yourself."
 - Anything about pricing — none exists yet (Stage 2, not built).
 
 ## Validation questions to actually ask a prospect
 
-Reused from the assessment, since they're still exactly the right questions and none have been asked of a real prospect yet:
+These are the right questions to ask, and none have been asked of a real prospect yet:
 
 1. What release or incident cost would this proof have avoided?
 2. Which reports or evidence are currently assembled manually?
@@ -87,4 +86,4 @@ Reused from the assessment, since they're still exactly the right questions and 
 5. Who owns the budget — engineering, QA, platform, compliance, release management?
 6. Would they pay more for managed execution, governance, or private deployment?
 
-Enthusiasm for the demo mechanics is not evidence of willingness to pay — the assessment's own warning. The signal that matters is whether they'd commit budget to Tier 2 work on their actual workflow.
+Enthusiasm for the demo mechanics is not evidence of willingness to pay. The signal that matters is whether they'd commit budget to Tier 2 work on their actual workflow.
