@@ -159,9 +159,13 @@ variable "lambda_package_path" {
 }
 
 variable "clerk_domain" {
-  description = "Clerk Frontend API domain (matches CLERK_FAPI, e.g. <slug>.clerk.accounts.dev) used for JWT issuer validation. Defaults to the existing dev instance already used by local dev (design.md: reused deliberately, not a new Clerk app)."
+  description = "Clerk Frontend API domain (e.g. <slug>.clerk.accounts.dev for a dev instance, or a custom domain for production) used for JWT issuer validation. Supplied per environment — `deploy-hosted.yml` passes it from the CLERK_DOMAIN repo variable. No default: a wrong or stale issuer silently rejects every token."
   type        = string
-  default     = "classic-marlin-8065.clerk.accounts.dev"
+
+  validation {
+    condition     = length(var.clerk_domain) > 0
+    error_message = "clerk_domain must be set (CLERK_DOMAIN repo variable / -var). It is the JWT issuer the API validates against."
+  }
 }
 
 variable "github_client_id" {
