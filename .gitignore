@@ -25,3 +25,6 @@ web/.env*.local
 
 # Local Cypress evidence screenshots copied out of cypress/screenshots for review
 /evidence-artifacts/
+
+# ui-session-video: generated demo clips + intermediate recordings
+/demo/

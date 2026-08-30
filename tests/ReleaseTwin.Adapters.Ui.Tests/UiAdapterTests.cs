@@ -5,22 +5,36 @@ using ReleaseTwin.Core;
 
 namespace ReleaseTwin.Adapters.Ui.Tests;
 
-public class UiAdapterTests : IAsyncLifetime
+/// <summary>
+/// One Playwright/browser instance is shared across every test in this class. Playwright's .NET
+/// driver gets flaky after many create/dispose cycles in a single process (video recording is the
+/// first thing to break) — and in production the CLI only ever constructs one <see cref="UiAdapter"/>
+/// per run. Each test still gets a fresh browser context via its <c>ui.closePage</c> cleanup.
+/// </summary>
+public sealed class UiAdapterFixture : IAsyncLifetime
 {
-    private UiAdapter _adapter = null!;
-    private StaticPageServer _server = null!;
+    public UiAdapter Adapter { get; private set; } = null!;
+    public StaticPageServer Server { get; } = new();
 
-    public async Task InitializeAsync()
-    {
-        _adapter = await UiAdapter.CreateAsync();
-        _server = new StaticPageServer();
-    }
+    public async Task InitializeAsync() => Adapter = await UiAdapter.CreateAsync();
 
     public Task DisposeAsync()
     {
-        _adapter.Dispose();
-        _server.Dispose();
+        Adapter.Dispose();
+        Server.Dispose();
         return Task.CompletedTask;
+    }
+}
+
+public class UiAdapterTests : IClassFixture<UiAdapterFixture>
+{
+    private readonly UiAdapter _adapter;
+    private readonly StaticPageServer _server;
+
+    public UiAdapterTests(UiAdapterFixture fixture)
+    {
+        _adapter = fixture.Adapter;
+        _server = fixture.Server;
     }
 
     private static byte[] FixtureContent => Encoding.UTF8.GetBytes("{\"amount\":500}");
