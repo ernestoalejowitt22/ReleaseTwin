@@ -1,6 +1,6 @@
 # Installation model
 
-Cross-phase reference. Not scoped to any single change — every phase's design should stay compatible with this, even before a CLI or hosted control plane exists. Adapted from a prior internal suite's `docs/the initial design brief.md` (customer onboarding / deployment model sections) for ReleaseTwin's actual current state, not copied from it.
+Cross-phase reference. Not scoped to any single change — every phase's design should stay compatible with this, even before a CLI or hosted control plane exists.
 
 ## Where things stand today
 
