@@ -3,21 +3,24 @@
 - [x] 0.1 NAHA `admin-e2e-route-auth` merged and live: `/companies` + `/policies` render behind
       `Cookie: naha_e2e_role=admin` on the `e2e-admin` Preview (not `307 /sign-in`).
       _(ernestoalejowitt22/NAHA#66, commit `ad3768c`.)_
-- [x] 0.2 The old manual Vercel-env step is gone. NAHA `admin-e2e-ui-visible`
-      (ernestoalejowitt22/NAHA#68, commit `bf08465`) makes `NEXT_PUBLIC_E2E_AUTH=true` alone force
-      the company-branch / policy UI gates open. Verified on the Preview after re-sync: `/companies`
-      and `/policies` render `companies-page` / `policies-page` with nav, no `*-ui-hidden` panel.
-      Note: the live NAHA list API currently returns its error state for the e2e admin context, so
-      those routes show `status-error` inside the page shell — the journey asserts on the shell
-      testid (present in both states) and Act 2 shows the real app either way (documented).
+- [x] 0.2 The old manual Vercel-env step is gone. Two merged NAHA changes:
+      - `admin-e2e-ui-visible` (#68, `bf08465`) — `NEXT_PUBLIC_E2E_AUTH=true` alone forces the
+        company-branch / policy **UI** gates open.
+      - `api-e2e-availability-open` (#70, `dea043d`) — `E2E_AUTH_ENABLED=true` on the shared API
+        Lambda forces the `naha.*-api` **availability** gates open, so `/api/companies` +
+        `/api/policies` serve instead of `404 not_found`.
+      Verified end to end on the `e2e-admin` Preview: `/companies` → `companies-page` +
+      `company-list` + `companies-empty` + `create-company-form`; `/policies` → `policies-page` +
+      `policy-list` + `create-policy-form`. Act 2 shows the real admin UI (empty-state lists + the
+      create forms). Seed e2e data before recording if a populated list is wanted.
 
 ## 1. Journey: tour three admin routes
 
 - [x] 1.1 `web/cypress/e2e/naha-admin-ui-journey.cy.ts` — after `ui.assertVisible
       [data-testid="admin-home"]`, added `ui.navigate → ui.assertVisible → ui.waitFor` legs for
       `/companies` and `/policies`. The `ui.waitFor` targets the page-shell testid (not a child
-      like `create-company-form`) so the journey stays green whether the live API returns the list
-      or its error state — see 0.2.
+      like `create-company-form`) so the journey is robust to the list being empty, populated, or
+      (if NAHA e2e data/API regresses) an error card — see 0.2.
 - [x] 1.2 API-bridge steps shifted 3/4/5 → 9/10/11 (login+capture, `/api/me`+header,
       `http.assertJsonPath`) — one contiguous edit.
 - [x] 1.3 `ui.closePage` cleanup still last; end-of-spec evidence assertions unchanged.

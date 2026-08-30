@@ -42,12 +42,12 @@ window, which is why the adapter records itself and the script joins the halves 
 Each act carries a persistent lower-thirds caption; the clip ends on a closing card.
 `demo/` is gitignored — the clip is a build artifact, not a checked-in asset.
 
-**Act 2 and the live NAHA data.** The companies/policies routes render behind the e2e cookie
-(NAHA forces the UI gates open in `NEXT_PUBLIC_E2E_AUTH` mode). Whether they show a populated list
-or the page's API-error state depends on what NAHA's live API returns for the e2e admin context —
-either way it is the real app, and the journey asserts on the page shell testid so it stays green.
-Review the clip before sharing (below) and, if Act 2 shows an error card you don't want, seed the
-e2e data or trim that leg.
+**Act 2 and the live NAHA data.** The companies/policies routes render behind the e2e cookie:
+NAHA forces both the admin **UI** gates (`NEXT_PUBLIC_E2E_AUTH`) and the API **availability** gates
+(`E2E_AUTH_ENABLED`) open for the e2e surface, so `/companies` and `/policies` show the real
+list + create form. With no seeded data they show the empty state ("No companies yet"). Seed a
+company and a policy against the e2e API before recording if you want populated lists in the clip.
+The journey asserts on the page-shell testid, so it stays green regardless.
 
 ## Tuning
 
