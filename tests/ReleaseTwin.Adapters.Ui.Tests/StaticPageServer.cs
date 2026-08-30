@@ -7,7 +7,7 @@ namespace ReleaseTwin.Adapters.Ui.Tests;
 /// Serves one fixed HTML page over a real local HTTP listener, so UI adapter tests drive a real
 /// browser against real (if trivial) DOM content instead of an external site — hermetic and fast.
 /// </summary>
-internal sealed class StaticPageServer : IDisposable
+public sealed class StaticPageServer : IDisposable
 {
     private const string HtmlTemplate = """
         <!DOCTYPE html>
@@ -23,6 +23,8 @@ internal sealed class StaticPageServer : IDisposable
           ">Submit</button>
           <div id="result" style="display:none"></div>
           <pre id="cookies">__COOKIES__</pre>
+          <div id="delayed" style="display:none">now visible</div>
+          <script>setTimeout(function () { document.getElementById('delayed').style.display = 'block'; }, 1400);</script>
         </body>
         </html>
         """;

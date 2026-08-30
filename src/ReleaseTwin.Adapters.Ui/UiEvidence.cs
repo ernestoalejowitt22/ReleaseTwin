@@ -25,6 +25,17 @@ internal abstract class UiOperationBase : IOperation, IEvidenceEmittingOperation
     private UiStepEvidence? _pending;
     private bool _captureEnabled;
 
+    protected UiOperationBase(IBrowser browser, string? recordVideoDir)
+    {
+        Browser = browser;
+        RecordVideoDir = recordVideoDir;
+    }
+
+    protected IBrowser Browser { get; }
+
+    /// <summary>ui-session-video: directory to record the run's browser video into, or null for no recording.</summary>
+    protected string? RecordVideoDir { get; }
+
     protected abstract Task<OperationResult> RunAsync(CaseExecutionContext context, IReadOnlyDictionary<string, object?> parameters, IReadOnlyList<CaptureDeclaration> captures, CancellationToken cancellationToken);
 
     protected abstract string ActionName { get; }
