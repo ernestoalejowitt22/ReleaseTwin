@@ -10,13 +10,27 @@ your own case, wire into CI) all assume the engine is openly licensed.
 
 Repo governance only — no code, no behavior change. `.openspec.yaml` sets `skip_specs: true`.
 
-- **`LICENSE`** — Apache-2.0, covering the engine: `src/`, `tests/`, `examples/`, `docs/`, and
-  the repo-root build glue.
+> **Revised after review (2026-08-30):** the engine moved from Apache-2.0 to **AGPL-3.0 +
+> an Adapter Linking Exception** ("Option B"). Rationale: a solo/small open-core devtool with
+> "no clean competitor" gets no protection from a permissive engine license — a better-funded
+> team could take the flag-proof kernel and out-execute on the SaaS. AGPL keeps the engine
+> genuinely open (self-host, fork, modify freely) while requiring a competitor who runs a
+> *modified* engine as a service to open their work; the linking exception keeps adapter authors
+> free. This matches where solo open-core (Plausible, Cal.com, Sidekiq-style, n8n) has settled.
+> The BSL for `hosted/`+`web/` is unchanged. `examples/` is Apache-2.0 so `releasetwin init`
+> output stays permissive.
+
+- **`LICENSE`** — AGPL-3.0, covering the engine: `src/`, `tests/`, `docs/`, repo-root build glue.
+- **`LICENSE.EXCEPTIONS`** — the Adapter Linking Exception (AGPL §7 additional permission): an
+  independent adapter that plugs into the `AdapterSdk`/`Core` extension points may be released
+  under any OSI-approved or proprietary license despite linking the AGPL engine. The engine and
+  any modification to it stay AGPL.
+- **`examples/LICENSE`** — Apache-2.0. The scaffold (`releasetwin init`) copies starter cases and
+  fixtures into user projects; those must not carry copyleft.
 - **`hosted/LICENSE` + `web/LICENSE`** — Business Source License 1.1 for the commercial surface.
   Licensor: Ernesto Alejo. Change License: Apache-2.0. Change Date: 4 years per published
   version. Additional Use Grant: everything except reselling it as a competing hosted/managed
-  commercial service. This implements the funnel plan's recommendation ("BSL in-repo, simplest to
-  operate solo") rather than splitting `hosted/` into a private repo.
+  commercial service. BSL in-repo per the funnel plan, not a private `hosted/` repo.
 - **`LICENSING.md`** — the map: which paths are Apache-2.0, which are BSL, why, and the
   contribution + trademark stance.
 - **`CONTRIBUTING.md`** — issue-first workflow, DCO sign-off, per-path contribution licensing,
