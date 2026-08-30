@@ -7,7 +7,7 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
-    "e2e:api": "cd ../hosted && Clerk__Domain=classic-marlin-8065.clerk.accounts.dev dotnet run --project ReleaseTwin.Hosted.Api --urls http://localhost:5199",
+    "e2e:api": "node scripts/e2e-api.mjs",
     "e2e:web": "next dev",
     "e2e:run": "cypress run",
     "e2e:open": "cypress open",
