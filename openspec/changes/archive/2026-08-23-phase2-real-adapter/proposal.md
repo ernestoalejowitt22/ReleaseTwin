@@ -11,7 +11,7 @@ This change builds that real adapter — against Azure DevOps — and, per [docs
 - The adapter SHALL demonstrate feature-state proof against a real Azure DevOps construct — a pipeline environment or variable-group toggle standing in for known-bad/known-good — exercised through `FlagProofRunner` from Phase 1.
 - Add a new `adapter-sdk` requirement, informed by docs/installation-model.md: adapter credentials/configuration SHALL be supplied externally (environment variable or config object) at construction time, never hardcoded in adapter source. This is the one installability constraint that bites at the code level before any CLI exists.
 - Explicitly out of scope: any CLI, Docker image, GitHub Action, npm package, or hosted control plane. Those remain deferred until this change's adapter proves the seam holds.
-- Gap 1 from Phase 1's fit-check (docs/quik-fit-check.md: prerequisite results are boolean but Quik's real ones are three-state) is resolved in this change: implementation confirmed the misclassification with a real HTTP failure path, so `PrerequisiteResult` in `ReleaseTwin.Core` is escalated to a three-state (`Satisfied` / `NotSatisfied` / `Inconclusive`) shape — a deliberate, tracked core change per design.md D5, not an unplanned one forced by ordinary adapter behavior.
+- Gap 1 from Phase 1 (prerequisite results were boolean but real-world ones are three-state) is resolved in this change: implementation confirmed the misclassification with a real HTTP failure path, so `PrerequisiteResult` in `ReleaseTwin.Core` is escalated to a three-state (`Satisfied` / `NotSatisfied` / `Inconclusive`) shape — a deliberate, tracked core change per design.md D5, not an unplanned one forced by ordinary adapter behavior.
 
 ## Capabilities
 
@@ -27,4 +27,4 @@ This change builds that real adapter — against Azure DevOps — and, per [docs
 - New project `ReleaseTwin.Adapters.AzureDevOps` under `src/`, with a corresponding test project under `tests/`.
 - Requires an Azure DevOps organization/project and a PAT for real integration testing; secrets supplied via environment variables, never committed. Integration tests are scaffolded but skip gracefully until that org exists (deferred to the user; not blocking this change).
 - `ReleaseTwin.Core`: `PrerequisiteResult`'s shape changes from a boolean to a three-state enum (breaking change to that type, deliberately). All existing `IPrerequisiteCheck` implementations (both Phase 1 toy adapters and this change's Azure DevOps adapter) updated accordingly.
-- No impact to quik-testing.
+- No impact to any prior system.

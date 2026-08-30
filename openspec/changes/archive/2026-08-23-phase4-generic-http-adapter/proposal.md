@@ -27,4 +27,4 @@ docs/customer-pilot-guide.md named the real gap: every operation shipped so far 
 - `ReleaseTwin.Core`: breaking change to `IOperation`'s signature and `PipelineStep`'s shape. All existing `IOperation` implementations across `ReleaseTwin.Adapters.ToyHttp`, `ReleaseTwin.Adapters.ToyFile`, and `ReleaseTwin.Adapters.AzureDevOps` updated accordingly.
 - New project `ReleaseTwin.Adapters.Http` under `src/`, with a corresponding test project.
 - `ReleaseTwin.Cli` and `ReleaseTwin.Cli.CaseLoading` updated for parameters, interpolation, and multi-adapter composition.
-- No impact to quik-testing.
+- No impact to any prior system.

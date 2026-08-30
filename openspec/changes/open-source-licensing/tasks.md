@@ -49,8 +49,10 @@
       BSL Additional Use Grant, licensor entity, DCO vs CLA). Add an Apache `NOTICE` if wanted.
 - [x] 5.4 Pre-public secret/exposure audit: gitleaks CI clean (#20); NAHA is the operator's own
       project (OK to publish, and NAHA repo will be made public too); third-party account IDs and
-      project names (`quik.api.testing` etc.) scrubbed from the archived
-      `2026-08-26-hosted-platform-deployment` change docs. The operator's own AWS account ID
-      remains in the terraform bucket names — not sensitive per AWS, and the backend block can't
-      be parameterized. Move `docs/go-to-market.md` + `docs/self-serve-funnel-plan.md` out of the
-      public tree before flipping (strategy/pricing detail).
+      project names scrubbed from the archived hosted-deployment change docs; all references to a
+      prior internal suite removed from the tree and purged from history (a fit-check doc and the
+      `phase1-core-extraction` archived change deleted; the Clerk dev-instance slug de-hardcoded
+      in #24). The operator's own AWS account ID remains in the terraform bucket
+      names — not sensitive per AWS, and the backend block can't be parameterized. Move
+      `docs/go-to-market.md` + `docs/self-serve-funnel-plan.md` out of the public tree before
+      flipping (strategy/pricing detail).
