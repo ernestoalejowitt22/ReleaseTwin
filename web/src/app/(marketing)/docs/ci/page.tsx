@@ -79,8 +79,15 @@ jobs:
         <P>
           <code className="text-foreground">.github/workflows/releasetwin-demo.yml</code> runs the
           zero-credential HTTP case on every PR and on demand — a real, green release-proof gate you
-          can copy.
+          can copy. A passing run&apos;s step output:
         </P>
+        <CodeBlock
+          label="Run release-proof cases"
+          code={`$ dotnet run --project src/ReleaseTwin.Cli -c Release --no-build -- demo/quickstart/cases
+
+PASS HTTP-DEMO-1
+1 passed, 0 failed`}
+        />
       </DocSection>
 
       <DocSection title="Next">
