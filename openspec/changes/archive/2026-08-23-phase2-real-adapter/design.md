@@ -1,6 +1,6 @@
 ## Context
 
-See proposal.md - Why. This design covers how the Azure DevOps adapter maps onto the six things the assessment's Phase 2 criterion requires (auth, multi-op, precondition, cleanup, resource coordination, feature-state proof), and how it stays compatible with docs/installation-model.md without building any installation mechanism yet.
+See proposal.md - Why. This design covers how the Azure DevOps adapter maps onto the six things the Phase 2 criterion requires (auth, multi-op, precondition, cleanup, resource coordination, feature-state proof), and how it stays compatible with docs/installation-model.md without building any installation mechanism yet.
 
 ## Goals / Non-Goals
 

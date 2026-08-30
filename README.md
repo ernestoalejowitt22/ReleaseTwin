@@ -2,7 +2,7 @@
 
 Release-proof testing for integration-heavy, feature-flagged systems: evidence-linked cases, immutable fixtures, prerequisite ownership, deterministic evidence, and paired known-bad/known-good "flag proof" — the mechanic that actually distinguishes a broken build from a fixed one, not just "green in one environment."
 
-Working name; provisional brand is **Validuo**. See `docs/installation-model.md` for the target deployment model and `docs/quik-fit-check.md` for how this was validated against a real production test suite's needs.
+Working name; provisional brand is **Validuo**. See `docs/installation-model.md` for the target deployment model.
 
 ## What exists today
 
@@ -237,7 +237,7 @@ Short answer: **technically promising, commercially unvalidated.** Two different
 
 ### Cleared: the technical go/no-go
 
-The commercialization assessment's own criterion was specific — an adapter unrelated to the original Quik use case must plug in "without modifying the core model or runner." That happened twice now: the Azure DevOps adapter, and then the generic HTTP adapter, both shipped without *unplanned* changes to `ReleaseTwin.Core` or `ReleaseTwin.AdapterSdk` (two deliberate, tracked core evolutions did happen — three-state prerequisites, then operation parameters — each decided mid-implementation for a concrete reason, not forced blindly). That's real, repeated evidence the core/adapter boundary is sound, not just a story.
+The bar set at the start was specific — an adapter unrelated to the original use case must plug in "without modifying the core model or runner." That happened twice now: the Azure DevOps adapter, and then the generic HTTP adapter, both shipped without *unplanned* changes to `ReleaseTwin.Core` or `ReleaseTwin.AdapterSdk` (two deliberate, tracked core evolutions did happen — three-state prerequisites, then operation parameters — each decided mid-implementation for a concrete reason, not forced blindly). That's real, repeated evidence the core/adapter boundary is sound, not just a story.
 
 **The Tier 1/Tier 2 usage gap is now partially closed too** (see `docs/customer-pilot-guide.md`): a prospect with a REST API can author a real case testing real business behavior today, not just watch a fixed demo — proven end to end against a live public API, not a fake handler.
 
@@ -246,10 +246,10 @@ The commercialization assessment's own criterion was specific — an adapter unr
 The same assessment is explicit that this isn't enough on its own: *"Go if an unrelated second adapter can be implemented without ordinary changes to the core **and** design partners value the release-proof workflow."* The second half hasn't been touched:
 
 - **No design partners contacted yet.** Nothing about willingness to pay, which reports matter, or whether "release-proof" as a concept resonates has been tested with an actual outside user.
-- **No pricing validated.** The inherited numbers ($149/mo Team, $499/mo Growth, $5-15k pilots) are explicitly labeled hypotheses, not offers anyone has seen.
-- **No legal/entity work started.** Naming (Validuo, provisional), trademark search, incorporation, IP ownership documentation (relevant given this was extracted conceptually from a Quik-adjacent codebase, deliberately clean-room built to avoid that entanglement) — none of it done.
-- **Distribution still thin.** The hosted platform is live but not public; the CLI still ships only as source + a Docker image (no `dotnet tool`/NuGet, no GitHub Action wrapper).
+- **No pricing validated.** The current pricing hypotheses are explicitly hypotheses, not offers anyone has seen.
+- **No legal/entity work started.** Naming (Validuo, provisional), trademark search, incorporation, IP ownership documentation — none of it done.
+- **Not actually offered to anyone yet.** Self-serve signup/dashboard code exists and is tested (`hosted-self-serve-platform`, `clerk-registration`, `hosted-react-frontend`), but no Clerk application has been registered — a real one-time setup step, not a code gap. Even once that's done, running the CLI itself still means cloning source and having the .NET SDK — no packaging exists.
 
 ### Realistic framing
 
-This is pre-pilot. If someone asked "can I buy this today," the honest answer is no — there's nothing to hand a paying customer, and the workflow's actual value hasn't been tested against a real business problem outside this project. The right next milestone, per the assessment's own plan, is a paid design-partner pilot (their suggested range: $5,000–$15,000, six to eight weeks, one real workflow) — which is a sales/business-development step, not an engineering one. The engineering foundation to support that pilot conversation now exists; the conversation itself hasn't happened yet.
+This is pre-pilot. If someone asked "can I buy this today," the honest answer is no — there's nothing to hand a paying customer, and the workflow's actual value hasn't been tested against a real business problem outside this project. The right next milestone is a paid design-partner engagement (one real workflow, a few weeks) — which is a sales/business-development step, not an engineering one. The engineering foundation to support that pilot conversation now exists; the conversation itself hasn't happened yet.

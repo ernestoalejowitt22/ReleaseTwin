@@ -116,38 +116,46 @@ describe("naha admin ui journey", () => {
       addStep(2, "ui.assertVisible");
       stepParam(2, "selector", '[data-testid="admin-home"]', 0);
 
-      // ui-session-video-polish: tour two more admin routes so Act 2 of the demo clip shows real,
-      // changing customer UI instead of a single page load. Each navigate + assertVisible is a real
-      // browser round-trip against the deployed NAHA e2e app.
+      // Tour the admin app — companies, then policies. E2E-auth mode (NAHA #68) forces the
+      // company-branch / policy UI gates open, so these routes render behind the seeded cookie.
+      // Each leg: navigate → assert the page shell → wait on the same shell so Act 2 dwells a beat
+      // on the rendered screen. The shell testid wraps both the loaded list and the API-error
+      // state, so the journey stays green whichever the live NAHA API returns for the e2e context.
       addStep(3, "ui.navigate");
       stepParam(3, "url", `${adminUiBaseUrl}/companies`, 0);
 
       addStep(4, "ui.assertVisible");
       stepParam(4, "selector", '[data-testid="companies-page"]', 0);
 
-      addStep(5, "ui.navigate");
-      stepParam(5, "url", `${adminUiBaseUrl}/policies`, 0);
+      addStep(5, "ui.waitFor");
+      stepParam(5, "selector", '[data-testid="companies-page"]', 0);
 
-      addStep(6, "ui.assertVisible");
-      stepParam(6, "selector", '[data-testid="policies-page"]', 0);
+      addStep(6, "ui.navigate");
+      stepParam(6, "url", `${adminUiBaseUrl}/policies`, 0);
+
+      addStep(7, "ui.assertVisible");
+      stepParam(7, "selector", '[data-testid="policies-page"]', 0);
+
+      addStep(8, "ui.waitFor");
+      stepParam(8, "selector", '[data-testid="policies-page"]', 0);
 
       // API bridge — NAHA's own e2e login, then a protected endpoint.
-      addStep(7, "http.request");
-      stepParam(7, "url", `${apiBaseUrl}/v1/e2e/login`, 0);
-      stepParam(7, "method", "POST", 1);
-      stepParam(7, "body", `{"email": "${adminEmail}"}`, 2);
-      stepHeader(7, "x-e2e-secret", "${NAHA_E2E_SECRET}");
-      cy.get('[data-testid="step-7"] [data-testid="captures"]').contains("button", "Add capture").click();
-      cy.get('[data-testid="step-7"] [data-testid="capture-name"]').type("nahaToken");
-      cy.get('[data-testid="step-7"] [data-testid="capture-from"]').type("json:$.token");
+      addStep(9, "http.request");
+      stepParam(9, "url", `${apiBaseUrl}/v1/e2e/login`, 0);
+      stepParam(9, "method", "POST", 1);
+      stepParam(9, "body", `{"email": "${adminEmail}"}`, 2);
+      stepHeader(9, "x-e2e-secret", "${NAHA_E2E_SECRET}");
+      cy.get('[data-testid="step-9"] [data-testid="captures"]').contains("button", "Add capture").click();
+      cy.get('[data-testid="step-9"] [data-testid="capture-name"]').type("nahaToken");
+      cy.get('[data-testid="step-9"] [data-testid="capture-from"]').type("json:$.token");
 
-      addStep(8, "http.request");
-      stepParam(8, "url", `${apiBaseUrl}/api/me`, 0);
-      stepHeader(8, "Authorization", "Bearer {{nahaToken}}");
+      addStep(10, "http.request");
+      stepParam(10, "url", `${apiBaseUrl}/api/me`, 0);
+      stepHeader(10, "Authorization", "Bearer {{nahaToken}}");
 
-      addStep(9, "http.assertJsonPath");
-      stepParam(9, "path", "$.principal.role", 0);
-      stepParam(9, "expected", "admin", 1);
+      addStep(11, "http.assertJsonPath");
+      stepParam(11, "path", "$.principal.role", 0);
+      stepParam(11, "expected", "admin", 1);
 
       cy.contains("button", "Add cleanup step").click();
       cy.get('input[placeholder="ui.closePage"]').type("ui.closePage");

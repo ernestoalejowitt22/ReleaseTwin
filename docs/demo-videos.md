@@ -20,49 +20,45 @@ then:
 2. that spec's `cy.task("runCliJourney")` shells out to `ReleaseTwin.Cli`, which — because
    `RELEASETWIN_UI_ENABLED=1` and `RELEASETWIN_UI_VIDEO_DIR=../demo/.adapter-video` are set — runs
    its own headless Playwright Chromium against NAHA's admin app and records that session to
-   `demo/.adapter-video/<caseId>.webm`;
-3. `node scripts/stitch-demo-video.mjs` stitches the two recordings, with three narrated title
-   cards, into `demo/naha-releasetwin-flow.mp4`.
+   `demo/.adapter-video/<caseId>.webm`. The journey tours three admin routes — home → `/companies`
+   → `/policies` — so Act 2 is real, changing admin UI rather than one held frame;
+3. `node scripts/stitch-demo-video.mjs` stitches the two recordings — four narrated cards (three
+   title + one closing), a persistent lower-thirds caption per act — into
+   `demo/naha-releasetwin-flow.mp4`.
 
 Cypress and the CLI drive **two separate browsers** — Cypress cannot see the CLI's Playwright
 window, which is why the adapter records itself and the script joins the halves afterward.
 
 ## Output
 
-`demo/naha-releasetwin-flow.mp4` — H.264, 1280×720. Four title cards + three acts, each act with a
-persistent lower-thirds caption:
+`demo/naha-releasetwin-flow.mp4` — H.264, 1280×720, three acts:
 
-| Segment | Source | Notes |
+| Act | Source | Notes |
 |---|---|---|
-| Card 1 | generated | "Build a release-proof journey" |
-| Act 1 | Cypress `.mp4`, sped up (`--act1-speed`, default 2.4×), Cypress chrome cropped | Building the journey in the dashboard |
-| Card 2 | generated | "Run it against NAHA's live admin app" |
-| Act 2 | adapter `.webm`, real time | The headless browser touring NAHA's admin app — home → companies → policies (`ui-session-video-polish`) |
-| Card 3 | generated | "Redacted evidence on the dashboard" |
-| Act 3 | tail of the Cypress `.mp4` (`--act3-len`, default 16s), chrome cropped | The redacted evidence rendered back on the dashboard |
-| Card 4 | generated | Closing card |
+| 1 | Cypress `.mp4`, sped up (`--act1-speed`, default 2×) | The customer building/launching the journey in the dashboard |
+| 2 | adapter `.webm`, real time | The headless browser touring NAHA's real admin app: home → companies → policies |
+| 3 | tail of the Cypress `.mp4` (`--act3-len`, default 18s) | The redacted evidence rendered back on the dashboard |
 
-`ui-session-video-polish` widened Act 2: the `naha-admin-ui-journey` journey now navigates `/` →
-`/companies` → `/policies` with a `ui.assertVisible` per route, so the adapter recording is real
-changing admin UI, not one page load. **This needs NAHA's `admin-e2e-route-auth` live on the
-`e2e-admin` Preview** (`/companies` + `/policies` behind `naha_e2e_role=admin`), plus the Preview's
-`NEXT_PUBLIC_E2E_COMPANY_BRANCH_UI` / `NEXT_PUBLIC_E2E_POLICY_UI` env set so those routes render
-content, not the `*-ui-hidden` panel. Without the env, the pages still resolve (the
-`ui.assertVisible` on the page testid passes) but Act 2 shows the gated-off state.
+Each act carries a persistent lower-thirds caption; the clip ends on a closing card.
+`demo/` is gitignored — the clip is a build artifact, not a checked-in asset.
 
-`demo/*.mp4` is gitignored — the raw clip is a build artifact. The copy embedded on the marketing
-site lives at `web/public/demo-naha-flow.mp4` and is committed.
+**Act 2 and the live NAHA data.** The companies/policies routes render behind the e2e cookie:
+NAHA forces both the admin **UI** gates (`NEXT_PUBLIC_E2E_AUTH`) and the API **availability** gates
+(`E2E_AUTH_ENABLED`) open for the e2e surface, so `/companies` and `/policies` show the real
+list + create form. With no seeded data they show the empty state ("No companies yet"). Seed a
+company and a policy against the e2e API before recording if you want populated lists in the clip.
+The journey asserts on the page-shell testid, so it stays green regardless.
 
 ## Tuning
 
 ```bash
-node scripts/stitch-demo-video.mjs --act1-speed 3 --act1-end 40 --act3-len 14 --no-crop-cypress
+node scripts/stitch-demo-video.mjs --act1-speed 3 --act1-end 60 --act3-len 15 --blur-secret-input
 ```
 
-- `--no-crop-cypress` keeps the Cypress test-runner chrome (command log + URL bar) in Act 1/3.
-  Default is to crop it out so the clip reads as a product recording.
-- `--act2-freeze <sec>` holds Act 2's final frame; default `0` now that the route tour fills the
-  act. A webm under ~4s auto-gets a 2s hold.
+- `--act1-end` / `--act3-len` — the 3-route journey lengthens the Cypress recording; re-tune these
+  from the observed duration the run prints at the end.
+- `--act2-freeze <sec>` — default `0` (Act 2 is real footage now); auto-applies a 2s tail freeze
+  if the adapter clip comes in under 4s. `--card-secs` sets each card's duration (default 2.6).
 - `--blur-secret-input` draws a black box over the project-secret input region during Act 1.
 - `--cypress-video <file>` / `--video-dir <dir>` override the auto-discovered inputs.
 - ffmpeg is resolved from `@ffmpeg-installer/ffmpeg`, then a Playwright `ffmpeg-*` bundle, then
@@ -72,10 +68,7 @@ node scripts/stitch-demo-video.mjs --act1-speed 3 --act1-end 40 --act3-len 14 --
 
 **Review the clip end to end first.** It is driven against the real NAHA e2e deployment with a real
 login. Everything shown must be **test data only** — the NAHA e2e admin account, seeded fixtures,
-nothing from a real customer or a real operator inbox. If the admin token mint succeeds but a
-list call fails, `/companies` or `/policies` can render an `<ApiError>` card instead of content —
-`ui.assertVisible` on the page testid still passes, but re-run before shipping a clip that shows an
-error state. The adapter redacts password-field values
+nothing from a real customer or a real operator inbox. The adapter redacts password-field values
 before they can reach evidence, but the video itself is raw screen capture: if a step surfaces
 something that should not be on a shared clip, re-record with different data or trim that segment.
 

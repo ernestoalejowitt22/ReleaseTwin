@@ -1,0 +1,65 @@
+version = 1
+
+SPDX-PackageName = "ReleaseTwin"
+SPDX-PackageSupplier = "Ernesto Alejo <ernestoalejo22@gmail.com>"
+SPDX-PackageDownloadLocation = "https://github.com/ernestoalejowitt22/ReleaseTwin"
+
+# Declares the license of every file by path, per the REUSE 3.3 spec, so `reuse lint`
+# and other SBOM/compliance tooling see a fully-licensed repo without a per-file
+# SPDX header on hundreds of files. New files should still carry an
+# `SPDX-License-Identifier` header; this map is the backstop and the source of
+# truth for bulk paths. See LICENSING.md for the human explanation.
+
+# --- The engine: AGPL-3.0 + the Adapter Linking Exception -------------------------
+[[annotations]]
+path = [
+  "src/**",
+  "tests/**",
+  "docs/**",
+  "openspec/**",
+  "ReleaseTwin.sln",
+  "Dockerfile",
+  ".github/**",
+  ".gitleaks.toml",
+  "REUSE.toml",
+  "*.md",
+]
+precedence = "aggregate"
+SPDX-FileCopyrightText = "2026 Ernesto Alejo and the ReleaseTwin contributors"
+SPDX-License-Identifier = "AGPL-3.0-only WITH LicenseRef-ReleaseTwin-Adapter-Exception"
+
+# --- Starter cases/fixtures: Apache-2.0 (the scaffold copies these) ---------------
+[[annotations]]
+path = ["examples/**"]
+precedence = "override"
+SPDX-FileCopyrightText = "2026 Ernesto Alejo and the ReleaseTwin contributors"
+SPDX-License-Identifier = "Apache-2.0"
+
+# --- The hosted platform: Business Source License 1.1 ----------------------------
+[[annotations]]
+path = ["hosted/**", "web/**"]
+precedence = "override"
+SPDX-FileCopyrightText = "2026 Ernesto Alejo and the ReleaseTwin contributors"
+SPDX-License-Identifier = "BUSL-1.1"
+
+# --- Vendored third-party front-end libraries (jQuery, Bootstrap, jQuery Validation) --
+[[annotations]]
+path = ["hosted/**/wwwroot/lib/**"]
+precedence = "override"
+SPDX-FileCopyrightText = "The respective upstream authors (jQuery Foundation, Bootstrap authors, et al.)"
+SPDX-License-Identifier = "MIT"
+
+# --- Editor / agent tooling config, generated or hand-written -----------------------
+[[annotations]]
+path = [
+  ".agents/**",
+  ".claude/**",
+  ".cursor/**",
+  ".gitignore",
+  ".dockerignore",
+  ".gitattributes",
+  ".editorconfig",
+]
+precedence = "aggregate"
+SPDX-FileCopyrightText = "2026 Ernesto Alejo and the ReleaseTwin contributors"
+SPDX-License-Identifier = "CC0-1.0"
