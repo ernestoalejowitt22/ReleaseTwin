@@ -9,9 +9,8 @@
 //     --act1-speed <n>         speed factor for the dashboard act (default 2)
 //     --act1-end <sec>         seconds to drop from the end of Act 1 — the idle cy.task gap and the
 //                              evidence page live there; Act 3 pulls the evidence page back in
-//                              (default 24 — re-tune after the first run of the 3-route journey,
-//                              which lengthens the Cypress recording; the final log prints the
-//                              observed duration)
+//                              (default 30; the 3-route journey recording runs ~84s of Cypress —
+//                              the final log prints the observed duration, re-tune from there)
 //     --act3-len <sec>         seconds of the Cypress tail to use as Act 3, the evidence page (default 18)
 //     --act2-freeze <sec>      hold the last frame of the NAHA-driving clip this long (default 0;
 //                              auto 2s if the adapter clip is under 4s)
@@ -47,7 +46,7 @@ const videoDir = arg(
 );
 const outPath = path.resolve(arg("out", path.join(repoRoot, "demo", "naha-releasetwin-flow.mp4")));
 const act1Speed = Number(arg("act1-speed", "2"));
-const act1DropEnd = Number(arg("act1-end", "24"));
+const act1DropEnd = Number(arg("act1-end", "30"));
 const act3Len = Number(arg("act3-len", "18"));
 const blurSecret = flag("blur-secret-input");
 

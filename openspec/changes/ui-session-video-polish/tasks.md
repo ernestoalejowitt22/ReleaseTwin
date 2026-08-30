@@ -24,9 +24,9 @@
 - [x] 1.2 API-bridge steps shifted 3/4/5 → 9/10/11 (login+capture, `/api/me`+header,
       `http.assertJsonPath`) — one contiguous edit.
 - [x] 1.3 `ui.closePage` cleanup still last; end-of-spec evidence assertions unchanged.
-- [ ] 1.4 Run `npm run e2e:naha-ui` — spec passes against the deployed NAHA e2e app; `PASS <caseId>`
-      in CLI stdout, evidence renders. _(operator: needs the AWS Secrets Manager target + Clerk
-      test user + Playwright chromium.)_
+- [x] 1.4 `npm run demo:naha-video` ran the spec against the live NAHA e2e app — `naha-admin-ui-journey.cy.ts`
+      **1/1 passing** (01:22); the composed journey shows all three routes and `PASS E2E-NAHA-UI-…`
+      (the spec's stdout assertion) held. Evidence uploaded (no "evidence not accepted").
 
 ## 2. Stitch script presentation
 
@@ -37,10 +37,10 @@
 - [x] 2.3 `--act2-freeze` default → `0`; auto 2s freeze + stderr warn when the adapter clip probes
       under 4s.
 - [x] 2.4 7th segment `06-card4` (closing card) added to the build + concat list.
-- [ ] 2.5 Re-tune `--act1-end` / `--act3-len` defaults from the first real run; record the observed
-      Cypress `.mp4` duration here. _(operator: after 3.3. The 3-route journey lengthens the
-      Cypress recording; current defaults 24 / 18 are unretuned. Script prints the observed
-      duration at the end.)_
+- [x] 2.5 First real `demo:naha-video` run: Cypress `.mp4` = **83.8s**, adapter `.webm` = **9.4s**
+      (no auto-freeze — >4s). Bumped `--act1-end` default 24 → 30 (the richer journey pads the
+      recording tail). `--act3-len` 18 kept. Output clip = 79.7s, 1280×720, 7 segments. Fine-tune
+      pacing visually from here if wanted.
 - [x] 2.6 Header comment + `docs/demo-videos.md` updated — route tour, captions, closing card, new
       defaults, and the Act-2 "real app, list or error state" note. "Review before sharing / test
       data only" caveat kept.
@@ -54,7 +54,8 @@
       pre-existing Next type-gen quirk (`LayoutProps` global needs a prior `next build`; unrelated
       to these files — no app source changed). `e2e:*` scripts untouched, so the `CYPRESS_VIDEO`-
       unset "no video files" behavior is unchanged.
-- [ ] 3.3 `npm run demo:naha-video` produces a playable `demo/naha-releasetwin-flow.mp4`: Act 2
-      shows the live NAHA admin app touring home/companies/policies; captions + closing card
-      render; no `--act2-freeze` hold needed. _(operator run.)_
-- [ ] 3.4 Full .NET solution build + test green (unchanged, sanity only). _(operator run.)_
+- [x] 3.3 `npm run demo:naha-video` produced a playable `demo/naha-releasetwin-flow.mp4` (79.7s,
+      H.264 1280×720). Act 2 is live NAHA footage of home → companies → policies; per-act captions
+      and the closing card render; no `--act2-freeze` hold. Sent to the user for review.
+- [~] 3.4 .NET solution build + test — not re-run this pass (no `src/` or `hosted/` change in this
+      change; the CLI built fine as part of `demo:naha-video`'s `dotnet run`). Sanity only.
