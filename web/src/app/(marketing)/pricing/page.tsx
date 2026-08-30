@@ -39,7 +39,13 @@ const PLANS = [
     name: "Free",
     price: "$0",
     unit: "1 project",
-    blurb: "Everything you need to run cases and land results on a dashboard.",
+    blurb: "Run cases and land results on a dashboard.",
+    features: [
+      "CLI, execution kernel & all adapters",
+      "Flag-proof runs, uploaded run history",
+      "1 project · 30-day evidence retention",
+      "Community support",
+    ],
     cta: { label: "Create an account", href: "/sign-in" as const, variant: "default" as const },
     highlight: false,
   },
@@ -47,7 +53,14 @@ const PLANS = [
     name: "Team",
     price: "~$49",
     unit: "per project / month",
-    blurb: "Unlimited projects, the evidence viewer, 12-month retention.",
+    blurb: "Unlimited projects and the full evidence trail.",
+    features: [
+      "Everything in Free, plus:",
+      "Unlimited projects (billed per active)",
+      "Evidence viewer — request/response + screenshots",
+      "12-month retention · custom redaction rules",
+      "Email support",
+    ],
     cta: { label: "Request early access", href: CONTACT, variant: "outline" as const, external: true },
     highlight: false,
     note: "Billed annually (~$59 on-demand). Early-access placeholder — final number set from the first cohort's usage.",
@@ -56,10 +69,17 @@ const PLANS = [
     name: "Enterprise",
     price: "~$99",
     unit: "per project / month",
-    blurb: "SSO, audit, private deployment, and Founding Setup for your first workflow.",
+    blurb: "Controls, private deployment, and hands-on onboarding.",
+    features: [
+      "Everything in Team, plus:",
+      "SSO, audit log, private deployment",
+      "Custom retention",
+      "Founding Setup — your first workflow wired, included",
+      "SLA + shared Slack",
+    ],
     cta: { label: "Talk to us", href: CONTACT, variant: "outline" as const, external: true },
     highlight: false,
-    note: "Billed annually. Founding Setup onboarding included.",
+    note: "Billed annually.",
   },
 ];
 
@@ -78,7 +98,10 @@ export default function PricingPage() {
 
       <div className="grid grid-cols-1 gap-6 md:grid-cols-3">
         {PLANS.map((plan) => (
-          <Card key={plan.name} className={plan.highlight ? "ring-2 ring-primary" : undefined}>
+          <Card
+            key={plan.name}
+            className={`flex flex-col ${plan.highlight ? "ring-2 ring-primary" : ""}`}
+          >
             <CardHeader className="gap-2">
               <div className="flex items-center justify-between">
                 <CardTitle>{plan.name}</CardTitle>
@@ -90,17 +113,27 @@ export default function PricingPage() {
               </div>
               <p className="text-sm text-muted-foreground">{plan.blurb}</p>
             </CardHeader>
-            <CardContent className="flex flex-col gap-3">
-              <Button asChild variant={plan.cta.variant}>
-                {"external" in plan.cta && plan.cta.external ? (
-                  <a href={plan.cta.href}>{plan.cta.label}</a>
-                ) : (
-                  <Link href={plan.cta.href as "/sign-in"}>{plan.cta.label}</Link>
-                )}
-              </Button>
-              {plan.note ? (
-                <p className="text-xs text-muted-foreground">{plan.note}</p>
-              ) : null}
+            <CardContent className="flex flex-1 flex-col gap-4">
+              <ul className="flex flex-col gap-2 text-sm">
+                {plan.features.map((f) => (
+                  <li key={f} className="flex gap-2">
+                    <Check className="mt-0.5 size-4 shrink-0 text-primary" />
+                    <span className={f.endsWith("plus:") ? "text-muted-foreground" : undefined}>{f}</span>
+                  </li>
+                ))}
+              </ul>
+              <div className="mt-auto flex flex-col gap-3">
+                <Button asChild variant={plan.cta.variant}>
+                  {"external" in plan.cta && plan.cta.external ? (
+                    <a href={plan.cta.href}>{plan.cta.label}</a>
+                  ) : (
+                    <Link href={plan.cta.href as "/sign-in"}>{plan.cta.label}</Link>
+                  )}
+                </Button>
+                {plan.note ? (
+                  <p className="text-xs text-muted-foreground">{plan.note}</p>
+                ) : null}
+              </div>
             </CardContent>
           </Card>
         ))}
