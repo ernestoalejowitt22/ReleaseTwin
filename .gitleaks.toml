@@ -1,0 +1,22 @@
+# gitleaks config for ReleaseTwin. Extends the upstream default ruleset.
+# See https://github.com/gitleaks/gitleaks
+
+[extend]
+useDefault = true
+
+[allowlist]
+description = "Project-wide false positives"
+paths = [
+  # Build output that occasionally lands in a working tree; never committed, but keep the scan quiet.
+  '''(^|/)(bin|obj)/''',
+  '''(^|/)\.playwright/''',
+  # Example/test fixtures use deliberately fake, hardcoded placeholder credentials.
+  '''^examples/''',
+  '''^tests/.*\.(json|yaml|yml)$''',
+]
+regexes = [
+  # Common placeholder tokens used across docs, examples, and tests.
+  '''(?i)(admin-token|example-secret|fake-|dummy-|placeholder|your-[a-z-]+-here|changeme|xxxx+)''',
+  # The demo HTTP case hits a public API and asserts on its response — no secret.
+  '''jsonplaceholder\.typicode\.com''',
+]
