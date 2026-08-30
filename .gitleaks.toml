@@ -7,9 +7,10 @@ useDefault = true
 [allowlist]
 description = "Project-wide false positives"
 paths = [
-  # Build output that occasionally lands in a working tree; never committed, but keep the scan quiet.
-  '''(^|/)(bin|obj)/''',
-  '''(^|/)\.playwright/''',
+  # Build output / dependencies / local env — never committed, but keep a local `gitleaks dir` quiet.
+  '''(^|/)(bin|obj|dist|node_modules)/''',
+  '''(^|/)\.(next|playwright|adapter-video)/''',
+  '''(^|/)\.env(\.|$)''',
   # Example/test fixtures use deliberately fake, hardcoded placeholder credentials.
   '''^examples/''',
   '''^tests/.*\.(json|yaml|yml)$''',
