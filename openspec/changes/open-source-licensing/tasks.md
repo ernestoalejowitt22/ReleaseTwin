@@ -23,8 +23,12 @@
 - [x] 3.1 Sweep all 77 commits for AWS keys (`AKIA…`), Clerk/Stripe secrets (`sk_live/test…`),
       GitHub PATs (`ghp_…`), private-key blocks, Slack (`xox…`) / GCP (`AIza…`) tokens, and any
       committed `.env` file. **Result: clean — no matches.**
-- [ ] 3.2 Add a CI secret-scanning job (gitleaks or trufflehog) — deferred to its own change;
-      neither tool is installed locally. Must land before the repo goes public.
+- [x] 3.2 `.github/workflows/secret-scan.yml` — gitleaks on PR/push (incremental) + a weekly
+      full-history sweep + `workflow_dispatch`. `.gitleaks.toml` extends the default ruleset with
+      an allowlist for build output and the deliberately-fake example/test fixture credentials.
+      Validated locally via Docker: 66 commits scanned, **no leaks found**. If the repo is still
+      private when this lands, add a free `GITLEAKS_LICENSE` repo secret (the action needs it for
+      private repos; free for public).
 
 ## 4. Validation
 
