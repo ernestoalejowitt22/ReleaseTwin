@@ -9,10 +9,16 @@
 //     --act1-speed <n>         speed factor for the dashboard act (default 2)
 //     --act1-end <sec>         seconds to drop from the end of Act 1 — the idle cy.task gap and the
 //                              evidence page live there; Act 3 pulls the evidence page back in
-//                              (default 24, tuned for the ~46s naha-admin-ui-journey recording)
+//                              (default 24 — re-tune after the first run of the 3-route journey,
+//                              which lengthens the Cypress recording; the final log prints the
+//                              observed duration)
 //     --act3-len <sec>         seconds of the Cypress tail to use as Act 3, the evidence page (default 18)
-//     --act2-freeze <sec>      hold the last frame of the NAHA-driving clip this long (default 4)
+//     --act2-freeze <sec>      hold the last frame of the NAHA-driving clip this long (default 0;
+//                              auto 2s if the adapter clip is under 4s)
+//     --card-secs <sec>        duration of each title/closing card (default 2.6)
 //     --blur-secret-input      draw a box over the project-secret input region during Act 1
+//
+// Acts carry a persistent lower-thirds caption; the run ends on a closing card.
 //
 // Run `npm run demo:naha-video` to produce a fresh recording first, then stitch.
 
@@ -134,44 +140,62 @@ const font = [
   "/Library/Fonts/Arial.ttf",
 ].find(existsSync);
 
-function drawtext(text) {
-  const escaped = text.replace(/:/g, "\\:").replace(/'/g, "\u2019");
+function esc(text) {
+  return text.replace(/:/g, "\\:").replace(/'/g, "\u2019");
+}
+// A centred title/subtitle for the cards.
+function drawtext(text, { fontsize = 46, y = "(h-text_h)/2" } = {}) {
   const fontArg = font ? `fontfile='${font}':` : "";
-  return `drawtext=${fontArg}text='${escaped}':fontcolor=white:fontsize=46:x=(w-text_w)/2:y=(h-text_h)/2:line_spacing=12`;
+  return `drawtext=${fontArg}text='${esc(text)}':fontcolor=white:fontsize=${fontsize}:x=(w-text_w)/2:y=${y}:line_spacing=12`;
+}
+// A persistent lower-thirds caption drawn over an act's video.
+function caption(text) {
+  const fontArg = font ? `fontfile='${font}':` : "";
+  return (
+    `drawtext=${fontArg}text='${esc(text)}':fontcolor=white:fontsize=28:x=(w-text_w)/2:y=h-120:` +
+    `box=1:boxcolor=black@0.5:boxborderw=18`
+  );
 }
 
 const tmp = path.join(os.tmpdir(), `stitch-${Date.now()}`);
 mkdirSync(tmp, { recursive: true });
 const seg = (n) => path.join(tmp, `${n}.mp4`);
 
-function card(n, text) {
+const CARD_SECS = Number(arg("card-secs", "2.6"));
+
+function card(n, title, subtitle, { secs = CARD_SECS } = {}) {
+  const filters = [
+    drawtext(title, { fontsize: 46, y: subtitle ? "(h-text_h)/2 - 34" : "(h-text_h)/2" }),
+  ];
+  if (subtitle) filters.push(drawtext(subtitle, { fontsize: 26, y: "h/2 + 58" }));
   ff([
     "-y",
     "-f",
     "lavfi",
     "-i",
-    `color=c=0x0d1117:s=${W}x${H}:d=2.6`,
+    `color=c=0x0d1117:s=${W}x${H}:d=${secs}`,
     "-vf",
-    drawtext(text),
+    filters.join(","),
     ...V,
     seg(n),
   ]);
 }
 
-function clip(n, src, { start, end, speed, freezeTailSec } = {}) {
+function clip(n, src, { start, end, speed, freezeTailSec, caption: cap } = {}) {
   const a = ["-y"];
   if (start != null) a.push("-ss", String(start));
   a.push("-i", src);
   if (end != null) a.push("-to", String(end));
   const filters = [`scale=${W}:${H}:force_original_aspect_ratio=decrease`, `pad=${W}:${H}:(ow-iw)/2:(oh-ih)/2`];
   if (speed && speed !== 1) filters.unshift(`setpts=PTS/${speed}`);
-  // The adapter's recording of the customer app is dominated by the initial load/paint; hold on the
-  // final rendered frame so the real admin UI is actually readable in Act 2.
+  // A short adapter recording (or one dominated by the initial load/paint) reads as a flash;
+  // hold on the final rendered frame so the real admin UI stays readable in Act 2.
   if (freezeTailSec) filters.push(`tpad=stop_mode=clone:stop_duration=${freezeTailSec}`);
   if (blurSecret && src === cypressVideo && !start) {
     // rough region of the "Project secrets" value input in the dashboard's setup section
     filters.push("drawbox=x=520:y=470:w=560:h=44:color=black@1:t=fill:enable='between(t,0,1e9)'");
   }
+  if (cap) filters.push(caption(cap));
   a.push("-vf", filters.join(","), ...V, seg(n));
   ff(a);
 }
@@ -180,15 +204,27 @@ function clip(n, src, { start, end, speed, freezeTailSec } = {}) {
 const act1End = cypressDur ? Math.max(5, cypressDur - act1DropEnd) : null;
 const act3Start = cypressDur ? Math.max(0, cypressDur - act3Len) : null;
 
-card("00-card1", "A customer builds a\nrelease-proof journey in ReleaseTwin");
-clip("01-act1", cypressVideo, { end: act1End ?? undefined, speed: act1Speed });
-card("02-card2", "It runs against NAHA\u2019s live admin app\n\u2014 a real customer target");
-clip("03-act2", playwrightVideo, { freezeTailSec: Number(arg("act2-freeze", "4")) });
-card("04-card3", "Redacted evidence lands back\non the ReleaseTwin dashboard");
-clip("05-act3", cypressVideo, { start: act3Start ?? undefined });
+// --act2-freeze defaults to 0 now that the journey tours three routes and fills the act with real
+// footage. If the adapter clip still comes in short, auto-hold the last frame so it isn't a flash.
+const act2Dur = probeDurationSec(playwrightVideo);
+let act2Freeze = Number(arg("act2-freeze", "0"));
+if (!act2Freeze && act2Dur != null && act2Dur < 4) {
+  act2Freeze = 2;
+  console.error(
+    `\u26a0 adapter clip is ${act2Dur.toFixed(1)}s (<4s) — applying a 2s tail freeze so Act 2 isn\u2019t a flash`,
+  );
+}
+
+card("00-card1", "ReleaseTwin", "A customer builds a release-proof journey");
+clip("01-act1", cypressVideo, { end: act1End ?? undefined, speed: act1Speed, caption: "Building the journey in the dashboard" });
+card("02-card2", "A real customer target", "Driving NAHA\u2019s live admin app");
+clip("03-act2", playwrightVideo, { freezeTailSec: act2Freeze, caption: "Home \u2192 Companies \u2192 Policies, in a real browser" });
+card("04-card3", "Proof, not screenshots", "Redacted evidence back on the dashboard");
+clip("05-act3", cypressVideo, { start: act3Start ?? undefined, caption: "Redacted evidence on the ReleaseTwin dashboard" });
+card("06-card4", "ReleaseTwin", "Release-proof journeys against real customer targets");
 
 // ---- concat --------------------------------------------------------------------------
-const list = ["00-card1", "01-act1", "02-card2", "03-act2", "04-card3", "05-act3"]
+const list = ["00-card1", "01-act1", "02-card2", "03-act2", "04-card3", "05-act3", "06-card4"]
   .map((n) => `file '${seg(n)}'`)
   .join("\n");
 const listFile = path.join(tmp, "concat.txt");

@@ -1,50 +1,57 @@
-## 0. Precondition (NAHA dependency)
+## 0. Precondition (NAHA dependency) — RESOLVED
 
-- [ ] 0.1 Confirm NAHA `admin-e2e-route-auth` is merged and live: `/companies` and `/policies` on
-      the `e2e-admin` Preview return `200` + page testid (not `307 /sign-in`) with
-      `Cookie: naha_e2e_role=admin`. Block the rest of this change until this passes.
-      _(Merged as ernestoalejowitt22/NAHA#66, commit `ad3768c`.)_
-- [ ] 0.2 Confirm the companies/policies **content** renders, not the `*-ui-hidden` panel — the
-      `e2e-admin` Vercel Preview needs `NEXT_PUBLIC_E2E_COMPANY_BRANCH_UI=true` and
-      `NEXT_PUBLIC_E2E_POLICY_UI=true` (or the `naha.company-branch-ui` / `naha.policy-ui` LD flags
-      ON for the e2e LD context). These are Vercel env vars — a manual set by the operator. If they
-      can't be enabled, fall back: assert on the `*-ui-hidden` section's testid instead and note in
-      docs that Act 2 shows the gated-off state.
+- [x] 0.1 NAHA `admin-e2e-route-auth` merged and live: `/companies` + `/policies` render behind
+      `Cookie: naha_e2e_role=admin` on the `e2e-admin` Preview (not `307 /sign-in`).
+      _(ernestoalejowitt22/NAHA#66, commit `ad3768c`.)_
+- [x] 0.2 The old manual Vercel-env step is gone. NAHA `admin-e2e-ui-visible`
+      (ernestoalejowitt22/NAHA#68, commit `bf08465`) makes `NEXT_PUBLIC_E2E_AUTH=true` alone force
+      the company-branch / policy UI gates open. Verified on the Preview after re-sync: `/companies`
+      and `/policies` render `companies-page` / `policies-page` with nav, no `*-ui-hidden` panel.
+      Note: the live NAHA list API currently returns its error state for the e2e admin context, so
+      those routes show `status-error` inside the page shell — the journey asserts on the shell
+      testid (present in both states) and Act 2 shows the real app either way (documented).
 
 ## 1. Journey: tour three admin routes
 
-- [ ] 1.1 `web/cypress/e2e/naha-admin-ui-journey.cy.ts` — after the existing `ui.assertVisible`
-      `[data-testid="admin-home"]`, add composed steps: `ui.navigate ${adminUiBaseUrl}/companies`
-      → `ui.assertVisible [data-testid="companies-page"]` → `ui.waitFor` (stable child, ~1s dwell);
-      then the same for `/policies` (`[data-testid="policies-page"]`)
-- [ ] 1.2 Shift the API-bridge step indices (`http.request` login, `http.request /api/me`,
-      `http.assertJsonPath`) and their capture/header wiring down by the number of inserted UI
-      steps — one contiguous edit
-- [ ] 1.3 Keep `ui.closePage` cleanup last; keep the evidence-page assertions at the end unchanged
+- [x] 1.1 `web/cypress/e2e/naha-admin-ui-journey.cy.ts` — after `ui.assertVisible
+      [data-testid="admin-home"]`, added `ui.navigate → ui.assertVisible → ui.waitFor` legs for
+      `/companies` and `/policies`. The `ui.waitFor` targets the page-shell testid (not a child
+      like `create-company-form`) so the journey stays green whether the live API returns the list
+      or its error state — see 0.2.
+- [x] 1.2 API-bridge steps shifted 3/4/5 → 9/10/11 (login+capture, `/api/me`+header,
+      `http.assertJsonPath`) — one contiguous edit.
+- [x] 1.3 `ui.closePage` cleanup still last; end-of-spec evidence assertions unchanged.
 - [ ] 1.4 Run `npm run e2e:naha-ui` — spec passes against the deployed NAHA e2e app; `PASS <caseId>`
-      in CLI stdout, evidence renders
+      in CLI stdout, evidence renders. _(operator: needs the AWS Secrets Manager target + Clerk
+      test user + Playwright chromium.)_
 
 ## 2. Stitch script presentation
 
-- [ ] 2.1 `card(n, title, subtitle)` — title `fontsize=46`, optional subtitle `fontsize=26` ~60px
-      below; update the three existing calls with sub-lines
-- [ ] 2.2 `clip(..., { caption })` — lower-thirds `drawtext` (`y=h-120`, `fontsize=28`,
-      `box=1:boxcolor=black@0.5`); pass a caption for act1/act2/act3
-- [ ] 2.3 `--act2-freeze` default → `0`; if the webm is under ~4s, auto-apply a 2s freeze and warn
-      on stderr
-- [ ] 2.4 Add a 7th closing-card segment after act3; extend the concat list
+- [x] 2.1 `card(n, title, subtitle)` — title `fontsize=46` (shifted up when a subtitle is present),
+      subtitle `fontsize=26` below; `--card-secs` flag. All card calls now pass a sub-line.
+- [x] 2.2 `caption(text)` helper + `clip(..., { caption })` — lower-thirds `drawtext` (`y=h-120`,
+      `fontsize=28`, `box=1:boxcolor=black@0.5:boxborderw=18`); act1/act2/act3 each carry one.
+- [x] 2.3 `--act2-freeze` default → `0`; auto 2s freeze + stderr warn when the adapter clip probes
+      under 4s.
+- [x] 2.4 7th segment `06-card4` (closing card) added to the build + concat list.
 - [ ] 2.5 Re-tune `--act1-end` / `--act3-len` defaults from the first real run; record the observed
-      Cypress `.mp4` duration here
-- [ ] 2.6 Header comment + `docs/demo-videos.md` — document the route tour, `caption`/closing card,
-      new defaults; keep the "review before sharing / test data only" caveat and note the possible
-      `<ApiError>` state on companies/policies
+      Cypress `.mp4` duration here. _(operator: after 3.3. The 3-route journey lengthens the
+      Cypress recording; current defaults 24 / 18 are unretuned. Script prints the observed
+      duration at the end.)_
+- [x] 2.6 Header comment + `docs/demo-videos.md` updated — route tour, captions, closing card, new
+      defaults, and the Act-2 "real app, list or error state" note. "Review before sharing / test
+      data only" caveat kept.
 
 ## 3. Validation
 
-- [ ] 3.1 `openspec validate ui-session-video-polish --strict` passes
-- [ ] 3.2 `web` `tsc` + `eslint` green; `npm run e2e:naha-ui` still leaves no video files with
-      `CYPRESS_VIDEO` unset
+- [x] 3.1 `openspec validate ui-session-video-polish --strict` passes.
+- [~] 3.2 `eslint` green on `naha-admin-ui-journey.cy.ts` + `stitch-demo-video.mjs`; `node --check`
+      green on the script; a synthetic-input smoke run of `stitch-demo-video.mjs` produced a
+      playable 7-segment mp4 (all drawtext/caption filters valid). `tsc --noEmit` is blocked by a
+      pre-existing Next type-gen quirk (`LayoutProps` global needs a prior `next build`; unrelated
+      to these files — no app source changed). `e2e:*` scripts untouched, so the `CYPRESS_VIDEO`-
+      unset "no video files" behavior is unchanged.
 - [ ] 3.3 `npm run demo:naha-video` produces a playable `demo/naha-releasetwin-flow.mp4`: Act 2
-      visibly shows home, companies, and policies of the live NAHA admin app; captions and the
-      closing card render; no `--act2-freeze` hold needed
-- [ ] 3.4 Full .NET solution build + test green (unchanged, sanity only)
+      shows the live NAHA admin app touring home/companies/policies; captions + closing card
+      render; no `--act2-freeze` hold needed. _(operator run.)_
+- [ ] 3.4 Full .NET solution build + test green (unchanged, sanity only). _(operator run.)_
