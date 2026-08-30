@@ -133,6 +133,25 @@ export default async function LandingPage() {
             <Link href="/docs/quickstart">Read the quickstart</Link>
           </Button>
         </div>
+
+        <div className="mt-6 w-full max-w-2xl">
+          {/* <object>, not <img>: svg-term's CSS keyframe animation only runs when the SVG is its
+              own document. The nested <img> is the static fallback. */}
+          <object
+            type="image/svg+xml"
+            data="/demo-flag-proof.svg"
+            aria-label="Terminal recording: running a zero-credential HTTP case, then a flag-proof run that reports FLAGPROOF CHECKOUT-FIX-1 (Passed)"
+            className="w-full rounded-xl ring-1 ring-foreground/10"
+            style={{ aspectRatio: "828 / 435" }}
+          >
+            {/* eslint-disable-next-line @next/next/no-img-element -- animated asciinema SVG */}
+            <img
+              src="/demo-flag-proof.svg"
+              alt="Terminal recording of a passing flag-proof run"
+              className="w-full rounded-xl ring-1 ring-foreground/10"
+            />
+          </object>
+        </div>
       </section>
 
       {/* Dashboard preview */}

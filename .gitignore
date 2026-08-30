@@ -27,4 +27,8 @@ web/.env*.local
 /evidence-artifacts/
 
 # ui-session-video: generated demo clips + intermediate recordings
-/demo/
+/demo/*.mp4
+/demo/.adapter-video/
+# landing-page demo recording: local build output + fetched credentials (cast + svg are committed)
+/demo/.bin/
+/demo/.env.local

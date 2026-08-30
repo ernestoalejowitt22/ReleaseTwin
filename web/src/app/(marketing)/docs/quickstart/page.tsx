@@ -16,6 +16,23 @@ export default function QuickstartPage() {
         lead="Run a real HTTP case against a live API in a few minutes. No credentials, no account."
       />
 
+      <div className="mb-10">
+        <object
+          type="image/svg+xml"
+          data="/demo-flag-proof.svg"
+          aria-label="Terminal recording: a zero-credential HTTP case passing, then a flag-proof run reporting (Passed)"
+          className="w-full rounded-xl ring-1 ring-foreground/10"
+          style={{ aspectRatio: "828 / 435" }}
+        >
+          {/* eslint-disable-next-line @next/next/no-img-element -- animated asciinema SVG */}
+          <img
+            src="/demo-flag-proof.svg"
+            alt="Terminal recording of a passing flag-proof run"
+            className="w-full rounded-xl ring-1 ring-foreground/10"
+          />
+        </object>
+      </div>
+
       <DocSection title="1. Get the CLI">
         <P>Two ways to run it. With the .NET 8 SDK:</P>
         <CodeBlock
