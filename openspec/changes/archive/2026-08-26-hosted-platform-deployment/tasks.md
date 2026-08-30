@@ -12,7 +12,7 @@
 
 ## 3. Bootstrap terraform — `hosted/terraform-state-backend` (S3 + DynamoDB lock, local state) and `hosted/terraform-bootstrap` (OIDC provider + CI role, remote state)
 
-- [x] 3.1 New `hosted/terraform-state-backend`: `aws_s3_bucket` (`releasetwin-terraform-state-846136340491`, versioned, public access blocked) + `aws_dynamodb_table` for locking. No backend block — this is the one layer that stays genuinely local-stated (see design.md Decisions/Risks for why that's accepted here specifically). `terraform validate` and `terraform plan` both pass clean — 4 resources.
+- [x] 3.1 New `hosted/terraform-state-backend`: `aws_s3_bucket` (`releasetwin-terraform-state-ACCOUNT_ID`, versioned, public access blocked) + `aws_dynamodb_table` for locking. No backend block — this is the one layer that stays genuinely local-stated (see design.md Decisions/Risks for why that's accepted here specifically). `terraform validate` and `terraform plan` both pass clean — 4 resources.
 - [x] 3.2 New `hosted/terraform-bootstrap`: `aws_iam_openid_connect_provider` for `token.actions.githubusercontent.com`; an `aws_iam_role` trusted only for `repo:ernestoalejowitt22/ReleaseTwin:*` via that provider; a least-privilege policy scoped to exactly what `hosted/terraform`'s `apply` needs (DynamoDB table, Lambda function, the Lambda execution role + `iam:PassRole`, plus S3/DynamoDB access to the state backend from 3.1). Backend block wired to the bucket/table from 3.1 (durable state from its first apply, unlike 3.1 itself). `terraform validate` passes clean.
 
 ## 4. GitHub Actions workflows
@@ -24,7 +24,7 @@
 
 **Note (added after the fact):** if you already created this user with an earlier version of the policy below, you'll need to add one more action to its inline policy: `iam:UpdateAssumeRolePolicy` (distinct from `iam:PutRolePolicy`, which only covers the role's *permissions* policy, not its *trust* policy) — needed once the trust condition below got fixed to use the `repository` claim instead of `sub` (see design.md Risks) and the role's trust policy needed updating in place.
 
-- [x] 5.1 In the AWS Console (`ealejo` account, logged in normally — MFA here is just your regular login, not a CLI session dance): IAM → Users → Create user `releasetwin-bootstrap`, no console access, access-key-only credential type.
+- [x] 5.1 In the AWS Console (the operator’s account account, logged in normally — MFA here is just your regular login, not a CLI session dance): IAM → Users → Create user `releasetwin-bootstrap`, no console access, access-key-only credential type.
 - [x] 5.2 Attach an inline policy scoped by *resource*, not by an enumerated verb list — S3/DynamoDB for the state backend (each pinned to exactly the one bucket/table, no broader blast radius), IAM/OIDC-provider actions for the trust and role, nothing else. (Confirmed empirically that a narrower, verb-enumerated policy fails partway through `terraform apply`: the AWS provider makes extra read-back calls after creating a resource — e.g. `s3:GetBucketPolicy`, `dynamodb:DescribeContinuousBackups` — beyond the obvious create/read verbs, so resource-level scoping is the more reliable least-privilege boundary here than trying to enumerate every verb the provider might call.)
   ```json
   {
@@ -35,15 +35,15 @@
         "Effect": "Allow",
         "Action": "s3:*",
         "Resource": [
-          "arn:aws:s3:::releasetwin-terraform-state-846136340491",
-          "arn:aws:s3:::releasetwin-terraform-state-846136340491/*"
+          "arn:aws:s3:::releasetwin-terraform-state-ACCOUNT_ID",
+          "arn:aws:s3:::releasetwin-terraform-state-ACCOUNT_ID/*"
         ]
       },
       {
         "Sid": "StateLockTable",
         "Effect": "Allow",
         "Action": "dynamodb:*",
-        "Resource": "arn:aws:dynamodb:us-east-1:846136340491:table/releasetwin-terraform-state-lock"
+        "Resource": "arn:aws:dynamodb:us-east-1:ACCOUNT_ID:table/releasetwin-terraform-state-lock"
       },
       {
         "Sid": "OidcAndRole",
@@ -63,7 +63,7 @@
   ```
 - [x] 5.3 Generate an access key for the user; add its `AccessKeyId`/`SecretAccessKey` as the `AWS_BOOTSTRAP_ACCESS_KEY_ID`/`AWS_BOOTSTRAP_SECRET_ACCESS_KEY` repo secrets (standing, kept permanently — GitHub secrets are encrypted at rest and never re-displayed; see design.md Decisions).
 - [x] 5.4 Trigger `bootstrap.yml` (`gh workflow run bootstrap.yml` or the Actions UI). Confirm both jobs succeed; capture the CI role ARN from the `oidc-and-role` job's summary. (Took several iterations — permissions gap on read-back calls, the OIDC provider already existing from another project, the shared provider's thumbprint_list — all now fixed and idempotent for future runs.)
-- [x] 5.5 Set the CI role ARN from 5.4 as the `AWS_DEPLOY_ROLE_ARN` repo variable (used by `deploy-hosted.yml`). Confirmed already set: `arn:aws:iam::846136340491:role/releasetwin-github-actions-deploy`.
+- [x] 5.5 Set the CI role ARN from 5.4 as the `AWS_DEPLOY_ROLE_ARN` repo variable (used by `deploy-hosted.yml`). Confirmed already set: `arn:aws:iam::ACCOUNT_ID:role/releasetwin-github-actions-deploy`.
 
 ## 6. Terraform pass 1, via CI
 

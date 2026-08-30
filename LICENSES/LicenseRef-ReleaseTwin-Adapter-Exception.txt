@@ -1,0 +1,61 @@
+ReleaseTwin Adapter Linking Exception
+=====================================
+
+Version 1.0
+
+This Exception is an additional permission under section 7 of the GNU Affero
+General Public License, version 3 ("AGPL-3.0"), granted by the copyright holders
+of the ReleaseTwin engine (the AGPL-3.0-licensed contents of `src/` and
+`tests/`, and the repository-root build glue — collectively "the Engine").
+
+
+1. Definitions
+
+   "Adapter" means a module that adds operations, prerequisites, cleanup
+   behavior, feature-state control, or evidence to the Engine by implementing
+   the public extension points of `ReleaseTwin.AdapterSdk` and
+   `ReleaseTwin.Core` (the composition-root / operation / capability
+   interfaces), and that is not itself a modified version of the Engine.
+
+   "Independent" means the Adapter's source code is not derived from Engine
+   source code beyond the use of those public extension points and their
+   public types, and the Adapter can be built against a published, unmodified
+   Engine.
+
+
+2. Grant
+
+   You may convey an Independent Adapter — in source or object form, alone or
+   combined with the Engine for the purpose of running it — under the terms of
+   any license approved by the Open Source Initiative, or under a proprietary
+   license, of your choosing, notwithstanding the copyleft requirements of
+   AGPL-3.0 sections 5, 6, and 13 that would otherwise extend to the Adapter by
+   virtue of that combination.
+
+   This Exception applies only to the Adapter. The Engine itself, and any
+   modified version of the Engine, remain governed by AGPL-3.0 in full,
+   including its section 13 network-use requirement. Combining an Adapter with a
+   modified Engine does not relicense the modifications to the Engine.
+
+
+3. Conditions
+
+   a. The Adapter must be Independent as defined above.
+
+   b. You must not remove or alter the AGPL-3.0 notices on the Engine, and you
+      must make the corresponding source of the Engine (and of any modifications
+      to it) available as AGPL-3.0 requires.
+
+   c. This Exception does not grant any right in the "ReleaseTwin" name or logo
+      beyond nominative use to describe compatibility.
+
+
+4. No warranty
+
+   This Exception adds no warranty beyond AGPL-3.0 section 15.
+
+
+If you do not wish to rely on this Exception, the Engine is available to you
+under the plain terms of AGPL-3.0. This Exception exists so that adapter authors
+are not forced to adopt AGPL-3.0 for adapter code that merely plugs into the
+Engine through its intended extension surface.

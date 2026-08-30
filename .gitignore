@@ -28,3 +28,6 @@ web/.env*.local
 
 # ui-session-video: generated demo clips + intermediate recordings
 /demo/
+
+# Local, per-developer Claude Code settings — never commit
+.claude/settings.local.json
