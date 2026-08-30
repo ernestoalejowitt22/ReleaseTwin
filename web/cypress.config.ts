@@ -28,6 +28,9 @@ export default defineConfig({
   // enforcement so that bounce doesn't need `cy.origin()` gymnastics. A production Clerk instance
   // on a real custom domain wouldn't need this; verify if this project ever moves off a dev instance.
   chromeWebSecurity: false,
+  // ui-session-video: off by default (Cypress 15's own default) — CI and every e2e:* script are
+  // unaffected. `demo:naha-video` sets CYPRESS_VIDEO=true to record the dashboard half of the flow.
+  video: process.env.CYPRESS_VIDEO === "true",
   e2e: {
     baseUrl: "http://localhost:3000",
     async setupNodeEvents(on, config) {
@@ -381,6 +384,8 @@ export default defineConfig({
                   RELEASETWIN_FIXTURES_ROOT: path.join(repoRoot, "examples", "fixtures"),
                   // ui-journey-visual-evidence: lets a spec turn on the UI adapter + evidence capture
                   // (RELEASETWIN_UI_ENABLED / RELEASETWIN_EVIDENCE), same passthrough runCli already has.
+                  // ui-session-video: RELEASETWIN_UI_VIDEO_DIR flows through `...process.env` above —
+                  // `demo:naha-video` sets it so the CLI records the NAHA-driving half of the flow.
                   ...env,
                 },
                 maxBuffer: 10 * 1024 * 1024,

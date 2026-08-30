@@ -254,12 +254,14 @@ public sealed class CliRunner
         // launching a real browser process is expensive and requires browser binaries to be
         // installed, so it's opt-in rather than unconditional like the HTTP adapter.
         var uiEnabled = Get("RELEASETWIN_UI_ENABLED") is { Length: > 0 } uiFlag && (uiFlag == "1" || string.Equals(uiFlag, "true", StringComparison.OrdinalIgnoreCase));
+        // ui-session-video: opt-in browser-session recording, same shape as RELEASETWIN_UI_ENABLED.
+        var uiVideoDir = Get("RELEASETWIN_UI_VIDEO_DIR") is { Length: > 0 } dir ? dir : null;
         UiAdapter? uiAdapter = null;
         if (uiEnabled)
         {
             try
             {
-                uiAdapter = await UiAdapter.CreateAsync(cancellationToken: cancellationToken);
+                uiAdapter = await UiAdapter.CreateAsync(recordVideoDir: uiVideoDir, cancellationToken: cancellationToken);
             }
             catch (Exception ex) when (ex is not OperationCanceledException)
             {

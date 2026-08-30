@@ -5,8 +5,7 @@ namespace ReleaseTwin.Adapters.Ui;
 
 internal sealed class NavigateOperation : UiOperationBase
 {
-    private readonly IBrowser _browser;
-    public NavigateOperation(IBrowser browser) => _browser = browser;
+    public NavigateOperation(IBrowser browser, string? recordVideoDir = null) : base(browser, recordVideoDir) { }
 
     protected override string ActionName => "ui.navigate";
 
@@ -19,7 +18,7 @@ internal sealed class NavigateOperation : UiOperationBase
 
         try
         {
-            var page = await UiOperationSupport.GetOrCreatePageAsync(context, _browser);
+            var page = await UiOperationSupport.GetOrCreatePageAsync(context, Browser, RecordVideoDir);
             await page.GotoAsync(url);
             return await UiOperationSupport.CompleteAsync(page, captures);
         }
@@ -32,8 +31,7 @@ internal sealed class NavigateOperation : UiOperationBase
 
 internal sealed class ClickOperation : UiOperationBase
 {
-    private readonly IBrowser _browser;
-    public ClickOperation(IBrowser browser) => _browser = browser;
+    public ClickOperation(IBrowser browser, string? recordVideoDir = null) : base(browser, recordVideoDir) { }
 
     protected override string ActionName => "ui.click";
 
@@ -46,7 +44,7 @@ internal sealed class ClickOperation : UiOperationBase
 
         try
         {
-            var page = await UiOperationSupport.GetOrCreatePageAsync(context, _browser);
+            var page = await UiOperationSupport.GetOrCreatePageAsync(context, Browser, RecordVideoDir);
             await page.ClickAsync(selector, new PageClickOptions { Timeout = TimeoutMs(parameters) });
             return await UiOperationSupport.CompleteAsync(page, captures);
         }
@@ -62,8 +60,7 @@ internal sealed class ClickOperation : UiOperationBase
 
 internal sealed class FillOperation : UiOperationBase
 {
-    private readonly IBrowser _browser;
-    public FillOperation(IBrowser browser) => _browser = browser;
+    public FillOperation(IBrowser browser, string? recordVideoDir = null) : base(browser, recordVideoDir) { }
 
     protected override string ActionName => "ui.fill";
 
@@ -81,7 +78,7 @@ internal sealed class FillOperation : UiOperationBase
 
         try
         {
-            var page = await UiOperationSupport.GetOrCreatePageAsync(context, _browser);
+            var page = await UiOperationSupport.GetOrCreatePageAsync(context, Browser, RecordVideoDir);
             await page.FillAsync(selector, value, new PageFillOptions { Timeout = ClickOperation.TimeoutMs(parameters) });
             return await UiOperationSupport.CompleteAsync(page, captures);
         }
@@ -94,8 +91,7 @@ internal sealed class FillOperation : UiOperationBase
 
 internal sealed class WaitForOperation : UiOperationBase
 {
-    private readonly IBrowser _browser;
-    public WaitForOperation(IBrowser browser) => _browser = browser;
+    public WaitForOperation(IBrowser browser, string? recordVideoDir = null) : base(browser, recordVideoDir) { }
 
     protected override string ActionName => "ui.waitFor";
 
@@ -117,7 +113,7 @@ internal sealed class WaitForOperation : UiOperationBase
 
         try
         {
-            var page = await UiOperationSupport.GetOrCreatePageAsync(context, _browser);
+            var page = await UiOperationSupport.GetOrCreatePageAsync(context, Browser, RecordVideoDir);
             await page.WaitForSelectorAsync(selector, new PageWaitForSelectorOptions { State = state, Timeout = ClickOperation.TimeoutMs(parameters) });
             return await UiOperationSupport.CompleteAsync(page, captures);
         }
@@ -139,8 +135,7 @@ internal sealed class WaitForOperation : UiOperationBase
 
 internal sealed class AssertVisibleOperation : UiOperationBase
 {
-    private readonly IBrowser _browser;
-    public AssertVisibleOperation(IBrowser browser) => _browser = browser;
+    public AssertVisibleOperation(IBrowser browser, string? recordVideoDir = null) : base(browser, recordVideoDir) { }
 
     protected override string ActionName => "ui.assertVisible";
 
@@ -153,7 +148,7 @@ internal sealed class AssertVisibleOperation : UiOperationBase
 
         try
         {
-            var page = await UiOperationSupport.GetOrCreatePageAsync(context, _browser);
+            var page = await UiOperationSupport.GetOrCreatePageAsync(context, Browser, RecordVideoDir);
             if (!await page.IsVisibleAsync(selector))
             {
                 return OperationResult.Fail($"element '{selector}' is not visible");
@@ -168,16 +163,32 @@ internal sealed class AssertVisibleOperation : UiOperationBase
     }
 }
 
+/// <summary>
+/// Closes the run's browser context (and its pages). ui-session-video: when the context was
+/// recording, resolves the finalized video and renames it to <c>&lt;caseId&gt;.webm</c> so a
+/// consumer can find it by name.
+/// </summary>
 internal sealed class ClosePageCleanup : ICleanupOperation
 {
     public async Task<CleanupResult> ExecuteAsync(CaseExecutionContext context, CancellationToken cancellationToken)
     {
         if (context.AdapterState.TryGetValue(UiOperationSupport.ContextKey, out var existingContext) && existingContext is IBrowserContext browserContext)
         {
-            // Closing the context closes every page it opened.
+            // Capture video handles before close — Playwright only resolves the path after the
+            // context closes. Prefer the run's stashed page; fall back to the context's open pages.
+            var videos = new List<IVideo>();
+            if (context.AdapterState.TryGetValue(UiOperationSupport.PageKey, out var pageObj) && pageObj is IPage stashedPage && stashedPage.Video is { } v)
+            {
+                videos.Add(v);
+            }
+
+            videos.AddRange(browserContext.Pages.Select(p => p.Video).Where(x => x is not null).Cast<IVideo>());
+
             await browserContext.CloseAsync();
             context.AdapterState.Remove(UiOperationSupport.ContextKey);
             context.AdapterState.Remove(UiOperationSupport.PageKey);
+
+            await FinalizeVideosAsync(videos.Distinct().ToList(), context.Case.CaseId);
             return new CleanupResult(true);
         }
 
@@ -189,4 +200,37 @@ internal sealed class ClosePageCleanup : ICleanupOperation
 
         return new CleanupResult(true);
     }
+
+    private static async Task FinalizeVideosAsync(IReadOnlyList<IVideo> videos, string caseId)
+    {
+        foreach (var video in videos)
+        {
+            try
+            {
+                // PathAsync() gives the GUID-named recording path (its directory is recordVideoDir);
+                // SaveAsAsync waits for the recording to flush and writes it under our chosen name.
+                var source = await video.PathAsync();
+                if (string.IsNullOrEmpty(source))
+                {
+                    continue;
+                }
+
+                var target = Path.Combine(Path.GetDirectoryName(source)!, $"{Sanitize(caseId)}.webm");
+                if (string.Equals(source, target, StringComparison.Ordinal))
+                {
+                    continue;
+                }
+
+                await video.SaveAsAsync(target);
+                await video.DeleteAsync();
+            }
+            catch
+            {
+                // best-effort — a missing/failed video never fails cleanup.
+            }
+        }
+    }
+
+    private static string Sanitize(string caseId) =>
+        new(caseId.Select(c => char.IsLetterOrDigit(c) || c is '-' or '_' or '.' ? c : '-').ToArray());
 }
