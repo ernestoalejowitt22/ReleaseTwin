@@ -8,7 +8,7 @@ docs/customer-pilot-guide.md named the real gap: every operation shipped so far 
 - **New `ReleaseTwin.Adapters.Http`**: a generic, vendor-neutral adapter with two parameterized operations:
   - `http.request` — method, URL, headers, body from `with:`; stores the response (status + body) for later assertion.
   - `http.assertJsonPath` — JSONPath expression + expected value from `with:`, checked against the last `http.request` response.
-- **`case-loading`**: parses a `with:` block per pipeline step into typed parameters, and supports `${ENV_VAR}` interpolation inside string parameter values (e.g. `url: ${API_BASE_URL}/orders`) so real endpoints/credentials never need to be committed to a case file — matching the syntax the commercialization assessment already illustrated.
+- **`case-loading`**: parses a `with:` block per pipeline step into typed parameters, and supports `${ENV_VAR}` interpolation inside string parameter values (e.g. `url: ${API_BASE_URL}/orders`) so real endpoints/credentials never need to be committed to a case file — matching the syntax an early design note already illustrated.
 - **`cli-runner`**: composes both the Azure DevOps adapter and the new HTTP adapter together (the first real test of multi-adapter composition in the actual CLI, not just unit tests) — this is also the trigger condition design.md D2 (phase3) named for revisiting hardcoded single-adapter composition.
 - A new example case (`examples/cases/example-http.yaml`) against a live public test API, demonstrating the full loop — authored case, real HTTP call, real JSONPath assertion — with no bespoke adapter code for that API.
 
