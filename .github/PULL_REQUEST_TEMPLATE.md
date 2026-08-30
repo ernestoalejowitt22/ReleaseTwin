@@ -6,7 +6,8 @@
 
 ## Paths touched
 
-- [ ] Apache-2.0 (`src/`, `tests/`, `examples/`, `docs/`, repo root)
+- [ ] AGPL-3.0 (`src/`, `tests/`, `docs/`, repo root) — engine
+- [ ] Apache-2.0 (`examples/`)
 - [ ] BSL 1.1 (`hosted/`, `web/`)
 
 ## Checklist
