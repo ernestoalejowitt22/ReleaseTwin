@@ -1,5 +1,7 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import { auth } from "@clerk/nextjs/server";
+import { SITE_DESCRIPTION } from "@/lib/site";
 import {
   GitBranch,
   KeyRound,
@@ -108,6 +110,18 @@ function DashboardPreview() {
     </Card>
   );
 }
+
+export const metadata: Metadata = {
+  // Home page owns the full <title> rather than the "%s — ReleaseTwin" template.
+  title: { absolute: "ReleaseTwin — self-serve release-proof testing" },
+  description: SITE_DESCRIPTION,
+  alternates: { canonical: "/" },
+  openGraph: {
+    title: "ReleaseTwin — self-serve release-proof testing",
+    description: SITE_DESCRIPTION,
+    url: "/",
+  },
+};
 
 export default async function LandingPage() {
   const { userId } = await auth();
