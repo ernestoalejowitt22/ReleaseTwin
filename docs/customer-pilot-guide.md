@@ -15,7 +15,7 @@ A customer no longer needs "clone this repo and read the README" as the only pat
 - This is **Stage 1, free-only** — there is no billing, no paid tier, no usage limits enforced yet. Don't imply pricing exists.
 - Execution still happens entirely in the customer's own infra. The hosted platform is a control plane (accounts, tokens, dashboard), **not** a hosted test runner — nothing about "no install" changed; what changed is that results now have somewhere to land besides a terminal.
 - Only report metadata is ever uploaded (case ID, oracle reference, fixture hash, pass/fail, classification) — never fixture content, response bodies, or credentials. This is worth stating to a security-conscious prospect as a real trust property, not just reassurance.
-- No Clerk application is registered yet on the operator side as of this writing — the sign-in flow is built and tested (Clerk-backed, provider-neutral), but actually offering it to a stranger requires that one-time setup step first.
+- The hosted platform is deployed (Lambda API + Vercel frontend, auto-deploying from `main`) and a production Clerk instance is wired to it. Sign-up works — but it isn't linked or announced anywhere and no outside user has been invited. Offering it to a prospect is now a decision to make, not a setup step to finish.
 
 ## Update (phase4-generic-http-adapter): the Tier 1/Tier 2 gap is partially closed
 
@@ -77,7 +77,7 @@ Either way: this is real, scoped engineering work that should be shaped by what 
 
 ## Validation questions to actually ask a prospect
 
-These are the right questions to ask, and none have been asked of a real prospect yet:
+These are the right questions to ask, and none have been asked of a real prospect yet. The full call script lives in the private planning notes:
 
 1. What release or incident cost would this proof have avoided?
 2. Which reports or evidence are currently assembled manually?

@@ -1,0 +1,13 @@
+id: CHECKOUT-FIX-1
+oracle:
+  locator: tickets/CHECKOUT-FIX-1
+fixture:
+  locator: flag-proof-demo.json
+  sha256: ca3d163bab055381827226140568f3bef7eaac187cebd76878e0b63e9e442356
+requires:
+  - http:launchdarkly
+pipeline:
+  - operation: ld.readFeatureFlag
+flag_proof:
+  feature_key: naha.service-catalog-api
+  build_identity: demo-build-1

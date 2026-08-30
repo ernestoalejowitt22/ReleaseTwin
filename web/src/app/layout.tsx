@@ -3,6 +3,7 @@ import { Geist, Geist_Mono } from "next/font/google";
 import { ClerkProvider } from "@clerk/nextjs";
 import { Toaster } from "@/components/ui/sonner";
 import { ThemeProvider } from "@/components/theme-provider";
+import { SITE_URL, SITE_NAME, SITE_DESCRIPTION } from "@/lib/site";
 import "./globals.css";
 
 // dashboard-visual-refresh: no anti-flash-of-wrong-theme script here — every form of <script>
@@ -25,8 +26,42 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "ReleaseTwin",
-  description: "Self-serve release-proof testing.",
+  metadataBase: new URL(SITE_URL),
+  title: {
+    default: SITE_NAME,
+    // Subpages set `title: "Quickstart"` and get "Quickstart — ReleaseTwin".
+    template: `%s — ${SITE_NAME}`,
+  },
+  description: SITE_DESCRIPTION,
+  applicationName: SITE_NAME,
+  keywords: [
+    "release testing",
+    "feature flag testing",
+    "flag-proof",
+    "LaunchDarkly testing",
+    "CI regression proof",
+    "API integration testing",
+    "release verification",
+  ],
+  authors: [{ name: SITE_NAME }],
+  alternates: { canonical: "/" },
+  openGraph: {
+    type: "website",
+    siteName: SITE_NAME,
+    url: SITE_URL,
+    title: SITE_NAME,
+    description: SITE_DESCRIPTION,
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: SITE_NAME,
+    description: SITE_DESCRIPTION,
+  },
+  robots: {
+    index: true,
+    follow: true,
+    googleBot: { index: true, follow: true },
+  },
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
