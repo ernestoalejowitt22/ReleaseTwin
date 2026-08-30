@@ -50,7 +50,7 @@ const TRUST = [
     icon: EyeOff,
     title: "Only metadata leaves, by default",
     description:
-      "Case ID, oracle reference, fixture hash, pass/fail, classification. Never fixture content, response bodies, or credentials — the ingest contract has no field for them.",
+      "Case ID, oracle reference, fixture hash, pass/fail, classification. Never fixture content, response bodies, or credentials — the ingest contract has no field for them. We're independent and self-funded, so our incentive is your renewal, not your data.",
   },
   {
     icon: ShieldCheck,
@@ -231,8 +231,8 @@ export default async function LandingPage() {
           </Button>
         </div>
         <p className="text-xs text-muted-foreground">
-          We&apos;re working hands-on with a small number of design partners — free, in
-          exchange for feedback.
+          We&apos;re working hands-on with a small number of design partners. Founding customers
+          lock their pricing and get direct access to the person building it.
         </p>
       </section>
     </main>

@@ -36,6 +36,8 @@ Small, do first — it unblocks the whole open-core narrative and costs little.
   after N years, no-compete in the interim) in the same repo, or move them to a private repo.
   Recommendation: BSL in-repo, simplest to operate solo.
 - `CONTRIBUTING.md`, `SECURITY.md`, GitHub issue/PR templates.
+- **`docs/continuity.md`** — the wind-down / self-host-fallback commitment, mirrored as a section
+  on the marketing security page. Same narrative as the license; land it in the same change.
 - **Scrub git history for secrets** before making the repo public — verify the
   `hosted/terraform-bootstrap` MFA-comment note and confirm no AWS keys / Clerk secrets / PATs
   were ever committed. (`git log -p -S` sweeps, or `trufflehog`/`gitleaks`.)
@@ -86,6 +88,10 @@ Today "write your own case" means clone the repo for `examples/` and hand-build 
 
 The platform is deployed but nothing links to signup and the auto-deploy stack is dev-prefixed.
 
+- **Company basics** (real-world, not code — but they gate public launch): form a US
+  single-member LLC; register the domain and put email on it (`hello@` / `security@` via Google
+  Workspace); swap every `ernestoalejo22@gmail.com` on the site for the domain address. The ToS,
+  Privacy Policy, and future invoices name the LLC.
 - **Stand up a real prod stack** — a `releasetwin-prod-` (or unprefixed) terraform
   workspace/prefix, confirm the wired Clerk instance is a **production** instance (not
   `*.clerk.accounts.dev`), custom domains + TLS for the API (currently a raw Lambda Function
@@ -129,13 +135,18 @@ Make the Free-tier limits visible with a clear next step — this is what turns 
 
 ## Workstream F — Billing (only after E shows demand)
 
-- **Stripe** — Checkout for Team self-serve, Customer Portal for management, webhook →
-  plan-tier state in DynamoDB (replaces the no-payment placeholder in `plan-tier-gating`).
+- **Merchant of Record, not raw Stripe** — Paddle / Lemon Squeezy / Polar. The MoR is the seller
+  of record: it collects and remits sales tax / VAT everywhere and issues compliant invoices, so
+  a solo founder never registers for tax in a foreign jurisdiction. Stripe + Stripe Tax only
+  *calculates* — the filing/registration liability stays with you. Cost is ~5–8% + fees; worth it
+  until that's material. Hosted Checkout + customer portal, webhook → plan-tier state in DynamoDB
+  (replaces the no-payment placeholder in `plan-tier-gating`).
 - **Plan model** — Free / Team with enforced limits; Enterprise stays manual (invoice + custom
-  terms).
+  terms). Launch Team as **monthly or 1-year cancel-anytime**, not a multi-year lock — removes the
+  biggest signup objection for a young vendor, and the cash-flow certainty isn't needed yet.
 - **Enforcement** already has its seams from E; F just flips the upgrade path from "email us" to
   "checkout".
-- **Dunning / failed-payment handling**, receipts, tax (Stripe Tax). Keep minimal.
+- **Dunning / failed-payment handling**, receipts — mostly handled by the MoR. Keep minimal.
 
 **Depends on: E, and real signal that people hit the walls. ~2–3 changes.**
 
@@ -151,6 +162,11 @@ Rungs 0–2 free and working, rung 3 = "email us", no Stripe:
 Defer **C** (NuGet/Action — add once signup works), **E** polish, and **F** entirely until the
 funnel shows people arriving and hitting walls.
 
+**Capacity cap:** no more than **2 active paid engagements at once**. One person can't deliver a
+third without the delivery quality on all of them collapsing — and a botched founding engagement
+is a lost reference, not just lost revenue. If demand exceeds that, the answer is a waitlist and
+a higher price, not more concurrent work.
+
 ---
 
 ## Open questions
@@ -162,3 +178,6 @@ funnel shows people arriving and hitting walls.
   leads with, instead of "release proof" broadly? Decide after the first validation calls — it
   has a crisper problem statement and an existing category.
 - Free-tier monthly report cap: enforce, soft-cap, or none at launch?
+- Merchant of Record vs. Stripe + Stripe Tax — and if MoR, which one (Paddle / Lemon Squeezy /
+  Polar)? Decide before Workstream F.
+- LLC vs. an Estonian e-Residency OÜ (the Plausible route)? US LLC is the simpler default.

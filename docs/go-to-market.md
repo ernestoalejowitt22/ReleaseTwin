@@ -37,6 +37,32 @@ try-before-anything, not a discount.**
   redaction code that runs before anything uploads is code they can read.
 - The hosted platform (`hosted/` + `web/`) stays commercial — source-available under a
   non-compete license (BSL-style) or kept private, decided in the funnel plan.
+- It also answers the biggest objection to a two-person vendor — *"what if you disappear"* — for
+  nearly free: the core is self-hostable today, and a published **continuity commitment**
+  (`docs/continuity.md`, mirrored on the security page) promises hosted licenses convert to
+  perpetual and the hosted source opens if the company winds down. Funded competitors structurally
+  can't match this; their valuation depends on lock-in.
+
+---
+
+## Company & billing
+
+- **Entity:** a US single-member LLC before public signup — it's what the ToS, Privacy Policy,
+  and invoices name. Cheap to form; not a launch blocker but do it early.
+- **Email on the domain** (`hello@` / `founder@` / `security@` via Google Workspace or Fastmail).
+  A `gmail.com` address on a pricing page and a security-disclosure line undercuts the whole
+  trust pitch. Replace every `ernestoalejo22@gmail.com` reference on the site.
+- **Payments via a Merchant of Record** (Paddle, Lemon Squeezy, Polar — *not* raw Stripe). The
+  MoR is the seller of record: it collects and remits sales tax / VAT in every jurisdiction and
+  issues compliant invoices. Stripe Tax only *calculates* — you'd still have to register and file
+  in dozens of places once thresholds trip. For a 1–2 person company selling globally, an MoR
+  converts an unbounded compliance liability into a ~5–8% fee. Revisit only if that fee becomes
+  material at scale.
+- **Infra stays boring.** The current Lambda + Vercel + Clerk + DynamoDB + S3 stack is already
+  lower-ops than the Heroku/Hetzner setups the comparable solo companies run. Add nothing.
+
+`docs/company-ops.md` has the full checklist and how comparable 1–2 person open-core companies
+(Sidekiq, Oban, Plausible, Transistor, TablePlus, Judoscale) handle hosting, DNS, and billing.
 
 ---
 
@@ -65,11 +91,13 @@ release/platform**, not QA-tooling budget.
 
 ## The tiers (self-serve, on the pricing page)
 
-Numbers are hypotheses. No number over ~$100/mo appears on the public site.
+Numbers are hypotheses. The public pricing page shows **"Early access — talk to us"** for Team
+until a validated annual number exists; no monthly price appears anywhere (see the benchmark
+above — a monthly figure anchors to the wrong comparables and reads as "easy to churn").
 
 | | **Free** | **Team** | **Enterprise** |
 |---|---|---|---|
-| Price | $0 | ~$49–99/mo (revisit after funnel data) | "Talk to us" |
+| Price | $0 | Annual, from ~$3–6k/yr (set from real usage) | "Talk to us" |
 | Projects | 1 | unlimited | unlimited |
 | Evidence viewer | off (upgrade prompt) | on | on |
 | Evidence retention | 30 days | up to 365 days | custom |
@@ -92,9 +120,13 @@ critical workflow proven,"* never *"buy a pilot."*
 - **Internal starting number: $8,000, fixed, ~6 weeks, one workflow, fee refunded if it isn't
   running against their real workflow at the end.** Below the ~$10k procurement-committee line;
   the refund clause removes the "will it work with our stack" objection.
-- **First 1–2 of these: free or ~$2k**, explicitly as founding design partners, in exchange for a
-  named case study and deep feedback. You have zero references; this buys them. A clean
-  willingness-to-pay signal comes *after* you can point to a result.
+- **First 1–2 of these: ~$2k, never free**, explicitly as founding design partners, in exchange
+  for a named case study and deep feedback. A token fee still filters tire-kickers and produces a
+  real willingness-to-pay signal; a free pilot gets deprioritized inside the customer's org and
+  proves nothing. You have zero references, and $2k + a case study is a fair trade for both sides.
+- **Founding-customer pricing:** the first ~10 accounts that convert to an annual plan lock their
+  rate for 3 years. Rewards early belief, creates urgency, and does it without discounting the
+  list price for everyone.
 - Post-engagement: annual Team/Enterprise plan. Provisional $12–30k/yr for Enterprise-shaped
   accounts; say this only if asked, and only as "we'll have real numbers from your own run."
 - **Retire the $149/$499/mo tiers from all external conversation.**

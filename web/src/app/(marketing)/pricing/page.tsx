@@ -42,11 +42,11 @@ const PLANS = [
   },
   {
     name: "Team",
-    price: "$49/mo",
+    price: "Early access",
     blurb: "Unlimited projects, the evidence viewer, and longer retention.",
     cta: { label: "Request early access", href: CONTACT, variant: "outline" as const, external: true },
-    highlight: true,
-    note: "In early access — no self-serve billing yet.",
+    highlight: false,
+    note: "Priced annually, set from your own run data — talk to us.",
   },
   {
     name: "Enterprise",
@@ -143,8 +143,23 @@ export default function PricingPage() {
         </div>
       </section>
 
+      <section className="flex flex-col gap-3 rounded-xl border bg-muted/30 p-6">
+        <h2 className="text-lg font-semibold">If we disappear, you keep working</h2>
+        <p className="max-w-2xl text-sm text-muted-foreground">
+          The CLI and execution kernel are Apache-2.0 and run entirely in your own
+          infrastructure — a hosted outage never blocks a release. If we ever wind the company
+          down, active hosted licenses convert to perpetual and the hosted source is published.
+        </p>
+        <div>
+          <Button asChild variant="outline">
+            <Link href="/docs/security">Read the continuity commitment</Link>
+          </Button>
+        </div>
+      </section>
+
       <p className="text-center text-xs text-muted-foreground">
-        Prices are early-access placeholders and may change before general availability.
+        ReleaseTwin is independent and self-funded. Prices are early-access placeholders and may
+        change before general availability.
       </p>
     </main>
   );

@@ -204,6 +204,34 @@ export default function SecurityPage() {
         </UL>
       </DocSection>
 
+      <DocSection title="Continuity — what happens if we stop">
+        <P>
+          ReleaseTwin is built and run by a very small independent team. The design makes that a
+          non-issue for your releases:
+        </P>
+        <UL>
+          <li>
+            The CLI, execution kernel, and adapters are Apache-2.0 and run entirely in your own
+            infrastructure. They keep working with no account and no network call to us — a
+            hosted outage, or the hosted platform going away entirely, never blocks a release.
+          </li>
+          <li>
+            Your evidence and run history are exportable at any time, in a documented format,
+            with no proprietary lock-in on the data itself.
+          </li>
+          <li>
+            If we wind the company down, active hosted licenses convert to perpetual for their
+            remaining term and the hosted source is published so a customer or third party can
+            self-host it.
+          </li>
+        </UL>
+        <P>
+          This is a deliberate commitment, not just a side effect of open-sourcing the core —
+          it is the answer to the fair question &ldquo;what if this two-person company
+          disappears.&rdquo;
+        </P>
+      </DocSection>
+
       <DocSection title="Reporting a vulnerability">
         <P>
           Email{" "}
