@@ -159,7 +159,7 @@ dotnet test ReleaseTwin.Hosted.slnx
 
 37 tests, all against the real ASP.NET Core pipeline — no live Clerk application is needed to run them. As of `usage-metering`, persistence is DynamoDB, not EF Core/Postgres/SQLite: most tests run against an in-memory fake of the single hosted table, with a smaller `Category=Integration`-tagged set (skips automatically unless `DYNAMODB_LOCAL_URL` is set) exercising real DynamoDB semantics via DynamoDB Local — `cd hosted && docker compose up -d`.
 
-The frontend (`web/`) has real Cypress e2e coverage as of `web-cypress-e2e` — one spec automating the actual sign-in → dashboard → create project → issue token → sign out walkthrough against a **real, live Clerk instance** (not mocked). This is local-only for now — no CI wiring exists yet for it, same as the rest of this project has no CI pipeline at all. To run it:
+The frontend (`web/`) has real Cypress e2e coverage as of `web-cypress-e2e` — one spec automating the actual sign-in → dashboard → create project → issue token → sign out walkthrough against a **real, live Clerk instance** (not mocked). This spec is local-only — it needs live Clerk credentials, so it isn't wired into CI. Everything else *is*: `.github/workflows/ci.yml` builds and runs `dotnet test` for the CLI solution (installing Chromium for the Playwright UI tests) on every push to `main` and every PR, `.github/workflows/hosted-ci.yml` does the same for `hosted/`, and `.github/workflows/release.yml` tests + builds + pushes the multi-arch CLI image on `v*.*.*` tags. To run the Cypress spec:
 
 ```bash
 cd web
@@ -172,7 +172,7 @@ npm run e2e
 
 ## Self-serve signup (Stage 1, free-only)
 
-The hosted platform is real but **not yet offered to anyone** — no Clerk application has been registered on the operator side, which is a one-time manual setup step outside this repo. As of `hosted-react-frontend`, the hosted platform is **two services**, not one: a JSON-only .NET API and a Next.js/React/Tailwind frontend that owns all UI (landing page, sign-in, dashboard) and talks to the API server-side only (BFF pattern — the browser never calls the .NET API directly, so there's nothing to configure for CORS).
+The hosted platform is real and **deployed** — the .NET API runs as an AWS Lambda (Function URL) and the `web/` frontend is on Vercel, both auto-deploying from `main`. A **production Clerk instance** is registered and wired to it. What hasn't happened is *going public*: self-serve sign-up is not linked, announced, or offered to anyone outside this repo yet, and no outside user has been invited — that's a go-to-market decision, not a code or setup gap. As of `hosted-react-frontend`, the hosted platform is **two services**, not one: a JSON-only .NET API and a Next.js/React/Tailwind frontend that owns all UI (landing page, sign-in, dashboard) and talks to the API server-side only (BFF pattern — the browser never calls the .NET API directly, so there's nothing to configure for CORS).
 
 **1. The .NET API** — its only Clerk-related job is verifying session JWTs against Clerk's public JWKS, so it needs just the Clerk *domain*, not a Client ID/Secret (those are Next.js-side, see below):
 
@@ -228,7 +228,7 @@ Deliberately deferred, not forgotten — each was a scoped decision, not an over
 - **A generic (non-Azure-DevOps) flag-proof mechanism** — the CLI can now run flag-proof pairs end-to-end (a case declares `flag_proof: { feature_key, build_identity }` and the CLI reports `FLAGPROOF <id> (<outcome>)`), but only against Azure DevOps's variable-group `IFeatureStateController`; a flag source that isn't Azure DevOps (LaunchDarkly, a config service, a REST endpoint) still needs a new implementation.
 - **External-check connector (Playwright)** — visual/browser evidence isn't wired in.
 - **Billing** — the hosted platform (above) is Stage 1 only: no Stripe integration, no paid tiers, no usage enforcement.
-- **A registered Clerk application** — the hosted platform's sign-in code is built and tested (Clerk-backed, provider-neutral), but no application has actually been registered yet, so it isn't offered to anyone outside this repo.
+- **Going public with the hosted platform** — it's deployed and a production Clerk instance is wired to it, but self-serve sign-up isn't linked or announced anywhere and no outside user has been invited. This is now a go-to-market decision, not a setup step.
 - **Three-state prerequisites for other checks** — only Azure DevOps's `areaPathExists` check uses the inconclusive state; it's available to any adapter but nothing else has needed it yet.
 
 ## How far is this from commercial use?
@@ -245,10 +245,10 @@ The commercialization assessment's own criterion was specific — an adapter unr
 
 The same assessment is explicit that this isn't enough on its own: *"Go if an unrelated second adapter can be implemented without ordinary changes to the core **and** design partners value the release-proof workflow."* The second half hasn't been touched:
 
-- **No design partners contacted yet.** Nothing about willingness to pay, which reports matter, or whether "release-proof" as a concept resonates has been tested with an actual outside user.
-- **No pricing validated.** The assessment's numbers ($149/mo Team, $499/mo Growth, $5-15k pilots) are explicitly labeled hypotheses, not offers anyone has seen.
+- **No design partners contacted yet.** Nothing about willingness to pay, which reports matter, or whether "release-proof" as a concept resonates has been tested with an actual outside user. See `docs/go-to-market.md` for the plan to change this — pricing benchmark, the number to put in front of a prospect, and the validation-call script.
+- **No pricing validated.** The inherited numbers ($149/mo Team, $499/mo Growth, $5-15k pilots) are explicitly labeled hypotheses, not offers anyone has seen. `docs/go-to-market.md` benchmarks them against what teams already pay for adjacent tools and proposes a concrete first offer.
 - **No legal/entity work started.** Naming (Validuo, provisional), trademark search, incorporation, IP ownership documentation (relevant given this was extracted conceptually from a Quik-adjacent codebase, deliberately clean-room built to avoid that entanglement) — none of it done.
-- **Not actually offered to anyone yet.** Self-serve signup/dashboard code exists and is tested (`hosted-self-serve-platform`, `clerk-registration`, `hosted-react-frontend`), but no Clerk application has been registered — a real one-time setup step, not a code gap. Even once that's done, running the CLI itself still means cloning source and having the .NET SDK — no packaging exists.
+- **Distribution still thin.** The hosted platform is live but not public; the CLI still ships only as source + a Docker image (no `dotnet tool`/NuGet, no GitHub Action wrapper).
 
 ### Realistic framing
 
