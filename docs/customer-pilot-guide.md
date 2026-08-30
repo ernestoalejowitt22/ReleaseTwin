@@ -68,7 +68,7 @@ Either way: this is real, scoped engineering work that should be shaped by what 
 **Say:**
 - "The core mechanics — prerequisite ownership, cleanup, failure classification, and flag proof — are real and working today. Here's a live demo against a sandbox org."
 - "Testing your actual workflow is a scoped build-out, done together as part of the pilot" — this is what the assessment's suggested pilot structure already assumes (6-8 weeks, one critical workflow, assisted setup).
-- The pilot pricing range from the assessment ($5,000-$15,000) is a hypothesis to test, not a fixed quote. `docs/go-to-market.md` narrows this to a concrete first offer ($8,000 fixed, 6 weeks, refundable) and benchmarks it against adjacent-tool spend.
+- The pilot pricing range from the assessment ($5,000-$15,000) is a hypothesis to test, not a fixed quote.
 
 **Don't say:**
 - "It already works with your system" — it doesn't yet, for anyone but Azure DevOps, and only in the fixed-operation shape.
@@ -78,7 +78,7 @@ Either way: this is real, scoped engineering work that should be shaped by what 
 
 ## Validation questions to actually ask a prospect
 
-Reused from the assessment, since they're still exactly the right questions and none have been asked of a real prospect yet. `docs/go-to-market.md` turns these into a full 30-minute call script with an open, a close, and green/yellow/red disqualification criteria:
+Reused from the assessment, since they're still exactly the right questions and none have been asked of a real prospect yet. The full call script lives in the private planning notes:
 
 1. What release or incident cost would this proof have avoided?
 2. Which reports or evidence are currently assembled manually?
