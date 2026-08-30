@@ -3,6 +3,13 @@
 - [ ] 0.1 Confirm NAHA `admin-e2e-route-auth` is merged and live: `/companies` and `/policies` on
       the `e2e-admin` Preview return `200` + page testid (not `307 /sign-in`) with
       `Cookie: naha_e2e_role=admin`. Block the rest of this change until this passes.
+      _(Merged as ernestoalejowitt22/NAHA#66, commit `ad3768c`.)_
+- [ ] 0.2 Confirm the companies/policies **content** renders, not the `*-ui-hidden` panel — the
+      `e2e-admin` Vercel Preview needs `NEXT_PUBLIC_E2E_COMPANY_BRANCH_UI=true` and
+      `NEXT_PUBLIC_E2E_POLICY_UI=true` (or the `naha.company-branch-ui` / `naha.policy-ui` LD flags
+      ON for the e2e LD context). These are Vercel env vars — a manual set by the operator. If they
+      can't be enabled, fall back: assert on the `*-ui-hidden` section's testid instead and note in
+      docs that Act 2 shows the gated-off state.
 
 ## 1. Journey: tour three admin routes
 
