@@ -24,19 +24,22 @@ already used the free product and hit a wall.
 | 3 | Hit a real limit — non-Azure-DevOps flag source, non-REST system, evidence retention, SSO, help wiring a gnarly workflow | **now** a paid conversation, and they came to *you* | — | plan-tier walls with a clear upgrade path |
 | 4 | Annual plan or a setup engagement | $$ | already sold | Stripe (or manual invoicing at first) |
 
-The person who bounced at "$8k / 6 weeks / unproven" never sees a price. They see a tool they
-can run against their own API in ten minutes. Once they've done that, "unproven" stops
+The person who would have bounced at a big engagement number never sees one. They see a tool they
+can run against their own API in ten minutes, then per-project pricing that starts at $0. Once they've done that, "unproven" stops
 mattering — they proved it to themselves at zero risk. **The antidote to "unproven" is
 try-before-anything, not a discount.**
 
 ### Why open core
 
-- OSS the CLI + Core + adapters (already source-available — make it official, Apache-2.0). Free
-  forever, runs entirely in the customer's infra, no account.
+- The CLI + Core + adapters are open source under **AGPL-3.0** (with an adapter linking
+  exception so adapter authors aren't forced into copyleft). Free forever, runs entirely in the
+  customer's infra, no account. AGPL — not permissive — because a permissive engine gives a
+  solo open-core vendor no protection against a funded competitor SaaS-ifying the flag-proof
+  kernel; AGPL keeps it fully open to self-host and fork while making that specific move costly.
 - It *is* the top of the funnel, and it reinforces the trust story that's already central: the
   redaction code that runs before anything uploads is code they can read.
-- The hosted platform (`hosted/` + `web/`) stays commercial — source-available under a
-  non-compete license (BSL-style) or kept private, decided in the funnel plan.
+- The hosted platform (`hosted/` + `web/`) is **BSL 1.1** — source-available, converts to
+  Apache-2.0 four years per version, no reselling it as a competing hosted service in the interim.
 - It also answers the biggest objection to a two-person vendor — *"what if you disappear"* — for
   nearly free: the core is self-hostable today, and a published **continuity commitment**
   (`docs/continuity.md`, mirrored on the security page) promises hosted licenses convert to
@@ -91,45 +94,55 @@ release/platform**, not QA-tooling budget.
 
 ## The tiers (self-serve, on the pricing page)
 
-Numbers are hypotheses. The public pricing page shows **"Early access — talk to us"** for Team
-until a validated annual number exists; no monthly price appears anywhere (see the benchmark
-above — a monthly figure anchors to the wrong comparables and reads as "easy to churn").
+**Per-project pricing — the Datadog / usage-based-platform model.** Price scales with how much of
+your release surface you're actually proving, not a flat "seats" or "$X/mo SaaS" number (which
+anchors to the churny comparables the benchmark above warns about). A *project* ≈ one app or
+service whose releases you run flag-proof on; a mid-size company has 5–30.
 
 | | **Free** | **Team** | **Enterprise** |
 |---|---|---|---|
-| Price | $0 | Annual, from ~$3–6k/yr (set from real usage) | "Talk to us" |
-| Projects | 1 | unlimited | unlimited |
+| Price | **$0** | **from ~$49 / project / mo** — billed annually (~$59 on-demand) | **from ~$99 / project / mo** — annual |
+| Projects | 1 | unlimited (billed per active project) | unlimited |
 | Evidence viewer | off (upgrade prompt) | on | on |
-| Evidence retention | 30 days | up to 365 days | custom |
+| Evidence retention | 30 days | 12 months | custom |
+| Custom redaction allow/deny rules | defaults only | ✓ | ✓ |
 | Run history | ✓ | ✓ | ✓ |
 | SSO, audit log, private deployment | — | — | ✓ |
-| Support | community / GitHub | email | SLA |
+| Onboarding | self-serve | self-serve | Founding Setup included |
+| Support | community / GitHub | email | SLA + shared Slack |
 
-`plan-tier-gating` already implements Free/Paid, the 1-project Free cap, and a self-serve
-no-payment upgrade placeholder. `usage-metering` already counts uploaded reports per org per
-month. The tier table above is mostly wiring those two to real limits + a real payment step.
+**The numbers are still hypotheses** — re-set from the first cohort's real usage. The *structure*
+(per-project, annual-or-on-demand) is the decision. Anchor: a proven project displaces work a
+fractional release engineer does at $8–20k/**month**; 8 projects on Team ≈ $4.7k/yr, 15 on
+Enterprise ≈ $18k/yr — squarely inside the adjacent-tool range.
+
+`plan-tier-gating` already gates the 1-project Free cap; `usage-metering` already counts active
+projects and uploaded reports per org per month. Billing (Workstream F) wires those to a
+per-project line item + a real payment step through a Merchant of Record.
 
 ---
 
-## The paid engagement (rung 3, not homepage copy)
+## Founding Setup (hands-on onboarding, not a headline)
 
-For customers who, after using the free product, ask for help wiring their real workflow —
-because it genuinely needs per-target adapter/flag work. Framed as *"we'll get your first
-critical workflow proven,"* never *"buy a pilot."*
+Some teams — a non-REST system, a flag source that isn't Azure DevOps, a gnarly multi-step
+release check — need scoped work to get their first workflow proven. That's **Founding Setup**:
+one critical workflow wired into their CI, with a written readout of what it catches. Framed as
+*"we'll get your first critical workflow proven,"* never *"buy a pilot."*
 
-- **Internal starting number: $8,000, fixed, ~6 weeks, one workflow, fee refunded if it isn't
-  running against their real workflow at the end.** Below the ~$10k procurement-committee line;
-  the refund clause removes the "will it work with our stack" objection.
-- **First 1–2 of these: ~$2k, never free**, explicitly as founding design partners, in exchange
-  for a named case study and deep feedback. A token fee still filters tire-kickers and produces a
-  real willingness-to-pay signal; a free pilot gets deprioritized inside the customer's org and
-  proves nothing. You have zero references, and $2k + a case study is a fair trade for both sides.
+- **Included with Enterprise.** A paid add-on for self-serve teams who want it.
+- **No public number.** It surfaces only in a 1:1 with a team already using the product; the
+  price is calibrated by the first 1–2 engagements. The scope is fixed and the fee is **refunded
+  if the workflow isn't running against their real system at the end** — that clause, not a low
+  price, is what removes the "will it work with our stack" risk. (Internally: think one-off in
+  the low-five-figures, *including* their first year on a plan, once there's data to set it.)
+- **First 1–2: ~$2k, never free**, explicitly as founding design partners, in exchange for a
+  named case study and deep feedback. A free pilot gets deprioritized inside the customer's org
+  and proves nothing; $2k + a case study is a fair trade when you have zero references.
 - **Founding-customer pricing:** the first ~10 accounts that convert to an annual plan lock their
-  rate for 3 years. Rewards early belief, creates urgency, and does it without discounting the
-  list price for everyone.
-- Post-engagement: annual Team/Enterprise plan. Provisional $12–30k/yr for Enterprise-shaped
-  accounts; say this only if asked, and only as "we'll have real numbers from your own run."
-- **Retire the $149/$499/mo tiers from all external conversation.**
+  per-project rate for 3 years.
+- **Capacity: at most 2 active engagements at once** — a botched founding engagement is a lost
+  reference, not just lost revenue.
+- **Retire the old $149/$499/mo flat tiers from every external conversation.**
 
 ---
 
@@ -146,7 +159,8 @@ critical workflow proven,"* never *"buy a pilot."*
 - **Secondary CTA:** "Create a free account" → dashboard.
 - **Design-partner note (an asset, not an apology):** *"We're working hands-on with a small
   number of design partners — free, in exchange for feedback."*
-- **Pricing page:** the three tiers above. Nothing over ~$100/mo. Enterprise = a contact form.
+- **Pricing page:** the three tiers above, per-project. Team shows a real "from ~$49 / project /
+  mo" number (per-unit reads as platform pricing, not churny SaaS); Enterprise = a contact form.
 
 The current `web/src/app/page.tsx` already has a hero, a live dashboard preview, and a
 feature grid — it needs the no-signup `docker run` CTA, the trust section, and a real pricing
@@ -202,8 +216,9 @@ just saved six weeks.
 ### Close (2 min)
 
 > "Based on what you've said — [reflect back the incident cost, the manual work, the flag
-> situation]. Here's what we'd do: get that one workflow wired and proven, ~6 weeks, fixed fee,
-> refunded if it's not running at the end. Want the one-pager?"
+> situation]. Here's what we'd do: get that one workflow wired and proven, fixed scope, fee
+> refunded if it's not running at the end, and it includes your first year on a plan. Want the
+> one-pager?"
 
 If Q1 and Q6 were both strong, pitch. Otherwise: "I don't think we're the right fit for you
 yet — here's what would have to change," and move on. A clean no beats a soft maybe.

@@ -211,9 +211,10 @@ export default function SecurityPage() {
         </P>
         <UL>
           <li>
-            The CLI, execution kernel, and adapters are Apache-2.0 and run entirely in your own
-            infrastructure. They keep working with no account and no network call to us — a
-            hosted outage, or the hosted platform going away entirely, never blocks a release.
+            The CLI, execution kernel, and adapters are open source (AGPL-3.0) and run entirely
+            in your own infrastructure. They keep working with no account and no network call to
+            us — a hosted outage, or the hosted platform going away entirely, never blocks a
+            release.
           </li>
           <li>
             Your evidence and run history are exportable at any time, in a documented format,
