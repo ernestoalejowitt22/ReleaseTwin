@@ -1,0 +1,49 @@
+# A worked example of using ReleaseTwin as a release-proof gate in CI. The job passes only if the
+# release-proof cases pass, so it can sit in a branch-protection required-checks list.
+#
+# This runs the CLI from source (`dotnet run`). Once a versioned image is published to GHCR, the
+# same gate is one line:
+#
+#   - run: docker run --rm -v "$PWD/demo/quickstart:/workspace:ro" ghcr.io/<owner>/releasetwin/cli:<version>
+#
+name: ReleaseTwin gate (demo)
+
+on:
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - "demo/**"
+      - "src/**"
+      - ".github/workflows/releasetwin-demo.yml"
+
+jobs:
+  release-proof:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "8.0.x"
+
+      - name: Build the CLI
+        run: dotnet build src/ReleaseTwin.Cli/ReleaseTwin.Cli.csproj -c Release --nologo
+
+      # Zero-credential: a real HTTP call to a live API + two JSONPath assertions. A non-zero exit
+      # fails the job, which fails the check, which blocks the merge.
+      - name: Run release-proof cases
+        run: >
+          dotnet run --project src/ReleaseTwin.Cli -c Release --no-build --
+          demo/quickstart/cases
+
+      # A flag-proof leg would slot in here, given the flag source's credentials as repo secrets:
+      #
+      #   - name: Flag proof
+      #     env:
+      #       LAUNCHDARKLY_API_TOKEN: ${{ secrets.LAUNCHDARKLY_API_TOKEN }}
+      #       LAUNCHDARKLY_PROJECT_KEY: ${{ secrets.LAUNCHDARKLY_PROJECT_KEY }}
+      #       LAUNCHDARKLY_ENVIRONMENT_KEY: ${{ secrets.LAUNCHDARKLY_ENVIRONMENT_KEY }}
+      #       LAUNCHDARKLY_FLAG_KEY: your.flag-key
+      #     run: >
+      #       dotnet run --project src/ReleaseTwin.Cli -c Release --no-build --
+      #       demo/flag-proof/cases
