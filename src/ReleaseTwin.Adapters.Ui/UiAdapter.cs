@@ -16,20 +16,32 @@ public sealed class UiAdapter : IAdapterModule, IDisposable
 {
     private readonly IPlaywright _playwright;
     private readonly IBrowser _browser;
+    private readonly string? _recordVideoDir;
 
-    private UiAdapter(IPlaywright playwright, IBrowser browser)
+    private UiAdapter(IPlaywright playwright, IBrowser browser, string? recordVideoDir)
     {
         _playwright = playwright;
         _browser = browser;
+        _recordVideoDir = recordVideoDir;
     }
 
-    public static async Task<UiAdapter> CreateAsync(bool headless = true, CancellationToken cancellationToken = default)
+    /// <summary>
+    /// ui-session-video: <paramref name="recordVideoDir"/>, when set, records the run's browser
+    /// session to that directory (finalized to <c>&lt;caseId&gt;.webm</c> by <c>ui.closePage</c>).
+    /// Off by default — no recording, no behavior change.
+    /// </summary>
+    public static async Task<UiAdapter> CreateAsync(bool headless = true, string? recordVideoDir = null, CancellationToken cancellationToken = default)
     {
         var playwright = await Playwright.CreateAsync();
         try
         {
+            if (!string.IsNullOrWhiteSpace(recordVideoDir))
+            {
+                Directory.CreateDirectory(recordVideoDir);
+            }
+
             var browser = await playwright.Chromium.LaunchAsync(new BrowserTypeLaunchOptions { Headless = headless });
-            return new UiAdapter(playwright, browser);
+            return new UiAdapter(playwright, browser, string.IsNullOrWhiteSpace(recordVideoDir) ? null : recordVideoDir);
         }
         catch
         {
@@ -54,12 +66,12 @@ public sealed class UiAdapter : IAdapterModule, IDisposable
     public void Register(IAdapterRegistrationBuilder builder)
     {
         builder
-            .AddOperation("ui.navigate", new NavigateOperation(_browser))
-            .AddOperation("ui.click", new ClickOperation(_browser))
-            .AddOperation("ui.fill", new FillOperation(_browser))
-            .AddOperation("ui.waitFor", new WaitForOperation(_browser))
-            .AddOperation("ui.assertVisible", new AssertVisibleOperation(_browser))
-            .AddOperation("ui.setCookie", new SetCookieOperation(_browser))
+            .AddOperation("ui.navigate", new NavigateOperation(_browser, _recordVideoDir))
+            .AddOperation("ui.click", new ClickOperation(_browser, _recordVideoDir))
+            .AddOperation("ui.fill", new FillOperation(_browser, _recordVideoDir))
+            .AddOperation("ui.waitFor", new WaitForOperation(_browser, _recordVideoDir))
+            .AddOperation("ui.assertVisible", new AssertVisibleOperation(_browser, _recordVideoDir))
+            .AddOperation("ui.setCookie", new SetCookieOperation(_browser, _recordVideoDir))
             .AddCleanup("ui.closePage", new ClosePageCleanup())
             .AddCapability("browser:chromium");
     }

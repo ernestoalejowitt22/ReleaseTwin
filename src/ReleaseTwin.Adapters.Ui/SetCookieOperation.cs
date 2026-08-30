@@ -10,8 +10,7 @@ namespace ReleaseTwin.Adapters.Ui;
 /// </summary>
 internal sealed class SetCookieOperation : UiOperationBase
 {
-    private readonly IBrowser _browser;
-    public SetCookieOperation(IBrowser browser) => _browser = browser;
+    public SetCookieOperation(IBrowser browser, string? recordVideoDir = null) : base(browser, recordVideoDir) { }
 
     protected override string ActionName => "ui.setCookie";
 
@@ -94,7 +93,7 @@ internal sealed class SetCookieOperation : UiOperationBase
 
         try
         {
-            var browserContext = await UiOperationSupport.GetOrCreateContextAsync(context, _browser);
+            var browserContext = await UiOperationSupport.GetOrCreateContextAsync(context, Browser, RecordVideoDir);
             await browserContext.AddCookiesAsync(new[] { cookie });
             return OperationResult.Pass($"set cookie '{name}'");
         }

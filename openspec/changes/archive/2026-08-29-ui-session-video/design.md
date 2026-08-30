@@ -56,6 +56,10 @@ Interleaving Acts perfectly would need the spec to emit timestamps and the scrip
 
 Title cards between each make the cut legible even though Act 1 and Act 3 come from the same source file. If frame-accurate interleave is wanted later, add `cy.task("mark", …)` timestamps — deferred.
 
+### D3b: No CLI-level test for the video passthrough
+
+The CLI test suite is entirely HTTP-fake-handler based and never launches Playwright (deliberately — it'd be slow and needs browser binaries). `RELEASETWIN_UI_VIDEO_DIR` → `CreateAsync(recordVideoDir:)` is one line; the recording behavior is `UiSessionVideoTests`' job and the end-to-end wiring is `demo:naha-video`'s. Same call as skipping a `SnsOperatorAlertPublisher` unit test.
+
 ### D4: ffmpeg resolution order — installer dep → Playwright bundle → system
 
 `@ffmpeg-installer/ffmpeg` (new dev dep) is the portable default. If it's absent, fall back to Playwright's bundled binary (`require("playwright-core/lib/utils/registry")` or the known cache path), then a system `ffmpeg` on PATH. The script fails with a clear "install ffmpeg or @ffmpeg-installer/ffmpeg" message if none resolve.

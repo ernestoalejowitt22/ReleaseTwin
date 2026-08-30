@@ -29,7 +29,9 @@
     "e2e:run:naha-ui": "cypress run --spec cypress/e2e/naha-admin-ui-journey.cy.ts",
     "e2e:naha-ui": "start-server-and-test e2e:api http://localhost:5199/Privacy e2e:web http://localhost:3000 e2e:run:naha-ui",
     "e2e:run:evidence-all": "cypress run --spec cypress/e2e/evidence-capture.cy.ts,cypress/e2e/ui-journey-visual-evidence.cy.ts,cypress/e2e/naha-admin-ui-journey.cy.ts",
-    "e2e:evidence-all": "start-server-and-test e2e:api http://localhost:5199/Privacy e2e:web http://localhost:3000 e2e:run:evidence-all"
+    "e2e:evidence-all": "start-server-and-test e2e:api http://localhost:5199/Privacy e2e:web http://localhost:3000 e2e:run:evidence-all",
+    "demo:run:naha-video": "rm -rf ../demo/.adapter-video && CYPRESS_VIDEO=true RELEASETWIN_UI_ENABLED=1 RELEASETWIN_UI_VIDEO_DIR=$PWD/../demo/.adapter-video cypress run --spec cypress/e2e/naha-admin-ui-journey.cy.ts && node scripts/stitch-demo-video.mjs",
+    "demo:naha-video": "start-server-and-test e2e:api http://localhost:5199/Privacy e2e:web http://localhost:3000 demo:run:naha-video"
   },
   "dependencies": {
     "@clerk/nextjs": "^7.8.1",
@@ -49,6 +51,7 @@
     "@aws-sdk/client-secrets-manager": "^3.1118.0",
     "@clerk/backend": "^3.16.11",
     "@clerk/testing": "^2.2.29",
+    "@ffmpeg-installer/ffmpeg": "^1.1.0",
     "@tailwindcss/postcss": "^4",
     "@types/node": "^20",
     "@types/react": "^19",
