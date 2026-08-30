@@ -32,3 +32,6 @@ web/.env*.local
 # landing-page demo recording: local build output + fetched credentials (cast + svg are committed)
 /demo/.bin/
 /demo/.env.local
+
+# Local per-developer Claude Code settings
+.claude/settings.local.json
