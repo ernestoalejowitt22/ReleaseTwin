@@ -16,8 +16,11 @@ issue before a large PR saves everyone time.
 
 ReleaseTwin is open core — see [LICENSING.md](./LICENSING.md).
 
-- Contributions to Apache-2.0 paths (`src/`, `tests/`, `examples/`, `docs/`,
-  repo root) are accepted under the **Apache License 2.0**.
+- Contributions to the engine (`src/`, `tests/`, repo-root build glue) are
+  accepted under **AGPL-3.0** — see `LICENSE` and the Adapter Linking Exception
+  in `LICENSE.EXCEPTIONS`.
+- Contributions to `examples/` are accepted under the **Apache License 2.0**
+  (the scaffold copies these into user projects).
 - Contributions to `hosted/` and `web/` are accepted under the **Business
   Source License 1.1** as stated in that license.
 
@@ -59,5 +62,6 @@ implement against its tasks. Pure repo-governance or tooling changes may set
 - Secrets, tokens, `.env*` files, or real customer data — see
   [SECURITY.md](./SECURITY.md).
 - Generated build output.
-- Changes to `LICENSE`, `hosted/LICENSE`, `web/LICENSE`, or `LICENSING.md`
-  without prior agreement from the maintainer.
+- Changes to `LICENSE`, `LICENSE.EXCEPTIONS`, `examples/LICENSE`,
+  `hosted/LICENSE`, `web/LICENSE`, or `LICENSING.md` without prior agreement
+  from the maintainer.

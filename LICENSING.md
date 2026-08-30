@@ -1,63 +1,87 @@
 # Licensing
 
-ReleaseTwin is **open core**. Two licenses apply, by directory.
+ReleaseTwin is **open core**. Three licenses apply, by directory.
 
-## Apache License 2.0 — the engine
+| Path | License | |
+|---|---|---|
+| `src/**`, `tests/**`, repo-root build glue (`ReleaseTwin.sln`, `Dockerfile`, CI) | **AGPL-3.0** (`LICENSE`) + the **Adapter Linking Exception** (`LICENSE.EXCEPTIONS`) | the engine |
+| `examples/**` | **Apache-2.0** (`examples/LICENSE`) | starter cases/fixtures — meant to be copied |
+| `hosted/**`, `web/**` | **Business Source License 1.1** (`hosted/LICENSE`, identical at `web/LICENSE`) | the hosted platform |
+| `docs/**` | AGPL-3.0 as above; prose may also be reused under CC-BY-4.0 with attribution | documentation |
 
-Everything except `hosted/` and `web/` is licensed under
-[Apache-2.0](./LICENSE). This is the part you run in your own infrastructure:
+## The engine — AGPL-3.0 (`src/`, `tests/`)
 
-| Path | What it is |
-|---|---|
-| `src/**` | `ReleaseTwin.Core`, `ReleaseTwin.AdapterSdk`, the CLI, and all adapters |
-| `tests/**` | the test suite for the above |
-| `examples/**` | runnable example cases and fixtures |
-| `docs/**` | documentation |
-| repo root (`ReleaseTwin.sln`, `Dockerfile`, CI config, this file) | build + project glue |
+`ReleaseTwin.Core` (the execution kernel: pipelines, fixture integrity,
+prerequisites, cleanup, retry/timeout, failure classification, **flag proof**),
+`ReleaseTwin.AdapterSdk`, `ReleaseTwin.Cli`, and the bundled adapters
+(Azure DevOps, HTTP, LaunchDarkly, UI) are licensed under the
+[GNU Affero General Public License v3.0](./LICENSE).
 
-Use it, fork it, embed it, run it in production, build your own adapters and
-distribution around it — the Apache-2.0 grant applies, including its patent
-grant. There is no "open core catch" on the engine.
+What this means:
 
-## Business Source License 1.1 — the hosted platform
+- **Run it, self-host it, fork it, modify it** — freely, for any purpose,
+  including in production and inside a company.
+- **If you run a modified version as a network service for others**, AGPL-3.0
+  §13 requires you to offer those users the corresponding source of your
+  modified version. Running the *unmodified* engine as part of your own CI is
+  not "offering it to others" and triggers nothing.
+- A contribution to these paths is accepted under AGPL-3.0.
 
-`hosted/**` (`ReleaseTwin.Hosted.Api` and its infrastructure) and `web/**`
-(the dashboard and marketing site) are licensed under the
-[Business Source License 1.1](./hosted/LICENSE) (identical copy at
-[`web/LICENSE`](./web/LICENSE)).
+### The Adapter Linking Exception
 
-In plain terms:
+Writing an **adapter** — a module that plugs into `ReleaseTwin.AdapterSdk` /
+`ReleaseTwin.Core` extension points to add operations, prerequisites, cleanup,
+feature-state control, or evidence — does **not** force your adapter to be
+AGPL-3.0. Under [`LICENSE.EXCEPTIONS`](./LICENSE.EXCEPTIONS) you may release an
+independent adapter under any OSI-approved or proprietary license, even though
+it links the AGPL engine at runtime. The engine itself, and any modification to
+it, stay AGPL-3.0.
 
-- **You may** read the source, modify it, and run it for any purpose that is
-  **not** offering it to third parties as a hosted or managed commercial
-  service — internal use, evaluation, development, self-hosting for your own
-  team, and contributing back are all fine.
-- **You may not**, without a separate commercial agreement, operate `hosted/`
-  or `web/` (or a modified version) as a competing commercial product or
-  service for others.
+(This is why there is no separate permissive license file inside
+`src/ReleaseTwin.AdapterSdk/` — the exception, not a conflicting license on a
+project that links AGPL code, is what keeps adapter authors free.)
+
+## The examples — Apache-2.0
+
+`examples/` is [Apache-2.0](./examples/LICENSE) so that `releasetwin init` can
+copy a starter case and fixture into **your** project without attaching a
+copyleft license to your test suite. Copy and adapt them freely.
+
+## The hosted platform — BSL 1.1
+
+`hosted/` (`ReleaseTwin.Hosted.Api` + infra) and `web/` (dashboard + marketing
+site) are under the [Business Source License 1.1](./hosted/LICENSE):
+
+- **You may** read, modify, and run it for any purpose **except** offering it —
+  or a modified version — to third parties as a hosted, managed, or otherwise
+  commercial service. Internal use, evaluation, development, and self-hosting
+  for your own organization are permitted.
 - On the **Change Date** — four years after each version is first published —
-  that version automatically converts to **Apache-2.0**.
+  that version converts to **Apache-2.0**.
 
-See the license file for the exact Additional Use Grant, Change Date, and
-Change License parameters.
+## Why this split
 
-## Why split it this way
+- The engine is the reusable, forkable value and the differentiator. AGPL keeps
+  it genuinely open — anyone can self-host or fork — while ensuring a competitor
+  who turns a *modified* engine into a rival service must open their work.
+  Permissive licensing here would give that away for nothing.
+- Adapters are an ecosystem play; the linking exception removes the one reason
+  an author might hesitate.
+- Examples must be permissive or the scaffold would poison user repos.
+- The hosted platform is the commercial surface. BSL keeps it source-available
+  and time-bombs to Apache-2.0, so it is never a true black box, while giving a
+  small maintainer a defensible position in the interim.
 
-The engine is where the reusable, forkable value is, and locking it down would
-undercut the whole point of shipping it. The hosted platform is the commercial
-surface; BSL keeps it source-available and time-bombs to Apache-2.0 so it is
-never a true black box, while giving a solo maintainer a defensible commercial
-position in the interim. Keeping both in one repo (rather than splitting
-`hosted/` into a private repo) is a deliberate operational simplification.
+Keeping all three in one repo (rather than a private `hosted/` repo) is a
+deliberate operational simplification.
 
 ## Contributions
 
-Contributions to Apache-2.0 paths are accepted under Apache-2.0.
-Contributions to BSL paths are accepted under the BSL 1.1 as stated in that
-license's contribution terms. See [CONTRIBUTING.md](./CONTRIBUTING.md).
+See [CONTRIBUTING.md](./CONTRIBUTING.md). Contributions are accepted under the
+license of the path they touch (AGPL-3.0 for the engine, Apache-2.0 for
+`examples/`, BSL 1.1 for `hosted/`+`web/`), with a DCO sign-off.
 
 ## Trademarks
 
 "ReleaseTwin" (and the provisional "Validuo") are not licensed for use as your
-own product or service name by either license above. See the Apache-2.0
-trademark clause (§6).
+own product or service name by any license above.

@@ -1,12 +1,14 @@
 ## 1. Licenses
 
-- [x] 1.1 `LICENSE` — Apache-2.0 full text, copyright line "2026 Ernesto Alejo and the ReleaseTwin
-      contributors".
+- [x] 1.1 `LICENSE` — **AGPL-3.0** full text (revised from Apache-2.0 — see proposal note).
+- [x] 1.1a `LICENSE.EXCEPTIONS` — Adapter Linking Exception (AGPL §7 additional permission) so
+      independent adapters can be released under any OSI/proprietary license.
+- [x] 1.1b `examples/LICENSE` — Apache-2.0 (scaffold output must stay permissive).
 - [x] 1.2 `hosted/LICENSE` — BSL 1.1 with parameters filled (Licensor, Licensed Work = `hosted/` +
       `web/`, Additional Use Grant, Change Date = 4y/version, Change License = Apache-2.0).
 - [x] 1.3 `web/LICENSE` — identical copy of `hosted/LICENSE`.
-- [x] 1.4 `LICENSING.md` — path→license table, plain-English BSL summary, rationale, contribution
-      + trademark stance.
+- [x] 1.4 `LICENSING.md` — path→license table (AGPL engine + exception / Apache examples / BSL
+      hosted), plain-English summaries, rationale, contribution + trademark stance.
 
 ## 2. Governance files
 
@@ -23,12 +25,12 @@
 - [x] 3.1 Sweep all 77 commits for AWS keys (`AKIA…`), Clerk/Stripe secrets (`sk_live/test…`),
       GitHub PATs (`ghp_…`), private-key blocks, Slack (`xox…`) / GCP (`AIza…`) tokens, and any
       committed `.env` file. **Result: clean — no matches.**
-- [x] 3.2 `.github/workflows/secret-scan.yml` — gitleaks on PR/push (incremental) + a weekly
-      full-history sweep + `workflow_dispatch`. `.gitleaks.toml` extends the default ruleset with
-      an allowlist for build output and the deliberately-fake example/test fixture credentials.
-      Validated locally via Docker: 66 commits scanned, **no leaks found**. If the repo is still
-      private when this lands, add a free `GITLEAKS_LICENSE` repo secret (the action needs it for
-      private repos; free for public).
+- [x] 3.2 `.github/workflows/secret-scan.yml` (PR #20, merged) — runs the `gitleaks` binary
+      directly (`gitleaks git` over full history) on every PR/push, a weekly cron, and
+      `workflow_dispatch`. `.gitleaks.toml` extends the default ruleset, allowlisting build
+      output / deps / `.env*` and the deliberately-fake example+test fixture credentials.
+      Validated via Docker: 68 commits, **0 leaks**. No GitHub-API perms needed (the earlier
+      `gitleaks-action` approach hit a 403 and was dropped).
 
 ## 4. Validation
 
