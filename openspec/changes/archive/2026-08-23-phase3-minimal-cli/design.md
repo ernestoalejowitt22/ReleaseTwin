@@ -6,7 +6,7 @@ See proposal.md - Why. This design covers the YAML case format, how fixtures res
 
 **Goals:**
 - A case file format expressive enough to exercise everything already built (fixture integrity, prerequisites, ordered pipeline, cleanup, resource keys, capability requirements) without inventing anything the core doesn't already support.
-- Safe fixture loading, reusing the path-containment pattern quik-testing already proved out (flagged as correctly out-of-core-scope in Phase 1's fit-check, Gap 2 — this change is the component that gap was waiting for).
+- Safe fixture loading, reusing an established path-containment pattern (flagged as correctly out-of-core-scope in Phase 1's fit-check, Gap 2 — this change is the component that gap was waiting for).
 - A CI-usable exit code and readable console output.
 
 **Non-Goals:**
@@ -46,7 +46,7 @@ Omitted from the assessment's original illustrative syntax: `assertions:` (would
 `Program.cs` registers exactly the Azure DevOps adapter, configured from environment variables (`AZDO_ORG`, `AZDO_PROJECT`, `AZDO_PAT`, plus an area path and variable-group ID). No config-driven adapter selection yet. Alternative considered: a generic `adapters.yaml` naming which adapters to load — rejected as premature given there's only one real adapter to select between; revisit once a second real adapter (Phase 2's own suggestion of eventually adding GitHub/Bitbucket) exists.
 
 ### D3: Fixture root and path containment
-Fixtures resolve relative to a `fixtures/` directory alongside the cases directory (mirroring quik-testing's `payloads/` convention). The loader rejects any locator containing `..` or an absolute path before touching the filesystem — the same defense quik-testing's `FileQuikTestPayloadStore` already proved necessary (Phase 1 fit-check, Gap 2).
+Fixtures resolve relative to a `fixtures/` directory alongside the cases directory (mirroring an established `payloads/` convention). The loader rejects any locator containing `..` or an absolute path before touching the filesystem — the same defense a prior file-backed payload store already proved necessary (Phase 1 fit-check, Gap 2).
 
 ### D4: Output is console text + exit code only
 Print each case's pass/fail and classification (if failed) as it completes, then a one-line summary (`N passed, M failed`). Exit code: 0 if all passed, 1 otherwise. No JSON report in this slice — `CaseReport` is already serializable, so adding a `--json` flag later is a small, backward-compatible addition, not a redesign.

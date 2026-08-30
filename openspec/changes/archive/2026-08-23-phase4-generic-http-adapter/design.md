@@ -10,7 +10,7 @@ See proposal.md - Why. This design covers the parameter type threaded through `I
 - The CLI runs cleanly with only the HTTP adapter configured (no Azure DevOps credentials required) and also with both adapters configured.
 
 **Non-Goals:**
-- A full JSONPath specification implementation — the subset Newtonsoft.Json's `SelectToken` supports is sufficient (same mechanism quik-testing's own `JsonPathAssertion.cs` already relies on, per the Phase 1 fit-check).
+- A full JSONPath specification implementation — the subset Newtonsoft.Json's `SelectToken` supports is sufficient (same mechanism a prior suite already relied on).
 - Templating beyond flat `${VAR_NAME}` substitution — no expressions, no default values, no nested interpolation syntax.
 - Retrofitting parameters onto the Azure DevOps adapter's existing fixed operations — they stay fixed-shape; only the new HTTP adapter uses parameters for this change.
 
@@ -29,7 +29,7 @@ Always passing a non-null (possibly empty) dictionary — `CaseExecutor` substit
 Every current `IOperation` implementation (`ToyHttp`, `ToyFile`, `AzureDevOps`) gets the new parameter added to its signature and ignores it — none of them need real parameters yet. The compiler enforces that nothing is missed; a full solution build after the interface change is the actual verification step, not a manual audit.
 
 ### D3: JSONPath via Newtonsoft.Json
-`ReleaseTwin.Adapters.Http` takes a `Newtonsoft.Json` dependency and uses `JObject.Parse(responseBody).SelectToken(path)` for `http.assertJsonPath`. Alternative considered: a hand-rolled dotted-path evaluator — rejected because JSONPath edge cases (array indexing, wildcards) are exactly the kind of thing not worth re-implementing when a proven library is one dependency away, and quik-testing's own `JsonPathAssertion.cs` already validated this approach in production.
+`ReleaseTwin.Adapters.Http` takes a `Newtonsoft.Json` dependency and uses `JObject.Parse(responseBody).SelectToken(path)` for `http.assertJsonPath`. Alternative considered: a hand-rolled dotted-path evaluator — rejected because JSONPath edge cases (array indexing, wildcards) are exactly the kind of thing not worth re-implementing when a proven library is one dependency away, and a prior suite already validated this approach in production.
 
 ### D4: Environment-variable interpolation
 `case-loading` applies a simple regex (`\$\{([A-Z0-9_]+)\}`) to every string value found in a step's `with:` block (recursively, for nested maps) at load time, replacing each match with `Environment.GetEnvironmentVariable`. A missing variable throws `CaseFileException` immediately — same "fail before any case executes" contract as the existing malformed-case-file requirement.
