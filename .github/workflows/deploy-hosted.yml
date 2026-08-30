@@ -80,9 +80,14 @@ jobs:
       - name: Terraform apply
         working-directory: hosted/terraform
         run: |
+          if [ -z "${{ vars.CLERK_DOMAIN }}" ]; then
+            echo "::error::CLERK_DOMAIN repo variable is not set — it is the JWT issuer the API validates. Set it (e.g. <slug>.clerk.accounts.dev) and re-run."
+            exit 1
+          fi
           terraform apply -auto-approve \
             -var="table_prefix=${{ inputs.table_prefix || 'releasetwin-dev-' }}" \
             -var="region=${{ inputs.region || 'us-east-1' }}" \
+            -var="clerk_domain=${{ vars.CLERK_DOMAIN }}" \
             -var="github_client_id=${{ vars.GH_OAUTH_CLIENT_ID }}" \
             -var="github_client_secret=${{ secrets.GH_OAUTH_CLIENT_SECRET }}" \
             -var="github_callback_url=${{ vars.GH_OAUTH_CALLBACK_URL }}" \
