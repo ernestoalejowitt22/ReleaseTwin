@@ -41,6 +41,16 @@
 ## 5. Out of scope (operator / follow-up)
 
 - [ ] 5.1 Flip the repo public; add topics, description, a README GIF; link "Create a free
-      account" once the funnel is ready (Workstream D).
-- [ ] 5.2 SPDX headers on every source file (mechanical sweep).
-- [ ] 5.3 Legal review of the BSL parameters + an Apache `NOTICE` file if wanted.
+      account" once the funnel is ready (Workstream D). Pre-flip audit done — see below.
+- [x] 5.2 Per-file licensing declared via `REUSE.toml` + `LICENSES/` (REUSE 3.3, `reuse lint`
+      green, 646/646 files) instead of a per-file header sweep. New files should still add an
+      `SPDX-License-Identifier` header; the toml is the backstop.
+- [ ] 5.3 Legal review — see the checklist in PR #22's description (the AGPL §7 exception, the
+      BSL Additional Use Grant, licensor entity, DCO vs CLA). Add an Apache `NOTICE` if wanted.
+- [x] 5.4 Pre-public secret/exposure audit: gitleaks CI clean (#20); NAHA is the operator's own
+      project (OK to publish, and NAHA repo will be made public too); third-party account IDs and
+      project names (`a separate shared account` etc.) scrubbed from the archived
+      `2026-08-26-hosted-platform-deployment` change docs. The operator's own AWS account ID
+      remains in the terraform bucket names — not sensitive per AWS, and the backend block can't
+      be parameterized. Move `docs/go-to-market.md` + `docs/self-serve-funnel-plan.md` out of the
+      public tree before flipping (strategy/pricing detail).
