@@ -49,4 +49,10 @@ public sealed class Organization
 
     /// <summary>billing: Merchant-of-Record subscription identifier; null until first checkout. Its presence is what gates all quantity-sync and reconciliation behaviour.</summary>
     public string? PolarSubscriptionId { get; set; }
+
+    /// <summary>onboarding-activation: false until the organization ingests its first real run. While
+    /// false the dashboard shows a seeded sample project and a guided first-run panel; both disappear
+    /// once it flips true, and it never flips back. Legacy rows read as false and are corrected on the
+    /// org's next ingest.</summary>
+    public bool HasIngestedRealRun { get; set; }
 }

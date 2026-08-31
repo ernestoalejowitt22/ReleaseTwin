@@ -19,6 +19,8 @@ export type EntitlementKey =
   | "trendAnalytics"
   | "releaseRollup"
   | "ciIntegration"
+  | "runNotifications"
+  | "evidenceSharing"
   | "sso"
   | "auditLog";
 
@@ -32,6 +34,8 @@ export const ENTITLEMENT_KEYS: readonly EntitlementKey[] = [
   "trendAnalytics",
   "releaseRollup",
   "ciIntegration",
+  "runNotifications",
+  "evidenceSharing",
   "sso",
   "auditLog",
 ];
@@ -48,6 +52,8 @@ export interface Entitlements {
   trendAnalytics: boolean;
   releaseRollup: boolean;
   ciIntegration: boolean;
+  runNotifications: boolean;
+  evidenceSharing: boolean;
   sso: boolean;
   auditLog: boolean;
 }
@@ -193,6 +199,14 @@ export const FEATURE_COPY: Record<EntitlementKey, { label: string; description: 
     label: "CI integration",
     description: "Run cases from GitHub Actions or any CI, with the uploaded run history wired in.",
     docHref: "/docs/ci",
+  },
+  runNotifications: {
+    label: "Run notifications",
+    description: "Push a Slack or webhook alert when a run fails or a flag proof does not discriminate.",
+  },
+  evidenceSharing: {
+    label: "Shareable evidence links",
+    description: "Send a revocable, read-only link to one run's redacted evidence — no account needed to view it.",
   },
   sso: {
     label: "SSO",

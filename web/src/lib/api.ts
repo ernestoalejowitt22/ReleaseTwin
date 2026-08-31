@@ -1,4 +1,9 @@
+import { cookies } from "next/headers";
 import { auth } from "@clerk/nextjs/server";
+
+/** org-membership: cookie holding the viewer's chosen active organization. Forwarded to the API as
+ * `X-Org-Id`, which the API honours only if the caller is a member of that org. */
+export const ACTIVE_ORG_COOKIE = "rt_active_org";
 
 /**
  * hosted-react-frontend design.md: BFF pattern — only this server-side helper ever calls the
@@ -18,12 +23,14 @@ export class ApiError extends Error {
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
   const { getToken } = await auth();
   const token = await getToken();
+  const activeOrg = (await cookies()).get(ACTIVE_ORG_COOKIE)?.value;
 
   const response = await fetch(`${API_BASE_URL}${path}`, {
     ...init,
     cache: "no-store",
     headers: {
       ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      ...(activeOrg ? { "X-Org-Id": activeOrg } : {}),
       ...(init?.body ? { "Content-Type": "application/json" } : {}),
       ...init?.headers,
     },
@@ -47,5 +54,7 @@ export const api = {
     request<T>(path, { method: "POST", body: body ? JSON.stringify(body) : undefined }),
   put: <T>(path: string, body?: unknown) =>
     request<T>(path, { method: "PUT", body: body ? JSON.stringify(body) : undefined }),
+  patch: <T>(path: string, body?: unknown) =>
+    request<T>(path, { method: "PATCH", body: body ? JSON.stringify(body) : undefined }),
   del: <T>(path: string) => request<T>(path, { method: "DELETE" }),
 };

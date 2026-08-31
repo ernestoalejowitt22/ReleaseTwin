@@ -21,6 +21,32 @@ public static class MembershipEndpoints
         var orgs = app.MapGroup("/api/organizations")
             .RequireAuthorization(policy => policy.RequireAuthenticatedUser().AddAuthenticationSchemes("ClerkJwt"));
 
+        // org-membership: the organizations the current user belongs to — powers the header org
+        // switcher and tells a page whether the caller is an admin of the active org.
+        app.MapGet("/api/me/organizations", async (MembershipService membershipService, IUserRepository users,
+            IOrganizationRepository organizations, CurrentOrganizationAccessor currentOrg, ClaimsPrincipal principal) =>
+        {
+            var user = await CurrentUserAsync(users, principal);
+            if (user is null)
+            {
+                return Results.Ok(Array.Empty<object>());
+            }
+
+            var memberships = await membershipService.GetMembershipsAsync(user);
+            var views = new List<MyOrganizationView>(memberships.Count);
+            foreach (var m in memberships)
+            {
+                var org = await organizations.GetAsync(m.OrganizationId);
+                views.Add(new MyOrganizationView(
+                    m.OrganizationId,
+                    org?.Name ?? "(unknown)",
+                    m.Role.ToString(),
+                    Active: currentOrg.OrganizationId == m.OrganizationId));
+            }
+
+            return Results.Ok(views.OrderBy(v => v.Name, StringComparer.OrdinalIgnoreCase));
+        }).RequireAuthorization(policy => policy.RequireAuthenticatedUser().AddAuthenticationSchemes("ClerkJwt"));
+
         orgs.MapPost("/", async (CreateOrganizationRequest request, OrganizationMembersService members, IUserRepository users, ClaimsPrincipal principal) =>
         {
             var user = await CurrentUserAsync(users, principal);
@@ -169,4 +195,5 @@ public sealed record CreateOrganizationRequest(string? Name);
 public sealed record CreateInvitationRequest(string? Email, string? Role);
 public sealed record ChangeRoleRequest(string? Role);
 public sealed record MemberView(Guid UserId, string Role, string? DisplayName, string? Email, DateTimeOffset JoinedAt);
+public sealed record MyOrganizationView(Guid Id, string Name, string Role, bool Active);
 public sealed record InvitationView(string Token, string Email, string Role, string State, DateTimeOffset ExpiresAt, string AcceptUrl);

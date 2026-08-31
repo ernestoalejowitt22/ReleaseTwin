@@ -36,6 +36,33 @@ public class MembershipEndpointsHttpTests
     }
 
     [Fact]
+    public async Task MeOrganizationsListsTheCallersMembershipsWithRoleAndActiveFlag()
+    {
+        using var factory = new CustomWebApplicationFactory { UseTestClerkAuth = true };
+        var table = factory.Services.GetRequiredService<IHostedTable>();
+        var org = new Organization { Id = Guid.NewGuid(), Name = "Acme", CreatedAt = DateTimeOffset.UtcNow };
+        await table.PutItemAsync(OrganizationRepository.ToItem(org));
+
+        // Seed a real user + admin membership so CurrentUserAsync resolves.
+        var userId = Guid.NewGuid();
+        var users = new UserRepository(table);
+        await users.CreateAsync(new AppUser { Id = userId, ClerkUserId = "clerk-me", DisplayName = "Me", CreatedAt = DateTimeOffset.UtcNow, OrganizationId = org.Id });
+        await new MembershipRepository(table).PutAsync(new()
+        {
+            OrganizationId = org.Id, UserId = userId, Role = MembershipRole.Admin, CreatedAt = DateTimeOffset.UtcNow,
+        });
+
+        var client = factory.CreateClientForOrg(org.Id, MembershipRole.Admin);
+        client.DefaultRequestHeaders.Add(TestClerkAuthHandler.SubHeader, "clerk-me");
+
+        var list = await client.GetFromJsonAsync<List<Dictionary<string, object>>>("/api/me/organizations");
+        var only = Assert.Single(list!);
+        Assert.Equal("Acme", only["name"].ToString());
+        Assert.Equal("Admin", only["role"].ToString());
+        Assert.True(((System.Text.Json.JsonElement)only["active"]).GetBoolean());
+    }
+
+    [Fact]
     public async Task MemberCannotInvite()
     {
         using var factory = new CustomWebApplicationFactory { UseTestClerkAuth = true };

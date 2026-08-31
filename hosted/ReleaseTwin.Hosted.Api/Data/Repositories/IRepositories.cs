@@ -15,6 +15,11 @@ public interface IOrganizationRepository
     /// <summary>billing: every organization, for the nightly reconciliation job. Full-table Scan — never a per-request path.</summary>
     Task<IReadOnlyList<Organization>> ListAllAsync(CancellationToken cancellationToken = default);
 
+    /// <summary>onboarding-activation: idempotently marks the org as having ingested a real run. A no-op
+    /// (no write) once it is already set, so the extra read is the only cost on the ingest path after
+    /// the first run.</summary>
+    Task MarkIngestedRealRunAsync(Guid organizationId, CancellationToken cancellationToken = default);
+
     /// <summary>org-membership: removes the organization item. Used only by the invite-accept reconcile
     /// path to clean up an auto-created org that is provably empty (no projects, sole member).</summary>
     Task DeleteAsync(Guid organizationId, CancellationToken cancellationToken = default);
@@ -173,6 +178,34 @@ public interface IProjectSecretRepository
     Task<ProjectSecret?> GetAsync(Guid projectId, string name, CancellationToken cancellationToken = default);
     Task<IReadOnlyList<ProjectSecret>> ListByProjectAsync(Guid projectId, CancellationToken cancellationToken = default);
     Task DeleteAsync(Guid projectId, string name, CancellationToken cancellationToken = default);
+}
+
+/// <summary>evidence-sharing: per-run revocable read-only share links. Keyed by the token hash for O(1)
+/// resolution; the token carries the report id as its prefix so the item can be located from the
+/// token alone.</summary>
+public interface IShareLinkRepository
+{
+    Task PutAsync(ShareLink link, CancellationToken cancellationToken = default);
+    Task<ShareLink?> GetByTokenHashAsync(Guid reportId, string tokenHash, CancellationToken cancellationToken = default);
+    Task<IReadOnlyList<ShareLink>> ListByReportAsync(Guid reportId, CancellationToken cancellationToken = default);
+
+    /// <summary>Revokes one link (by its <see cref="ShareLink.Id"/>). No-op if it is not found under this report.</summary>
+    Task RevokeAsync(Guid reportId, Guid linkId, CancellationToken cancellationToken = default);
+
+    /// <summary>evidence-sharing: hard-delete every share link for a report — called by the evidence purge.</summary>
+    Task DeleteAllForReportAsync(Guid reportId, CancellationToken cancellationToken = default);
+}
+
+/// <summary>run-notifications: a project's outbound notification targets (Slack / generic webhook).</summary>
+public interface INotificationTargetRepository
+{
+    Task<IReadOnlyList<NotificationTarget>> ListByProjectAsync(Guid projectId, CancellationToken cancellationToken = default);
+    Task<NotificationTarget?> GetAsync(Guid projectId, Guid targetId, CancellationToken cancellationToken = default);
+    Task PutAsync(NotificationTarget target, CancellationToken cancellationToken = default);
+    Task DeleteAsync(Guid projectId, Guid targetId, CancellationToken cancellationToken = default);
+
+    /// <summary>Records the outcome of a delivery attempt (read-mutate-put). A no-op if the target was deleted meanwhile.</summary>
+    Task RecordOutcomeAsync(Guid projectId, Guid targetId, string outcome, DateTimeOffset attemptedAt, CancellationToken cancellationToken = default);
 }
 
 public interface IUsageCounterRepository

@@ -32,7 +32,7 @@ public static class IngestEndpoints
         var group = app.MapGroup("/api/ingest")
             .RequireAuthorization(policy => policy.RequireAuthenticatedUser().AddAuthenticationSchemes(ApiTokenDefaults.Scheme));
 
-        group.MapPost("/case-report", async (HttpRequest http, ICaseReportRepository reports, IUsageCounterRepository usage, EvidenceIngestService evidenceIngest, ProjectWritabilityService writability, ClaimsPrincipal user) =>
+        group.MapPost("/case-report", async (HttpRequest http, ICaseReportRepository reports, IUsageCounterRepository usage, EvidenceIngestService evidenceIngest, ProjectWritabilityService writability, IOrganizationRepository organizations, INotificationQueue notifications, ReleaseTwin.Hosted.Api.Flags.IFlagService flags, ILoggerFactory loggerFactory, ClaimsPrincipal user) =>
         {
             var (request, screenshots, bindError) = await ReadAsync<IngestCaseReportRequest>(http);
             if (bindError is not null)
@@ -83,6 +83,16 @@ public static class IngestEndpoints
 
             await reports.AddAsync(entity);
             await usage.IncrementAsync(organizationId, Keys.CurrentUtcPeriod(), isFlagProof: false);
+            await organizations.MarkIngestedRealRunAsync(organizationId);
+
+            // run-notifications: a failed case fires a notification. Best-effort — never blocks or
+            // fails ingest (design D6). The dispatcher re-checks the flag and the org entitlement.
+            if (!request.Passed)
+            {
+                await TryEnqueueAsync(notifications, flags, loggerFactory, new RunNotification(
+                    organizationId, projectId, entity.Id, "case", entity.CaseId, "failed", entity.Classification),
+                    http.HttpContext.RequestAborted);
+            }
 
             if (request.Evidence is null)
             {
@@ -93,7 +103,7 @@ public static class IngestEndpoints
             return Results.Created($"/api/reports/case/{entity.Id}", new { entity.Id, evidenceAccepted = accepted });
         });
 
-        group.MapPost("/flag-proof-report", async (HttpRequest http, IFlagProofReportRepository reports, IUsageCounterRepository usage, EvidenceIngestService evidenceIngest, ProjectWritabilityService writability, ClaimsPrincipal user) =>
+        group.MapPost("/flag-proof-report", async (HttpRequest http, IFlagProofReportRepository reports, IUsageCounterRepository usage, EvidenceIngestService evidenceIngest, ProjectWritabilityService writability, IOrganizationRepository organizations, INotificationQueue notifications, ReleaseTwin.Hosted.Api.Flags.IFlagService flags, ILoggerFactory loggerFactory, ClaimsPrincipal user) =>
         {
             var (request, screenshots, bindError) = await ReadAsync<IngestFlagProofReportRequest>(http);
             if (bindError is not null)
@@ -141,6 +151,17 @@ public static class IngestEndpoints
 
             await reports.AddAsync(entity);
             await usage.IncrementAsync(organizationId, Keys.CurrentUtcPeriod(), isFlagProof: true);
+            await organizations.MarkIngestedRealRunAsync(organizationId);
+
+            // run-notifications: a flag proof that did not cleanly discriminate (failed or ineligible)
+            // fires a notification — the same signal a green-in-one-environment build would hide.
+            if (!string.Equals(entity.Outcome, "Passed", StringComparison.OrdinalIgnoreCase))
+            {
+                await TryEnqueueAsync(notifications, flags, loggerFactory, new RunNotification(
+                    organizationId, projectId, entity.Id, "flag-proof", entity.CaseId,
+                    entity.Outcome.ToLowerInvariant(), Classification: null),
+                    http.HttpContext.RequestAborted);
+            }
 
             if (request.Evidence is null)
             {
@@ -161,6 +182,29 @@ public static class IngestEndpoints
         Results.Json(
             new { error = "entitlement-required", entitlement = "maxProjects" },
             statusCode: StatusCodes.Status403Forbidden);
+
+    /// <summary>
+    /// run-notifications (design D6): enqueue is gated on the master flag and can never fail ingest —
+    /// a broken queue is logged and swallowed. The dispatcher re-checks the flag and the org
+    /// entitlement, so this is deliberately permissive.
+    /// </summary>
+    private static async Task TryEnqueueAsync(INotificationQueue queue, ReleaseTwin.Hosted.Api.Flags.IFlagService flags, ILoggerFactory loggerFactory, RunNotification notification, CancellationToken cancellationToken)
+    {
+        try
+        {
+            if (!await flags.GetBooleanAsync("run-notifications", cancellationToken: cancellationToken))
+            {
+                return;
+            }
+
+            await queue.EnqueueAsync(notification, cancellationToken);
+        }
+        catch (Exception ex)
+        {
+            loggerFactory.CreateLogger("ReleaseTwin.Hosted.Api.Endpoints.IngestEndpoints").LogWarning(
+                ex, "run_notification_enqueue_failed project={ProjectId} report={ReportId}", notification.ProjectId, notification.ReportId);
+        }
+    }
 
     private static async Task<(T? Request, IReadOnlyList<UploadedScreenshot> Screenshots, IResult? Error)> ReadAsync<T>(HttpRequest http)
         where T : class

@@ -33,63 +33,63 @@
 
 ## 4. Entitlement keys (spec: plan-tier-gating, design D5)
 
-- [ ] 4.1 Add `runNotifications` and `evidenceSharing` boolean entitlements to `hosted/plans.json` (Free: false, Team/Enterprise: true) and to `web/src/lib/plans.ts` types
-- [ ] 4.2 Surface both on `EntitlementService`/`PlanCatalog` and on the `DashboardView.entitlements` payload
-- [ ] 4.3 Tests: Free denied both, Team granted both, downgrade revokes
+- [x] 4.1 `runNotifications` / `evidenceSharing` added to all three tiers in `hosted/plans.json` (Free false, Team/Enterprise true); `web/src/lib/plans.ts` (`EntitlementKey`, `ENTITLEMENT_KEYS`, `Entitlements`, `FEATURE_COPY`) + `web/src/lib/types.ts` `Entitlements` kept in sync — both shape-check validators (`EnsureComplete` C#, `validateCatalog` + `assertFeatureCopyComplete` TS) pass.
+- [x] 4.2 Added to `PlanCatalog.EntitlementsDto` + `Entitlements` record → flow through `EntitlementService.For(org)` (incl. the `tier ∧ billing-status` degrade) and out on `DashboardView.entitlements` (the record is serialized whole — no DTO change needed).
+- [x] 4.3 `EntitlementServiceTests`: Free denied both, Team + Enterprise granted both, a Canceled Team org degrades both to false. `web` build + eslint clean. Hosted suite 269 green.
 
 ## 5. Run notifications (spec: run-notifications, design D6)
 
-- [ ] 5.1 `NotificationTarget` entity + repository: per-project, `{kind: slack|webhook, url, enabled, lastOutcome, lastAttemptAt}`
-- [ ] 5.2 Endpoints (admin + `ManageNotifications` + `runNotifications` entitlement): add / list / update-enabled / delete target; on save validate HTTPS + reject private/loopback/link-local resolution
-- [ ] 5.3 SQS queue + DLQ in `hosted/terraform/`; IAM for the API to send and the consumer Lambda to receive
-- [ ] 5.4 On ingest: after the run is persisted, if overall result is failed OR flag-proof result is failed/ineligible, enqueue `NotificationRequested{projectId, runId, result, classification}` — never inside the ingest transaction, never blocking the response
-- [ ] 5.5 Consumer Lambda: resolve enabled targets, re-check `evidenceSharing`/`runNotifications` entitlement at send time, build the payload (project, run/case id, result, classification, dashboard link — no fixture content / bodies / secrets), POST with short timeout, no redirects, re-check IP ranges at send time
-- [ ] 5.6 Retry via SQS redrive → DLQ; write `lastOutcome`/`lastAttemptAt` back to the target
-- [ ] 5.7 Feature-flag the whole path behind the OpenFeature seam
-- [ ] 5.8 Tests: trigger conditions (fail / flag-proof fail / ineligible / passing-is-silent), payload has no sensitive fields, ingest unaffected when target is broken, disabled target skipped, Free org blocked from adding a target
+- [x] 5.1 `NotificationTarget` entity (`PK=PROJECT#…`, `SK=NOTIFYTARGET#…`) + `NotificationTargetRepository` (list / get / put / delete / `RecordOutcomeAsync`).
+- [x] 5.2 `NotificationEndpoints` — `/api/projects/{id}/notification-targets` GET/POST/PATCH(enabled)/DELETE. All `Require(ManageNotifications)` + project-in-org + `entitlements.For(org).RunNotifications` (403 `entitlement-required` `runNotifications`). `OutboundUrlValidator` on POST: https-only, rejects hosts resolving to loopback / RFC1918 / link-local / ULA / `169.254` / `0.0.0.0` / multicast — resolver injected (`Func<string,IPAddress[]>`) for offline tests.
+- [x] 5.3 `hosted/terraform/notifications.tf` — SQS queue + DLQ (`maxReceiveCount` 5), `hosted_api` IAM `sqs:SendMessage`, `notification_dispatcher` Lambda (shared artifact, `RELEASETWIN_LAMBDA_TASK=NotificationDispatch`) + its role (SQS consume, DynamoDB Get/Query/Put) + `aws_lambda_event_source_mapping` with `ReportBatchItemFailures`. `Notifications__QueueUrl` + `Web__BaseUrl` added to the API function env. `terraform validate` clean.
+- [x] 5.4 Ingest: after persist + usage increment, a failed case-report (`!Passed`) or a flag proof whose `Outcome != "Passed"` enqueues a `RunNotification` via `INotificationQueue`. `TryEnqueueAsync` gates on the `run-notifications` flag and swallows every error — ingest never blocks or fails.
+- [x] 5.5 `NotificationDispatchService.DispatchAsync` — flag re-check, org entitlement re-check, enabled targets only, send-time `OutboundUrlValidator` re-check, payload = `{project, caseId, result, classification, reportId, reportKind, url}` (Slack gets `{text}`) with a `{webBase}/dashboard?projectId=…` link and no fixture/body/secret content. `HttpClient` named `notifications`: 5s timeout, `AllowAutoRedirect = false`. Program.cs `NotificationDispatch` branch parses a minimal SQS batch shape (no `Amazon.Lambda.SQSEvents` dep).
+- [x] 5.6 `redrive_policy` → DLQ; the Lambda returns `batchItemFailures` so message-level failures (bad JSON, org load error) are retried by SQS → DLQ, while per-target HTTP failures are recorded (`RecordOutcomeAsync`) not thrown, so a retry never double-notifies a target that already succeeded.
+- [x] 5.7 `flags.json` gains `run-notifications` (boolean, **default false**, hosted); `FLAG_KEYS` in `web/src/lib/flags-registry.ts` synced. Both the enqueue and the dispatch sides check it.
+- [x] 5.8 Tests (+30, suite 307): `OutboundUrlValidatorTests` (7), `NotificationDispatchServiceTests` (7 — deliver+record, disabled skip, flag off, not-entitled, non-2xx, send-time SSRF re-check, Slack text), `NotificationEndpointsTests` (4 — CRUD, non-https/private rejected, member 403, Free entitlement 403), `NotificationTargetRepositoryTests` (1), `IngestNotificationEnqueueTests` (4 — failed enqueues, passing silent, flag-off silent, ineligible flag-proof). `CustomWebApplicationFactory` gained `ExtraConfiguration`, `NotificationQueueForTesting`, and an offline host resolver.
 
 ## 6. Evidence share links (spec: evidence-sharing, design D7)
 
-- [ ] 6.1 `ShareLink` item: `PK=RUN#<runId>`, `SK=SHARE#<tokenHash>`, `{expiresAt, state, createdBy}`; token ≥128-bit, stored hashed only
-- [ ] 6.2 Endpoints (admin + `evidenceSharing` entitlement): `POST /api/runs/{runId}/share-links`, `GET /api/runs/{runId}/share-links`, `DELETE .../share-links/{id}`
-- [ ] 6.3 `SharedEvidenceView` DTO carrying ONLY the redacted evidence document + result/classification/hashes; add a unit test asserting the type exposes no org/project/navigation fields (reflection-based)
-- [ ] 6.4 `GET /shared-runs/{token}` (unauthenticated) — resolve token hash, check state + expiry, re-check the org's `evidenceSharing` entitlement (403 without deleting on downgrade), return `SharedEvidenceView`; handle "no evidence uploaded" → metadata-only view
-- [ ] 6.5 `web/` unauthenticated route `/share/[token]` outside the dashboard tree; BFF proxies to `/shared-runs/{token}`; renders the evidence view with no dashboard chrome or links
-- [ ] 6.6 Evidence retention / `EvidencePurgeService`: delete `SHARE#` items when their run is purged
-- [ ] 6.7 Feature-flag behind the OpenFeature seam
-- [ ] 6.8 Tests: create/resolve, token-does-not-generalize, revoke stops, expiry stops, purge invalidates, Free org blocked, downgrade disables-without-deleting, redacted-only projection
+- [x] 6.1 `ShareLink` entity + `ShareLinkRepository` — `PK=RUN#<reportId>`, `SK=SHARE#<tokenHash>`. Token = `<reportId>.<32 random bytes base64url>`, stored only as `ITokenService.Hash` (SHA-256). Report metadata a viewer may see (`caseId`/`result`/`classification`/`fixtureSha256`/`reportKind`) is denormalised onto the item at creation — resolving a link never reaches project/org-scoped data.
+- [x] 6.2 `ShareLinkEndpoints` — `/api/reports/{reportId}/share-links` POST/GET/DELETE (`?projectId=`). New `OrgCapability.ManageSharing` (Admin-only via the existing table) + project-in-org + `evidenceSharing` entitlement (403 `entitlement-required`). POST returns `{id, token, url: {webBase}/share/{token}, expiresAt}`; 14-day default lifetime.
+- [x] 6.3 `SharedEvidenceView` record (flat: caseId, reportKind, result, classification, fixtureSha256, hasEvidenceDocument, evidenceUploadedAt, document, screenshotIds). `EvidenceSharingViewShapeTests` — reflection asserts every property is in the whitelist, none is a `Guid`, and no name contains org/project/tenant/url.
+- [x] 6.4 `GET /api/shared-runs/{token}` (`.AllowAnonymous`) — flag check → parse reportId → hash lookup → state/expiry → org `evidenceSharing` re-check (`ShareEntitlementRevokedException` → **403, not deleted**) → `SharedEvidenceView`. No evidence doc → `hasEvidenceDocument:false`, metadata-only. `+ /screenshots/{id}` anonymous proxy, validated against the link's evidence.
+- [x] 6.5 `web/src/app/share/[token]/page.tsx` — outside `/dashboard`, not matched by the proxy's protected routes; server-fetches the hosted API's `/api/shared-runs/{token}` directly (no Clerk token); renders result + redacted legs + screenshots with no dashboard nav or links; `robots: noindex`. 404 → `notFound()`, 403 → "link no longer available". `screenshot/[id]/route.ts` anonymous proxy.
+- [x] 6.6 `EvidencePurgeService` gains `IShareLinkRepository` (optional) — deletes every `SHARE#` item for a report whose evidence it purges.
+- [x] 6.7 `evidence-sharing` flag in `flags.json` (boolean, **default false**, hosted) + `FLAG_KEYS`. Checked at resolve time; independent of the per-org entitlement.
+- [x] 6.8 Tests (+17, suite 324): `EvidenceSharingViewShapeTests` (1), `EvidenceSharingServiceTests` (9 — create→resolve, metadata-only, revoke, expiry, flag off, downgrade-not-deleted-then-restored, token-does-not-generalize, purge, unknown report), `ShareLinkEndpointsTests` (4 — full lifecycle + anon resolve, member 403, Free 403, downgrade 403-without-delete), guard matrix extended for `ManageSharing`.
 
 ## 7. Onboarding activation (spec: onboarding-activation, design D8)
 
-- [ ] 7.1 Add `hasIngestedRealRun` boolean to `Organization`; set it (idempotent) on first successful ingest
-- [ ] 7.2 Static sample-project fixture baked into the API (run history with ≥1 pass + ≥1 fail, one flag-proof result, one evidence drill-down) under a reserved project id
-- [ ] 7.3 `DashboardService`/`DashboardEndpoints`: when `hasIngestedRealRun == false`, include the virtual sample project (flagged `isExample: true`); exclude it once true
-- [ ] 7.4 Reject token issuance / ingest / delete / mutation against the reserved sample project id
-- [ ] 7.5 Ensure the sample project is excluded from the plan project-count limit
-- [ ] 7.6 Guided first-run panel data on the dashboard payload: ordered steps (create project → generate token → run CLI), per-step completion state, and the CLI command string with the hosted API URL and a token placeholder
-- [ ] 7.7 `web/` dashboard empty-state: render the sample project marked as an example + the guided panel; both disappear when `hasIngestedRealRun` flips
-- [ ] 7.8 Tests: sample shown then retired after first ingest, sample not counted toward quota, sample read-only, panel next-step logic
+- [x] 7.1 `Organization.HasIngestedRealRun` (legacy rows read false). `IOrganizationRepository.MarkIngestedRealRunAsync` — read-check-write, a no-op once set. Called from both ingest handlers after persist.
+- [x] 7.2 `Services/SampleProject.cs` — fixed well-known ids, `Name`, 2 canned case reports (1 pass "ORD-CHECKOUT-1", 1 fail "ORD-REFUND-7"), 1 flag-proof result, and a canned evidence drill-down (JSON envelope matching the real endpoint) for the failing case. Never persisted.
+- [x] 7.3 `DashboardService`: when `!HasIngestedRealRun`, `SampleProject.Summary` (`IsExample: true`, `ReadOnly: true`) is appended to `Projects`; selecting it (or the default landing with no real project) returns its canned run history. Gone the moment `HasIngestedRealRun` flips. `DashboardEndpoints` evidence route serves `SampleProject.EvidenceFor` for a sample report id.
+- [x] 7.4 Automatic — the sample id is never a real `Project`, so every `projects.GetAsync` / `ExistsInOrganizationAsync` ownership check fails closed (token issue → 403, delete/connection/secrets/creds → 403, ingest can't target it: no token can be issued). Tested explicitly for token issuance.
+- [x] 7.5 Automatic — `_projects.ListByOrganizationAsync` never returns the sample, so `CreateProjectAsync`'s count check never counts it. Tested: a Free org showing the sample still creates its 1st real project, and the 2nd is rejected.
+- [x] 7.6 `GuidedSetupView(HasProject, HasToken, ApiUrl, CliCommand)` on `DashboardView.GuidedSetup` (null after activation). `HasProject`/`HasToken` reflect real state; `CliCommand` is the `docker run` line with `RELEASETWIN_API_URL` (from `Api:PublicUrl` config, placeholder if unset) and a `<YOUR_TOKEN>` placeholder. `terraform` `api_public_url` var — the deploy workflow self-heals it from `terraform output -raw function_url` (no cycle, no second apply, placeholder only on the very first deploy).
+- [x] 7.7 `web/src/app/dashboard/page.tsx` — `GuidedSetupPanel` (ordered steps with done-state + copyable command) rendered when `view.guidedSetup`; "Example" badge on `project.isExample`; for the sample selection the SetupSection / evidence-config / Journeys / tokens / ReleasesSection blocks are skipped (only run history + flag-proof tables + a note render), and the per-project fetches that would 403 are guarded.
+- [x] 7.8 Tests (+8, suite 332): `SampleProjectServiceTests` (6 — shown+panel, panel reflects progress, retired after ingest incl. direct-select, `MarkIngested` idempotent, quota not consumed), `SampleProjectHttpTests` (3 — token issue 403, canned evidence drill-down + non-canned 403, first real ingest clears the sample + guided panel from the payload). web build + eslint clean.
 
 ## 8. Web UI (spec: org-membership, all)
 
-- [ ] 8.1 Members & invitations settings page: list members + roles, invite form, revoke invite, change role, remove member (admin-only, hidden for members)
-- [ ] 8.2 Accept-invite page at `/invitations/[token]` — works for signed-in and fresh signup
-- [ ] 8.3 Active-org switcher in the app header; always shows the current org
-- [ ] 8.4 Notification-targets settings UI per project with last-delivery status
-- [ ] 8.5 Share-link controls on the run/evidence view: create, copy, list, revoke (Team-gated, shows upgrade prompt on Free)
-- [ ] 8.6 Gate Team-only UI affordances on `DashboardView.entitlements`
+- [x] 8.1 `web/src/app/dashboard/members/` — `MembersManager` client component: roster (name/email/role/joined), per-row role `<select>` + Remove (admin), invite form (email + role, returns the accept link to copy), pending-invitations list with copy-link + revoke. A non-admin sees a read-only roster + a "you are a member/viewer" note. New backend `GET /api/me/organizations` powers the "am I an admin of the active org" check.
+- [x] 8.2 `web/src/app/invitations/[token]/` — outside `/dashboard`; unauthenticated → redirect to `/sign-in?redirect_url=…`; signed-in → invite preview (org, role, acceptable) + `AcceptInviteButton`. Both the preview fetch and the accept action attach `X-Invite-Token` (direct `fetch`, not the `api` helper) so provisioning skips the throwaway org (design D1a). Accept sets the active-org cookie and lands on the dashboard.
+- [x] 8.3 `OrgSwitcher` in the dashboard header — a `<select>` (auto-submit) over `GET /api/me/organizations` when the user is in >1 org, plain text otherwise, + a "Team" link. `setActiveOrganization` server action writes the `rt_active_org` cookie; `web/src/lib/api.ts` forwards it as `X-Org-Id` on every API call (the API validates it against membership).
+- [x] 8.4 `NotificationTargetsSection` on the dashboard (admin + real project): targets table with kind / URL / **last-delivery badge + timestamp** / enable toggle / delete, and an add form (kind select + URL). `notification-actions.ts` maps the `invalid-url` 400 and the entitlement 403 to friendly copy.
+- [x] 8.5 `ShareLinkControls` on the evidence page — "Create share link" (shows the token URL once, copy button), active-links list with expiry + Revoke. `loadShareLinks` treats the entitlement 403 as "not entitled" → upgrade hint. Renders for metadata-only runs too.
+- [x] 8.6 Gating: `canManage` (Admin) gates notification targets, share-link creation, billing controls; `canUseProjects` (Admin/Member, not Viewer) gates create-project, issue-token, and the SetupSection / journeys / tokens block. Notification + sharing sections show the "Team plan" hint when the entitlement is absent. `web` build (22 routes) + eslint clean; hosted 333 tests (+1 for `/api/me/organizations`).
 
 ## 9. Docs
 
-- [ ] 9.1 Update `docs/customer-pilot-guide.md`: teams exist, paid signup path, what a share link is
-- [ ] 9.2 Update `docs/installation-model.md` / README hosted-platform description for membership + notifications + sharing
-- [ ] 9.3 Note in the change: Phase 1 per-project billing quantity = projects only; member count is not a billing axis
+- [x] 9.1 `docs/customer-pilot-guide.md` gained a "teams, notifications, and shareable evidence" update section — roles, what a run notification / share link is, and the two honest caveats (master flag off by default; invite links returned in-app, not emailed yet).
+- [x] 9.2 README hosted-platform bullet + `docs/installation-model.md` control-plane bullet now describe membership + roles + multi-org + the two Team-tier extras; the "Stage 1, free-only" README heading is dropped (billing exists).
+- [x] 9.3 The "project count only — team size is not a billing axis" decision is stated in `proposal.md` (Impact), the README, `docs/installation-model.md`, and the pilot guide.
 
 ## 10. Verification
 
-- [ ] 10.1 `dotnet build ReleaseTwin.sln` + `dotnet test ReleaseTwin.sln` green; report the new hosted test count
-- [ ] 10.2 `cd web && npm run build` + `npx eslint` clean
-- [ ] 10.3 `openspec validate commercial-readiness-gaps --strict`
-- [ ] 10.4 Confirm CI (`ci.yml` / `hosted-ci.yml` / `web-ci.yml`) passes on the branch
+- [x] 10.1 `dotnet build ReleaseTwin.sln` clean; engine `dotnet test` **217 green** (Core 44, CLI 118, Ui 13, AzDO 12, Http 15, LD 5, AdapterSdk 10). Hosted (separate project) `dotnet test` **333 green** — +76 across this change's 5 groups on the branch.
+- [x] 10.2 `cd web && npm run build` — 22 routes, compiled clean; `npx eslint src` — 0 errors, 0 warnings.
+- [x] 10.3 `openspec validate commercial-readiness-gaps --strict` — valid.
+- [x] 10.4 CI green on both PRs — #51 (`ci.yml` / `hosted-ci.yml`) and #52 (`+ web-ci.yml` `build-test-lint`, `gitleaks`, Vercel). All `build-and-test` / `build-test-lint` jobs pass.
 - [ ] 10.5 **Needs the user to run this:** billing sandbox e2e (checkout → webhook → entitlement flip) per `docs/billing-sandbox-runbook.md` — hard prerequisite for charging money, tracked in the `billing-integration` change, not unblocked by code here
-- [ ] 10.6 **Needs the user to run this:** `terraform apply` for the new GSI + SQS + DLQ (CI-only via OIDC — the plan runs in GitHub Actions, but confirm the applied output matches)
+- [x] 10.6 Infra deploy is **automatic** — `deploy-hosted.yml` already applies `hosted/terraform/**` on merge to `main` (SQS queue + DLQ + dispatcher Lambda + event-source mapping). `Notifications__QueueUrl` is wired terraform-side in one apply; `Api__PublicUrl` is now self-healed from `terraform output -raw function_url` in the workflow (no cycle, no second apply). The **only** standing manual item: set the `WEB_BASE_URL` repo variable (the public site URL — `https://app.<domain>`), same pattern as `CLERK_DOMAIN`; empty ⇒ invite / notification / share links carry a relative path.
