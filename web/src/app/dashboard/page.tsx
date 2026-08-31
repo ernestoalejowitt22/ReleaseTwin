@@ -71,7 +71,10 @@ export default async function DashboardPage({
     : null;
 
   return (
-    <main className="mx-auto flex w-full max-w-5xl flex-1 flex-col gap-6 p-6">
+    <main
+      data-org-id={view.organizationId}
+      className="mx-auto flex w-full max-w-5xl flex-1 flex-col gap-6 p-6"
+    >
       <header className="flex items-center justify-between">
         <h1 className="flex items-center gap-2 text-2xl font-semibold">
           <LayoutDashboard className="size-6" />

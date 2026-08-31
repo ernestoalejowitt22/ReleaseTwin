@@ -31,8 +31,7 @@ describe("project secrets", () => {
     // previous run — `ensureE2ETestUser` reuses the same user across runs, per its own design.
     cy.get("body").then(($body) => {
       if ($body.text().includes("Free plan")) {
-        cy.contains("button", "Upgrade").click();
-        cy.contains("Paid plan").should("be.visible");
+        cy.elevateToTeam();
       }
     });
 

@@ -20,6 +20,7 @@ public sealed record DashboardFlagProofReportView(string CaseId, string BuildIde
 public sealed record DashboardUsageSummary(int CaseReportCount, int FlagProofReportCount, DateOnly PeriodStart);
 
 public sealed record DashboardView(
+    Guid OrganizationId,
     IReadOnlyList<DashboardProjectSummary> Projects,
     DashboardProjectSummary? SelectedProject,
     DashboardConnectionView? Connection,
@@ -114,7 +115,7 @@ public sealed class DashboardService
 
         if (selectedProject is null)
         {
-            return new DashboardView(projectSummaries, null, null, [], [], [], usage, planTier, entitlements, IsSelectedProjectStale: false,
+            return new DashboardView(organizationId, projectSummaries, null, null, [], [], [], usage, planTier, entitlements, IsSelectedProjectStale: false,
                 billingStatus, billingCadence, hasBillingLinkage, hasReadOnlyProjects, billingEnabled);
         }
 
@@ -153,6 +154,7 @@ public sealed class DashboardService
         var isStale = UploadStalenessCalculator.IsStale(uploadTimestamps, DateTimeOffset.UtcNow);
 
         return new DashboardView(
+            organizationId,
             projectSummaries,
             new DashboardProjectSummary(selectedProject.Id, selectedProject.Name, IsReadOnly(selectedProject.Id)),
             connection is null ? null : new DashboardConnectionView(connection.Provider, connection.ExternalRepo, connection.ConnectedAt),
