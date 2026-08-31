@@ -1,0 +1,30 @@
+{
+  "schemaVersion": 1,
+  "overall": "failed",
+  "totals": {
+    "passed": 1,
+    "failed": 1,
+    "cases": 2
+  },
+  "flagProof": {
+    "proven": 0,
+    "ineligible": 0,
+    "regressed": 0
+  },
+  "cases": [
+    {
+      "id": "DEMO-GATE-1",
+      "outcome": "failed",
+      "classification": "product",
+      "flagProof": null,
+      "release": "releasetwin-gate"
+    },
+    {
+      "id": "NAHA-ADMIN-AUTH-1",
+      "outcome": "passed",
+      "classification": null,
+      "flagProof": null,
+      "release": "releasetwin-gate"
+    }
+  ]
+}
