@@ -64,12 +64,19 @@ public sealed class PolarOptions
     public static PolarOptions FromConfiguration(IConfiguration configuration)
     {
         var section = configuration.GetSection(SectionName);
+
+        // `Polar__ProductIds__Team__Monthly` binds to the nested path `Polar:ProductIds:Team:Monthly`,
+        // so `ProductIds`' children are per-tier *sections* (not leaf values) — iterate one level
+        // deeper and rebuild the flat `"Team:Monthly"` key that ProductKey() expects.
         var productIds = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
-        foreach (var child in section.GetSection("ProductIds").GetChildren())
+        foreach (var tierSection in section.GetSection("ProductIds").GetChildren())
         {
-            if (!string.IsNullOrWhiteSpace(child.Value))
+            foreach (var cadenceEntry in tierSection.GetChildren())
             {
-                productIds[child.Key] = child.Value;
+                if (!string.IsNullOrWhiteSpace(cadenceEntry.Value))
+                {
+                    productIds[$"{tierSection.Key}:{cadenceEntry.Key}"] = cadenceEntry.Value;
+                }
             }
         }
 
