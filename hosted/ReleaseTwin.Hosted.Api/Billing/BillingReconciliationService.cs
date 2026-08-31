@@ -20,6 +20,8 @@ public sealed class BillingReconciliationService
     private readonly IPolarClient _polar;
     private readonly ProjectWritabilityService _writability;
     private readonly PolarOptions _options;
+    private readonly BillingMetricsCollector _metrics;
+    private readonly IOperatorAlertPublisher _alerts;
     private readonly ILogger<BillingReconciliationService> _logger;
 
     public BillingReconciliationService(
@@ -28,6 +30,8 @@ public sealed class BillingReconciliationService
         IPolarClient polar,
         ProjectWritabilityService writability,
         PolarOptions options,
+        BillingMetricsCollector metrics,
+        IOperatorAlertPublisher alerts,
         ILogger<BillingReconciliationService> logger)
     {
         _organizations = organizations;
@@ -35,6 +39,8 @@ public sealed class BillingReconciliationService
         _polar = polar;
         _writability = writability;
         _options = options;
+        _metrics = metrics;
+        _alerts = alerts;
         _logger = logger;
     }
 
@@ -42,6 +48,20 @@ public sealed class BillingReconciliationService
 
     public async Task<Result> RunAsync(CancellationToken cancellationToken = default)
     {
+        // billing-metrics-digest: capture the operator-visible billing-integrity state BEFORE the
+        // reconciliation loop below mutates any Polar subscription, so reported drift is pre-correction.
+        // A failure here must never break reconciliation — degrade to an empty snapshot.
+        BillingMetricsSnapshot snapshot;
+        try
+        {
+            snapshot = await _metrics.CollectAsync(DateTimeOffset.UtcNow, cancellationToken);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "billing_metrics_collect_failed");
+            snapshot = new BillingMetricsSnapshot();
+        }
+
         var dryRun = _options.ReconciliationDryRun;
         var orgs = await _organizations.ListAllAsync(cancellationToken);
 
@@ -108,6 +128,40 @@ public sealed class BillingReconciliationService
             "billing_reconciliation_run orgs_checked={OrgsChecked} corrections={Corrections} skipped={Skipped} dry_run={DryRun}",
             checkedCount, corrections, skipped, dryRun);
 
+        await PublishDigestAsync(snapshot, cancellationToken);
+
         return new Result(checkedCount, corrections, skipped);
+    }
+
+    /// <summary>
+    /// billing-metrics-digest: always log the run's per-section counts (so "did it run" is answerable
+    /// from CloudWatch regardless), and send one operator email only when at least one section has
+    /// rows. A publish failure is logged, never rethrown — the reconciliation run already succeeded.
+    /// </summary>
+    private async Task PublishDigestAsync(BillingMetricsSnapshot snapshot, CancellationToken cancellationToken)
+    {
+        _logger.LogInformation(
+            "billing_metrics_digest_run drift={Drift} grace={Grace} read_only={ReadOnly} counter_integrity={Counter} volume_anomalies={Anomalies} free_tier_volume={FreeTier}",
+            snapshot.QuantityDrift.Count,
+            snapshot.Grace.Count,
+            snapshot.ReadOnlyEnforcement.Count,
+            snapshot.CounterIntegrity.Count,
+            snapshot.VolumeAnomalies.Count,
+            snapshot.FreeTierVolume.Count);
+
+        if (snapshot.IsEmpty)
+        {
+            return;
+        }
+
+        var (subject, body) = BillingMetricsDigest.Format(snapshot);
+        try
+        {
+            await _alerts.PublishAsync(subject, body, cancellationToken);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "billing_metrics_digest_publish_failed");
+        }
     }
 }

@@ -99,6 +99,38 @@ subscription's quantity to match. To force a tier change out of band (e.g. a ref
 the operator admin tier endpoint — but note the webhook will overwrite billing status on the next
 Polar event, so fix the underlying subscription in Polar too.
 
+## Nightly billing-integrity digest
+
+The same `BillingReconciliation` run also composes a **billing-integrity digest** and emails it to
+the operator SNS topic (`Alerting__OperatorTopicArn`, shared with the staleness digest) — but only
+when at least one condition is flagged. A clean run sends nothing and logs
+`billing_metrics_digest_run …=0` for every section. If the topic ARN is unset the digest degrades
+to a warning log and never fails the reconciliation run.
+
+Sections (each omitted when empty):
+
+- **Subscription-quantity drift** — Polar quantity ≠ actual project count. Each row says whether the
+  correction was **applied** or **simulated only (dry-run)**. **Expect every drift row to read
+  "simulated only" until `POLAR_RECONCILIATION_DRY_RUN=false`** (rollout step below) — that is the
+  intended baseline signal for the dry-run window, not a bug. `OVER-BILLED` (billed > actual) is
+  called out separately from under-billed.
+- **Billing-status grace** — orgs in `past_due` / `canceled`, days into / left in the 14-day window,
+  or "grace lapsed".
+- **Read-only enforcement** — orgs over their tier's project limit, with the writable/read-only split.
+- **Usage-counter integrity** — the per-org `UsageCounter` vs an independent count of stored report
+  rows for the current month. A mismatch means the ingest path miscounted (`UsageCounter` is *not* a
+  billing input today, but a drift here is a real bug). 
+- **Upload-volume anomalies** — a `SPIKE` (probable runaway CI loop, worth reaching out before the
+  mid-month proration lands) or "gone quiet" relative to the org's own trailing 28-day rate.
+- **High-volume free-tier orgs** — free-tier orgs over `BillingMetrics__FreeTierVolumeThreshold`
+  (default 500 uploads/month).
+
+Thresholds: `BillingMetrics__SpikeMultiplier` (5), `BillingMetrics__AnomalyLookbackDays` (28),
+`BillingMetrics__FreeTierVolumeThreshold` (500) — all optional, defaults in `appsettings.json`.
+
+No dedup state: a condition that persists reappears every day it persists (same as the staleness
+digest). The digest is advisory — it never changes tier, status, projects, or subscriptions.
+
 ## Rollout / rollback
 
 Per `openspec/changes/billing-integration/design.md` Migration Plan: deploy fields + catalog →

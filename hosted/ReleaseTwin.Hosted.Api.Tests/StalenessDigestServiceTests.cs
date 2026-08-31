@@ -10,8 +10,16 @@ public sealed class InMemoryOperatorAlertPublisher : IOperatorAlertPublisher
 {
     public List<(string Subject, string Message)> Published { get; } = [];
 
+    /// <summary>When set, <see cref="PublishAsync"/> throws it — stands in for an unconfigured / unreachable channel.</summary>
+    public Exception? ThrowOnPublish { get; set; }
+
     public Task PublishAsync(string subject, string message, CancellationToken cancellationToken = default)
     {
+        if (ThrowOnPublish is not null)
+        {
+            return Task.FromException(ThrowOnPublish);
+        }
+
         Published.Add((subject, message));
         return Task.CompletedTask;
     }

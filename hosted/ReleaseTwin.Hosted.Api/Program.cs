@@ -157,6 +157,10 @@ builder.Services.AddSingleton(polarOptions);
 builder.Services.AddHttpClient<ReleaseTwin.Hosted.Api.Billing.IPolarClient, ReleaseTwin.Hosted.Api.Billing.PolarClient>();
 builder.Services.AddScoped<ReleaseTwin.Hosted.Api.Billing.ProcessedBillingEventRepository>();
 builder.Services.AddScoped<ReleaseTwin.Hosted.Api.Billing.BillingEventProcessor>();
+// billing-metrics-digest: the nightly reconciliation Lambda also composes an operator digest of
+// billing-integrity + abuse signals. Thresholds bind inline from the "BillingMetrics" section.
+builder.Services.AddSingleton(ReleaseTwin.Hosted.Api.Billing.BillingMetricsOptions.FromConfiguration(builder.Configuration));
+builder.Services.AddScoped<ReleaseTwin.Hosted.Api.Billing.BillingMetricsCollector>();
 builder.Services.AddScoped<ReleaseTwin.Hosted.Api.Billing.BillingReconciliationService>();
 builder.Services.AddScoped<ReleaseTwin.Hosted.Api.Analytics.TrendService>();
 builder.Services.AddScoped<ReleaseTwin.Hosted.Api.Releases.ReleaseRollupService>();
