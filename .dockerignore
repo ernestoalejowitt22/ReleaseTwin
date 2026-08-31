@@ -7,5 +7,6 @@ web/
 tests/
 docs/
 openspec/
-examples/
 *.md
+
+# examples/ IS bundled into the image (see Dockerfile) for `releasetwin init --from-examples`
