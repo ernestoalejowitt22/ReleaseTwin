@@ -2,6 +2,16 @@
 
 Grounds "how would customers use it" in what's literally built today, not the aspirational version. An honest account of what is built versus aspirational — so nobody oversells real release-proof coverage as a five-minute setup.
 
+## Update (commercial-readiness-gaps): teams, notifications, and shareable evidence
+
+The hosted platform is no longer single-user. A pilot can now bring their team:
+
+- **Membership + roles.** An org owner invites teammates by email; each membership is `admin`, `member`, or `viewer`. Admins manage billing, tokens, members, and notifications; members trigger runs and view evidence; viewers are read-only (useful for a client PM or a compliance reviewer who should *see* the evidence but not push buttons). A user can belong to several orgs and switch between them in the header. Per-project pricing is unchanged — **team size is not a billing axis**, only project count is.
+- **Run-failure notifications** (Team tier, opt-in, per project). A Slack incoming-webhook or a generic HTTPS webhook fires when a run fails or a flag proof doesn't discriminate. The payload carries the project, the case/run id, the result and classification, and a dashboard link — never fixture content, response bodies, or secrets. The customer-supplied URL is validated (https-only, no private/loopback/metadata addresses) at save time and again at send time.
+- **Shareable evidence links** (Team tier). An admin creates a per-run, revocable, expiring link. Opening it renders exactly the redacted evidence document that run already uploaded — no dashboard, no other runs, no account surface — to someone with no login. Good for handing a proof to an auditor or a manager; the redaction still happened in the customer's own CLI before upload.
+
+Two honest caveats for a pilot pitch: (1) both notifications and share links sit behind a master feature flag that is **off by default** — flip it on for a design partner deliberately; (2) there is no transactional-email provider wired yet, so an invitation's accept link is returned in the API/UI for the admin to share directly rather than being emailed.
+
 ## Update (hosted-self-serve-platform): self-serve onboarding now exists — with real limits
 
 A customer no longer needs "clone this repo and read the README" as the only path in. They can now:

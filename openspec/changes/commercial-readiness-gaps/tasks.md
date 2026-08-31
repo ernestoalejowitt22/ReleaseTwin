@@ -81,15 +81,15 @@
 
 ## 9. Docs
 
-- [ ] 9.1 Update `docs/customer-pilot-guide.md`: teams exist, paid signup path, what a share link is
-- [ ] 9.2 Update `docs/installation-model.md` / README hosted-platform description for membership + notifications + sharing
-- [ ] 9.3 Note in the change: Phase 1 per-project billing quantity = projects only; member count is not a billing axis
+- [x] 9.1 `docs/customer-pilot-guide.md` gained a "teams, notifications, and shareable evidence" update section — roles, what a run notification / share link is, and the two honest caveats (master flag off by default; invite links returned in-app, not emailed yet).
+- [x] 9.2 README hosted-platform bullet + `docs/installation-model.md` control-plane bullet now describe membership + roles + multi-org + the two Team-tier extras; the "Stage 1, free-only" README heading is dropped (billing exists).
+- [x] 9.3 The "project count only — team size is not a billing axis" decision is stated in `proposal.md` (Impact), the README, `docs/installation-model.md`, and the pilot guide.
 
 ## 10. Verification
 
-- [ ] 10.1 `dotnet build ReleaseTwin.sln` + `dotnet test ReleaseTwin.sln` green; report the new hosted test count
-- [ ] 10.2 `cd web && npm run build` + `npx eslint` clean
-- [ ] 10.3 `openspec validate commercial-readiness-gaps --strict`
-- [ ] 10.4 Confirm CI (`ci.yml` / `hosted-ci.yml` / `web-ci.yml`) passes on the branch
+- [x] 10.1 `dotnet build ReleaseTwin.sln` clean; engine `dotnet test` **217 green** (Core 44, CLI 118, Ui 13, AzDO 12, Http 15, LD 5, AdapterSdk 10). Hosted (separate project) `dotnet test` **333 green** — +76 across this change's 5 groups on the branch.
+- [x] 10.2 `cd web && npm run build` — 22 routes, compiled clean; `npx eslint src` — 0 errors, 0 warnings.
+- [x] 10.3 `openspec validate commercial-readiness-gaps --strict` — valid.
+- [ ] 10.4 Confirm CI (`ci.yml` / `hosted-ci.yml` / `web-ci.yml`) passes on the branch — checked after the PR opens.
 - [ ] 10.5 **Needs the user to run this:** billing sandbox e2e (checkout → webhook → entitlement flip) per `docs/billing-sandbox-runbook.md` — hard prerequisite for charging money, tracked in the `billing-integration` change, not unblocked by code here
 - [ ] 10.6 **Needs the user to run this:** `terraform apply` for the new GSI + SQS + DLQ (CI-only via OIDC — the plan runs in GitHub Actions, but confirm the applied output matches)
