@@ -18,6 +18,13 @@ public sealed class CaseReportRepository : ICaseReportRepository
         return items.Select(ToReport).ToList();
     }
 
+    public async Task<IReadOnlyList<UploadedCaseReport>> ListByProjectInRangeAsync(Guid projectId, DateTimeOffset from, DateTimeOffset to, CancellationToken cancellationToken = default)
+    {
+        var items = await _table.QueryRangeAsync(
+            Keys.Project(projectId), Keys.CaseReportBound(from), Keys.CaseReportBound(to), scanIndexForward: true, cancellationToken: cancellationToken);
+        return items.Select(ToReport).ToList();
+    }
+
     private static Dictionary<string, Amazon.DynamoDBv2.Model.AttributeValue> ToItem(UploadedCaseReport report)
     {
         var item = new Dictionary<string, Amazon.DynamoDBv2.Model.AttributeValue>
@@ -37,6 +44,7 @@ public sealed class CaseReportRepository : ICaseReportRepository
         };
         item.SetIfNotNull("Classification", Attrs.SOrNull(report.Classification));
         item.SetIfNotNull("FailureDetail", Attrs.SOrNull(report.FailureDetail));
+        item.SetIfNotNull("Release", Attrs.SOrNull(report.Release));
         return item;
     }
 
@@ -49,6 +57,7 @@ public sealed class CaseReportRepository : ICaseReportRepository
         Passed = item.GetBool("Passed"),
         Classification = item.GetSOrNull("Classification"),
         FailureDetail = item.GetSOrNull("FailureDetail"),
+        Release = item.GetSOrNull("Release"),
         CleanupStatus = item.GetS("CleanupStatus"),
         DurationMs = item.GetN("DurationMs"),
         UploadedAt = item.GetDateTimeOffset("UploadedAt"),

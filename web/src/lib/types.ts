@@ -121,6 +121,52 @@ export interface DashboardView {
   isSelectedProjectStale: boolean;
 }
 
+/** trend-analytics: mirrors the C# `TrendBucket`. Rates are null (a gap) when their denominator is zero. */
+export interface TrendBucket {
+  start: string;
+  casePassRate: number | null;
+  flagProofPassRate: number | null;
+  runVolume: number;
+  classificationBreakdown: Record<string, number>;
+}
+
+export interface FlakiestCase {
+  caseId: string;
+  flipCount: number;
+  lastActivity: string;
+}
+
+export interface TrendReport {
+  window: string;
+  granularity: "daily" | "weekly";
+  buckets: TrendBucket[];
+  flakiestCases: FlakiestCase[];
+}
+
+export type TrendWindowParam = "7d" | "30d" | "90d";
+
+/** release-readiness-rollup: mirrors the C# `ReleaseCaseResult` / `ReleaseRollup`. */
+export type ReleaseCaseState = "Green" | "Failing" | "Stale";
+export type ReleaseHeadlineState = "Proven" | "NotProven" | "Incomplete";
+export type ReleaseWindowParam = "7d" | "14d" | "30d" | "90d";
+
+export interface ReleaseCaseResult {
+  caseId: string;
+  state: ReleaseCaseState;
+  latestOutcome: string;
+  latestReportAt: string;
+}
+
+export interface ReleaseRollup {
+  release: string;
+  headline: ReleaseHeadlineState;
+  greenCount: number;
+  failingCount: number;
+  staleCount: number;
+  windowDays: number;
+  cases: ReleaseCaseResult[];
+}
+
 export interface GitHubAuthorizeResult {
   configured: boolean;
   authorizeUrl: string | null;

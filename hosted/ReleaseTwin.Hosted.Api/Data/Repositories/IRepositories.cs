@@ -52,12 +52,18 @@ public interface ICaseReportRepository
 {
     Task AddAsync(UploadedCaseReport report, CancellationToken cancellationToken = default);
     Task<IReadOnlyList<UploadedCaseReport>> ListByProjectAsync(Guid projectId, CancellationToken cancellationToken = default);
+
+    /// <summary>trend-analytics: reports uploaded in the half-open window <c>[from, to)</c> for one project — a native project-partition range Query, no GSI.</summary>
+    Task<IReadOnlyList<UploadedCaseReport>> ListByProjectInRangeAsync(Guid projectId, DateTimeOffset from, DateTimeOffset to, CancellationToken cancellationToken = default);
 }
 
 public interface IFlagProofReportRepository
 {
     Task AddAsync(UploadedFlagProofReport report, CancellationToken cancellationToken = default);
     Task<IReadOnlyList<UploadedFlagProofReport>> ListByProjectAsync(Guid projectId, CancellationToken cancellationToken = default);
+
+    /// <summary>trend-analytics: reports uploaded in the half-open window <c>[from, to)</c> for one project.</summary>
+    Task<IReadOnlyList<UploadedFlagProofReport>> ListByProjectInRangeAsync(Guid projectId, DateTimeOffset from, DateTimeOffset to, CancellationToken cancellationToken = default);
 }
 
 public interface IRunEvidenceRepository

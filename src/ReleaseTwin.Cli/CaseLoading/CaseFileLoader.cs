@@ -185,6 +185,8 @@ public sealed class CaseFileLoader
             .Select(r => new CapabilityRequirement(r))
             .ToList();
 
+        var release = ResolveRelease(fileName, dto.Release);
+
         var testCase = new TestCase(
             dto.Id,
             new OracleReference(dto.Oracle!.Locator!),
@@ -193,9 +195,27 @@ public sealed class CaseFileLoader
             pipeline,
             cleanup,
             string.IsNullOrWhiteSpace(dto.ResourceKey) ? null : new ResourceKey(dto.ResourceKey),
-            requiredCapabilities);
+            requiredCapabilities)
+        {
+            Release = release,
+        };
 
         return new LoadedCase(testCase, ResolveFlagProof(fileName, dto.FlagProof), ResolveEvidenceRules(fileName, dto.Evidence));
+    }
+
+    private static string? ResolveRelease(string fileName, object? raw)
+    {
+        switch (raw)
+        {
+            case null:
+                return null;
+            case string s:
+                return string.IsNullOrWhiteSpace(s) ? null : s.Trim();
+            default:
+                // A mapping or sequence — YamlDotNet hands those back as Dictionary/List. The
+                // label is a short grouping tag, not structured data.
+                throw new CaseFileException(fileName, "field 'release' must be a short string, not a list or mapping");
+        }
     }
 
     private static EvidenceRules ResolveEvidenceRules(string fileName, EvidenceDto? dto)

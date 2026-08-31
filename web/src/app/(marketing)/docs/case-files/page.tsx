@@ -20,6 +20,7 @@ export default function CaseFilesPage() {
         <CodeBlock
           label="cases/example.yaml"
           code={`id: MY-CASE-2
+release: "4.2"                      # optional — groups this case in the release rollup
 oracle:
   locator: tickets/MY-CASE-2        # where the human-readable expectation lives
 fixture:
@@ -71,6 +72,11 @@ resource_key: 'TeamProject\\Area'    # optional — serializes cases sharing thi
           <li>
             <code className="text-foreground">resource_key</code> — optional; cases sharing a key
             run serially instead of in parallel.
+          </li>
+          <li>
+            <code className="text-foreground">release</code> — optional free-form label (a version,
+            a sprint, an epic key). It has no effect on execution; the hosted platform groups cases
+            by it into a per-release readiness rollup.
           </li>
         </UL>
       </DocSection>

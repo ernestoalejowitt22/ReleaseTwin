@@ -435,7 +435,7 @@ public sealed class CliRunner
                                 evidence = redactor.Redact(seed, flagProofExecution.KnownBadEvidence, flagProofExecution.KnownGoodEvidence, loadedCase.Evidence);
                             }
 
-                            var evidenceAccepted = await ingestClient.UploadFlagProofReportAsync(result, evidence, cancellationToken);
+                            var evidenceAccepted = await ingestClient.UploadFlagProofReportAsync(result, evidence, cancellationToken, testCase.Release);
                             if (evidence is not null && !evidenceAccepted)
                             {
                                 output.WriteLine($"WARN evidence not accepted for {result.CaseId} (report uploaded; check your plan tier)");
@@ -473,7 +473,7 @@ public sealed class CliRunner
                             ? null
                             : redactor.Redact(execution.Evidence, null, null, loadedCase.Evidence);
 
-                        var evidenceAccepted = await ingestClient.UploadCaseReportAsync(report, evidence, cancellationToken);
+                        var evidenceAccepted = await ingestClient.UploadCaseReportAsync(report, evidence, cancellationToken, testCase.Release);
                         if (evidence is not null && !evidenceAccepted)
                         {
                             output.WriteLine($"WARN evidence not accepted for {report.CaseId} (report uploaded; check your plan tier)");

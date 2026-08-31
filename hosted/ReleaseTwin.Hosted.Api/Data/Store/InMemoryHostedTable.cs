@@ -48,6 +48,17 @@ public sealed class InMemoryHostedTable : IHostedTable
         return Task.FromResult<IReadOnlyList<Dictionary<string, AttributeValue>>>(ordered.Select(kv => Clone(kv.Value)).ToList());
     }
 
+    public Task<IReadOnlyList<Dictionary<string, AttributeValue>>> QueryRangeAsync(string pk, string skFrom, string skTo, bool scanIndexForward = true, CancellationToken cancellationToken = default)
+    {
+        var matches = _items
+            .Where(kv => kv.Key.Pk == pk
+                && string.CompareOrdinal(kv.Key.Sk, skFrom) >= 0
+                && string.CompareOrdinal(kv.Key.Sk, skTo) <= 0)
+            .OrderBy(kv => kv.Key.Sk, StringComparer.Ordinal);
+        var ordered = scanIndexForward ? matches : matches.Reverse();
+        return Task.FromResult<IReadOnlyList<Dictionary<string, AttributeValue>>>(ordered.Select(kv => Clone(kv.Value)).ToList());
+    }
+
     public Task<IReadOnlyList<Dictionary<string, AttributeValue>>> QueryGsiAsync(string indexName, string gsiPk, CancellationToken cancellationToken = default)
     {
         var pkAttr = indexName == "GSI1" ? "GSI1PK" : "GSI2PK";

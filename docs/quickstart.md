@@ -38,7 +38,16 @@ JSON — it needs no credentials, so this works on the first try.
 ## 3. Point it at your own API
 
 Open `cases/starter.yaml` and change the `http.request` URL and the `http.assertJsonPath`
-lines. Real URLs and tokens go in as `${ENV_VAR}` — resolved at run time, never committed:
+lines. Real URLs and tokens go in as `${ENV_VAR}` — resolved at run time, never committed.
+
+Optionally add a `release:` label near the top of the file — a free-form string (a version, a
+sprint, an epic key) that the hosted platform groups cases by into a per-release readiness
+rollup. It has no effect on execution:
+
+```yaml
+id: starter
+release: "4.2"
+```
 
 ```yaml
 pipeline:

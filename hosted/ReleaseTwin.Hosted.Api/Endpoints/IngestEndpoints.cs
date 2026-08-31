@@ -52,6 +52,11 @@ public static class IngestEndpoints
                 return Results.StatusCode(StatusCodes.Status413PayloadTooLarge);
             }
 
+            if (!TryNormalizeRelease(request.Release, out var caseRelease))
+            {
+                return Results.BadRequest("The 'release' label is too long.");
+            }
+
             var projectId = GetProjectId(user);
             var organizationId = GetOrganizationId(user);
             var entity = new UploadedCaseReport
@@ -64,6 +69,7 @@ public static class IngestEndpoints
                 Passed = request.Passed,
                 Classification = request.Classification,
                 FailureDetail = request.FailureDetail,
+                Release = caseRelease,
                 CleanupStatus = request.CleanupStatus,
                 DurationMs = request.DurationMs,
                 UploadedAt = DateTimeOffset.UtcNow,
@@ -100,6 +106,11 @@ public static class IngestEndpoints
                 return Results.StatusCode(StatusCodes.Status413PayloadTooLarge);
             }
 
+            if (!TryNormalizeRelease(request.Release, out var flagProofRelease))
+            {
+                return Results.BadRequest("The 'release' label is too long.");
+            }
+
             var projectId = GetProjectId(user);
             var organizationId = GetOrganizationId(user);
             var entity = new UploadedFlagProofReport
@@ -112,6 +123,7 @@ public static class IngestEndpoints
                 Outcome = request.Outcome,
                 KnownBadLegPassed = request.KnownBadLegPassed,
                 KnownGoodLegPassed = request.KnownGoodLegPassed,
+                Release = flagProofRelease,
                 UploadedAt = DateTimeOffset.UtcNow,
             };
 
@@ -174,6 +186,15 @@ public static class IngestEndpoints
         {
             return (null, Array.Empty<UploadedScreenshot>(), Results.BadRequest("Request body is not valid JSON."));
         }
+    }
+
+    /// <summary>release-readiness-rollup: trims the label, treats blank as absent, and caps length (design.md D-E) — the label is an opaque grouping id, not free text.</summary>
+    private const int MaxReleaseLength = 200;
+
+    private static bool TryNormalizeRelease(string? raw, out string? normalized)
+    {
+        normalized = string.IsNullOrWhiteSpace(raw) ? null : raw.Trim();
+        return normalized is null || normalized.Length <= MaxReleaseLength;
     }
 
     private static Guid GetProjectId(ClaimsPrincipal user)

@@ -13,6 +13,9 @@ public sealed class UploadedCaseReport
     public bool Passed { get; set; }
     public string? Classification { get; set; }
     public string? FailureDetail { get; set; }
+
+    /// <summary>release-readiness-rollup: the uploaded case's optional free-form <c>release</c> label, stored verbatim. Null for a report uploaded without one.</summary>
+    public string? Release { get; set; }
     public required string CleanupStatus { get; set; }
     public long DurationMs { get; set; }
     public DateTimeOffset UploadedAt { get; set; }
