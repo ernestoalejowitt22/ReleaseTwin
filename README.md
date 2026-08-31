@@ -4,6 +4,8 @@ Release-proof testing for integration-heavy, feature-flagged systems: evidence-l
 
 Working name; provisional brand is **Validuo**. See `docs/installation-model.md` for the target deployment model.
 
+**New here?** [docs/quickstart.md](docs/quickstart.md) — test your first API in 10 minutes with `docker run … init`, no account or clone.
+
 ## What exists today
 
 - **`ReleaseTwin.Core`** — the execution kernel: ordered pipelines, fixture integrity, prerequisites (three-state: satisfied/not-satisfied/inconclusive), cleanup, retry/timeout, resource-key serialization, failure classification, and flag proof.
