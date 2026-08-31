@@ -43,8 +43,10 @@ public class DashboardServiceTests
 
         var view = await f.Dashboard.GetDashboardViewAsync(orgAUser.OrganizationId, null);
 
-        Assert.Single(view.Projects);
-        Assert.Equal(projectA.Id, view.Projects[0].Id);
+        // onboarding-activation: the virtual sample project is also listed until the first real run.
+        var realProjects = view.Projects.Where(p => !p.IsExample).ToList();
+        Assert.Single(realProjects);
+        Assert.Equal(projectA.Id, realProjects[0].Id);
     }
 
     [Fact]

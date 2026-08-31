@@ -61,14 +61,14 @@
 
 ## 7. Onboarding activation (spec: onboarding-activation, design D8)
 
-- [ ] 7.1 Add `hasIngestedRealRun` boolean to `Organization`; set it (idempotent) on first successful ingest
-- [ ] 7.2 Static sample-project fixture baked into the API (run history with ≥1 pass + ≥1 fail, one flag-proof result, one evidence drill-down) under a reserved project id
-- [ ] 7.3 `DashboardService`/`DashboardEndpoints`: when `hasIngestedRealRun == false`, include the virtual sample project (flagged `isExample: true`); exclude it once true
-- [ ] 7.4 Reject token issuance / ingest / delete / mutation against the reserved sample project id
-- [ ] 7.5 Ensure the sample project is excluded from the plan project-count limit
-- [ ] 7.6 Guided first-run panel data on the dashboard payload: ordered steps (create project → generate token → run CLI), per-step completion state, and the CLI command string with the hosted API URL and a token placeholder
-- [ ] 7.7 `web/` dashboard empty-state: render the sample project marked as an example + the guided panel; both disappear when `hasIngestedRealRun` flips
-- [ ] 7.8 Tests: sample shown then retired after first ingest, sample not counted toward quota, sample read-only, panel next-step logic
+- [x] 7.1 `Organization.HasIngestedRealRun` (legacy rows read false). `IOrganizationRepository.MarkIngestedRealRunAsync` — read-check-write, a no-op once set. Called from both ingest handlers after persist.
+- [x] 7.2 `Services/SampleProject.cs` — fixed well-known ids, `Name`, 2 canned case reports (1 pass "ORD-CHECKOUT-1", 1 fail "ORD-REFUND-7"), 1 flag-proof result, and a canned evidence drill-down (JSON envelope matching the real endpoint) for the failing case. Never persisted.
+- [x] 7.3 `DashboardService`: when `!HasIngestedRealRun`, `SampleProject.Summary` (`IsExample: true`, `ReadOnly: true`) is appended to `Projects`; selecting it (or the default landing with no real project) returns its canned run history. Gone the moment `HasIngestedRealRun` flips. `DashboardEndpoints` evidence route serves `SampleProject.EvidenceFor` for a sample report id.
+- [x] 7.4 Automatic — the sample id is never a real `Project`, so every `projects.GetAsync` / `ExistsInOrganizationAsync` ownership check fails closed (token issue → 403, delete/connection/secrets/creds → 403, ingest can't target it: no token can be issued). Tested explicitly for token issuance.
+- [x] 7.5 Automatic — `_projects.ListByOrganizationAsync` never returns the sample, so `CreateProjectAsync`'s count check never counts it. Tested: a Free org showing the sample still creates its 1st real project, and the 2nd is rejected.
+- [x] 7.6 `GuidedSetupView(HasProject, HasToken, ApiUrl, CliCommand)` on `DashboardView.GuidedSetup` (null after activation). `HasProject`/`HasToken` reflect real state; `CliCommand` is the `docker run` line with `RELEASETWIN_API_URL` (from `Api:PublicUrl` config, placeholder if unset) and a `<YOUR_TOKEN>` placeholder. `terraform` `api_public_url` var added (two-pass, like the GitHub OAuth vars).
+- [x] 7.7 `web/src/app/dashboard/page.tsx` — `GuidedSetupPanel` (ordered steps with done-state + copyable command) rendered when `view.guidedSetup`; "Example" badge on `project.isExample`; for the sample selection the SetupSection / evidence-config / Journeys / tokens / ReleasesSection blocks are skipped (only run history + flag-proof tables + a note render), and the per-project fetches that would 403 are guarded.
+- [x] 7.8 Tests (+8, suite 332): `SampleProjectServiceTests` (6 — shown+panel, panel reflects progress, retired after ingest incl. direct-select, `MarkIngested` idempotent, quota not consumed), `SampleProjectHttpTests` (3 — token issue 403, canned evidence drill-down + non-canned 403, first real ingest clears the sample + guided panel from the payload). web build + eslint clean.
 
 ## 8. Web UI (spec: org-membership, all)
 

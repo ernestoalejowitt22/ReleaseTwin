@@ -46,6 +46,18 @@ public sealed class OrganizationRepository : IOrganizationRepository
         return items.Select(ToOrganization).ToList();
     }
 
+    public async Task MarkIngestedRealRunAsync(Guid organizationId, CancellationToken cancellationToken = default)
+    {
+        var org = await GetAsync(organizationId, cancellationToken);
+        if (org is null || org.HasIngestedRealRun)
+        {
+            return;
+        }
+
+        org.HasIngestedRealRun = true;
+        await _table.PutItemAsync(ToItem(org), cancellationToken: cancellationToken);
+    }
+
     public Task DeleteAsync(Guid organizationId, CancellationToken cancellationToken = default) =>
         _table.DeleteItemAsync(Keys.Org(organizationId), Keys.Org(organizationId), cancellationToken);
 
@@ -73,6 +85,10 @@ public sealed class OrganizationRepository : IOrganizationRepository
         item.SetIfNotNull("BillingCadence", Attrs.SOrNull(org.BillingCadence?.ToString()));
         item.SetIfNotNull("PolarCustomerId", Attrs.SOrNull(org.PolarCustomerId));
         item.SetIfNotNull("PolarSubscriptionId", Attrs.SOrNull(org.PolarSubscriptionId));
+        if (org.HasIngestedRealRun)
+        {
+            item["HasIngestedRealRun"] = Attrs.Bool(true);
+        }
         return item;
     }
 
@@ -98,6 +114,7 @@ public sealed class OrganizationRepository : IOrganizationRepository
                 : null,
             PolarCustomerId = item.GetSOrNull("PolarCustomerId"),
             PolarSubscriptionId = item.GetSOrNull("PolarSubscriptionId"),
+            HasIngestedRealRun = item.TryGetValue("HasIngestedRealRun", out var ingested) && ingested.BOOL == true,
         };
     }
 

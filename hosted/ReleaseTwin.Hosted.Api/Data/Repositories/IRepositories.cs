@@ -15,6 +15,11 @@ public interface IOrganizationRepository
     /// <summary>billing: every organization, for the nightly reconciliation job. Full-table Scan — never a per-request path.</summary>
     Task<IReadOnlyList<Organization>> ListAllAsync(CancellationToken cancellationToken = default);
 
+    /// <summary>onboarding-activation: idempotently marks the org as having ingested a real run. A no-op
+    /// (no write) once it is already set, so the extra read is the only cost on the ingest path after
+    /// the first run.</summary>
+    Task MarkIngestedRealRunAsync(Guid organizationId, CancellationToken cancellationToken = default);
+
     /// <summary>org-membership: removes the organization item. Used only by the invite-accept reconcile
     /// path to clean up an auto-created org that is provably empty (no projects, sole member).</summary>
     Task DeleteAsync(Guid organizationId, CancellationToken cancellationToken = default);

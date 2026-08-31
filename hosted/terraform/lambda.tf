@@ -149,6 +149,12 @@ resource "aws_lambda_function" "hosted_api" {
       Notifications__QueueUrl = aws_sqs_queue.run_notifications.id
       Web__BaseUrl            = var.web_base_url
 
+      # onboarding-activation: the hosted API's own public URL, shown in the guided first-run panel's
+      # CLI command. Can't reference aws_lambda_function_url here (circular) — supplied by
+      # deploy-hosted.yml on the second apply, same two-pass pattern as the GitHub OAuth vars. Empty
+      # ⇒ the panel shows a "https://YOUR-HOSTED-API" placeholder.
+      Api__PublicUrl = var.api_public_url
+
       # billing: Polar (Merchant of Record). Empty ApiToken/WebhookSecret/product ids ⇒
       # PolarOptions.IsConfigured is false and every billing surface stays closed (the webhook
       # returns 503, the upgrade button errors gracefully). Secrets come from repo *secrets*,
@@ -211,6 +217,12 @@ variable "github_client_secret" {
 
 variable "github_callback_url" {
   description = "GitHub OAuth App callback URL, pointed at the deployed Vercel URL once known."
+  type        = string
+  default     = ""
+}
+
+variable "api_public_url" {
+  description = "onboarding-activation: the hosted API's own public URL (the Lambda function URL), shown in the guided first-run panel's CLI command. Supplied on the second apply once the function URL is known — empty is safe (the panel shows a placeholder)."
   type        = string
   default     = ""
 }

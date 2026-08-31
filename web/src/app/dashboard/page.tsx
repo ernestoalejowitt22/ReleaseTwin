@@ -26,6 +26,7 @@ import type {
   AdapterCredentialSummary,
   DashboardView,
   EvidenceConfigView,
+  GuidedSetupView,
   ProjectSecretSummary,
 } from "@/lib/types";
 import { FlagSeamSmoke } from "./flag-seam-smoke";
@@ -61,14 +62,18 @@ export default async function DashboardPage({
     `/api/dashboard${projectId ? `?projectId=${projectId}` : ""}`,
   );
   const selectedProject = view.selectedProject;
-  const adapterCredentials = selectedProject
-    ? await api.get<AdapterCredentialSummary[]>(`/api/adapter-credentials/${selectedProject.id}`)
+  // onboarding-activation: the seeded sample project is read-only and has no real config/tokens —
+  // skip the per-project fetches that would 403 for it.
+  const isExample = selectedProject?.isExample ?? false;
+  const realProject = selectedProject && !isExample ? selectedProject : null;
+  const adapterCredentials = realProject
+    ? await api.get<AdapterCredentialSummary[]>(`/api/adapter-credentials/${realProject.id}`)
     : [];
-  const projectSecrets = selectedProject
-    ? await api.get<ProjectSecretSummary[]>(`/api/project-secrets/${selectedProject.id}`)
+  const projectSecrets = realProject
+    ? await api.get<ProjectSecretSummary[]>(`/api/project-secrets/${realProject.id}`)
     : [];
-  const evidenceConfig = selectedProject
-    ? await api.get<EvidenceConfigView>(`/api/projects/${selectedProject.id}/evidence-config`)
+  const evidenceConfig = realProject
+    ? await api.get<EvidenceConfigView>(`/api/projects/${realProject.id}/evidence-config`)
     : null;
 
   return (
@@ -202,7 +207,12 @@ export default async function DashboardPage({
                 >
                   {project.name}
                 </Link>
-                {project.readOnly && (
+                {project.isExample && (
+                  <Badge variant="outline" className="text-xs">
+                    Example
+                  </Badge>
+                )}
+                {project.readOnly && !project.isExample && (
                   <Badge variant="secondary" className="text-xs">
                     Read-only
                   </Badge>
@@ -217,6 +227,16 @@ export default async function DashboardPage({
         </CardContent>
       </Card>
 
+      {view.guidedSetup && <GuidedSetupPanel setup={view.guidedSetup} />}
+
+      {isExample && selectedProject && (
+        <div className="rounded-md border border-dashed p-3 text-sm text-muted-foreground">
+          <span className="font-medium text-foreground">{selectedProject.name}</span> is example data —
+          browse its run history and open the evidence drill-down to see what your own runs will look
+          like. It disappears once your first real run lands.
+        </div>
+      )}
+
       {selectedProject && (
         <>
           {view.isSelectedProjectStale && (
@@ -229,21 +249,24 @@ export default async function DashboardPage({
             </div>
           )}
 
-          <SetupSection
-            projectId={selectedProject.id}
-            projectName={selectedProject.name}
-            connection={view.connection}
-            adapterCredentials={adapterCredentials}
-            projectSecrets={projectSecrets}
-            isPaidTier={view.entitlements.projectSecrets}
-            disconnectConnection={disconnectConnection.bind(null, selectedProject.id)}
-            startGitHubConnection={startGitHubConnection.bind(null, selectedProject.id)}
-          />
+          {!isExample && (
+            <SetupSection
+              projectId={selectedProject.id}
+              projectName={selectedProject.name}
+              connection={view.connection}
+              adapterCredentials={adapterCredentials}
+              projectSecrets={projectSecrets}
+              isPaidTier={view.entitlements.projectSecrets}
+              disconnectConnection={disconnectConnection.bind(null, selectedProject.id)}
+              startGitHubConnection={startGitHubConnection.bind(null, selectedProject.id)}
+            />
+          )}
 
-          {evidenceConfig && (
+          {!isExample && evidenceConfig && (
             <EvidenceSettingsSection projectId={selectedProject.id} config={evidenceConfig} />
           )}
 
+          {!isExample && (
           <div className="flex flex-col gap-3">
             <h2 className="flex items-center gap-1.5 text-sm font-semibold tracking-wide text-muted-foreground uppercase">
               <PlayCircle className="size-4" />
@@ -309,6 +332,7 @@ export default async function DashboardPage({
               </CardContent>
             </Card>
           </div>
+          )}
 
           <div className="flex flex-col gap-3">
             <h2 className="flex items-center gap-1.5 text-sm font-semibold tracking-wide text-muted-foreground uppercase">
@@ -316,12 +340,14 @@ export default async function DashboardPage({
               Results
             </h2>
 
-            <ReleasesSection
-              projectId={selectedProject.id}
-              entitled={view.entitlements.releaseRollup}
-              selectedRelease={release}
-              releaseWindow={releaseWindow}
-            />
+            {!isExample && (
+              <ReleasesSection
+                projectId={selectedProject.id}
+                entitled={view.entitlements.releaseRollup}
+                selectedRelease={release}
+                releaseWindow={releaseWindow}
+              />
+            )}
 
             <Card>
               <CardHeader>
@@ -497,4 +523,51 @@ function EvidenceCell({
         ? "Upgrade to store"
         : "—";
   return <span className="text-sm text-muted-foreground">{label}</span>;
+}
+
+/**
+ * onboarding-activation (design D8): the guided first-run panel. Shown only until the org's first
+ * real run lands (the server omits `guidedSetup` after that).
+ */
+function GuidedSetupPanel({ setup }: { setup: GuidedSetupView }) {
+  const steps = [
+    { label: "Create a project", done: setup.hasProject },
+    { label: "Generate an API token", done: setup.hasToken },
+    { label: "Run the CLI against your API", done: false },
+  ];
+  return (
+    <Card className="border-primary/40">
+      <CardHeader>
+        <CardTitle>Get your first run onto the dashboard</CardTitle>
+        <CardDescription>
+          Three steps. The example project below shows what you&apos;ll see once a run lands.
+        </CardDescription>
+      </CardHeader>
+      <CardContent className="flex flex-col gap-4">
+        <ol className="flex flex-col gap-1.5">
+          {steps.map((step, i) => (
+            <li key={step.label} className="flex items-center gap-2 text-sm">
+              <span
+                className={
+                  step.done
+                    ? "flex size-5 items-center justify-center rounded-full bg-primary text-xs text-primary-foreground"
+                    : "flex size-5 items-center justify-center rounded-full border text-xs text-muted-foreground"
+                }
+              >
+                {step.done ? "✓" : i + 1}
+              </span>
+              <span className={step.done ? "text-muted-foreground line-through" : ""}>{step.label}</span>
+            </li>
+          ))}
+        </ol>
+        <div>
+          <p className="mb-1 text-xs font-medium text-muted-foreground uppercase">Run command</p>
+          <pre className="overflow-x-auto rounded bg-muted p-3 text-xs">{setup.cliCommand}</pre>
+          <p className="mt-1 text-xs text-muted-foreground">
+            Replace <code>&lt;YOUR_TOKEN&gt;</code> with a token from the project above.
+          </p>
+        </div>
+      </CardContent>
+    </Card>
+  );
 }

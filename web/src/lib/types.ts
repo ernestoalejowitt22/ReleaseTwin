@@ -3,6 +3,8 @@ export interface DashboardProjectSummary {
   name: string;
   /** billing: true when the org is over its current tier's project limit and this project is one of the excess (read-only) ones — still listed with its evidence, but ingest is blocked. */
   readOnly?: boolean;
+  /** onboarding-activation: true for the virtual seeded sample project shown until the org's first real run. Not persisted, not counted toward the plan limit, rejects every mutation. */
+  isExample?: boolean;
 }
 
 /** billing: mirrors the C# `BillingStatus` enum — a second axis alongside the tier. */
@@ -158,6 +160,16 @@ export interface DashboardView {
   hasReadOnlyProjects: boolean;
   /** billing: the customer-facing upgrade / portal actions are live (Polar configured AND switched on after a verified sandbox checkout). */
   billingEnabled: boolean;
+  /** onboarding-activation: the guided first-run panel, present only until the org's first real run. */
+  guidedSetup: GuidedSetupView | null;
+}
+
+/** onboarding-activation: mirrors the C# `GuidedSetupView` record. */
+export interface GuidedSetupView {
+  hasProject: boolean;
+  hasToken: boolean;
+  apiUrl: string;
+  cliCommand: string;
 }
 
 /** trend-analytics: mirrors the C# `TrendBucket`. Rates are null (a gap) when their denominator is zero. */

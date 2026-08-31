@@ -32,7 +32,7 @@ public static class IngestEndpoints
         var group = app.MapGroup("/api/ingest")
             .RequireAuthorization(policy => policy.RequireAuthenticatedUser().AddAuthenticationSchemes(ApiTokenDefaults.Scheme));
 
-        group.MapPost("/case-report", async (HttpRequest http, ICaseReportRepository reports, IUsageCounterRepository usage, EvidenceIngestService evidenceIngest, ProjectWritabilityService writability, INotificationQueue notifications, ReleaseTwin.Hosted.Api.Flags.IFlagService flags, ILoggerFactory loggerFactory, ClaimsPrincipal user) =>
+        group.MapPost("/case-report", async (HttpRequest http, ICaseReportRepository reports, IUsageCounterRepository usage, EvidenceIngestService evidenceIngest, ProjectWritabilityService writability, IOrganizationRepository organizations, INotificationQueue notifications, ReleaseTwin.Hosted.Api.Flags.IFlagService flags, ILoggerFactory loggerFactory, ClaimsPrincipal user) =>
         {
             var (request, screenshots, bindError) = await ReadAsync<IngestCaseReportRequest>(http);
             if (bindError is not null)
@@ -83,6 +83,7 @@ public static class IngestEndpoints
 
             await reports.AddAsync(entity);
             await usage.IncrementAsync(organizationId, Keys.CurrentUtcPeriod(), isFlagProof: false);
+            await organizations.MarkIngestedRealRunAsync(organizationId);
 
             // run-notifications: a failed case fires a notification. Best-effort — never blocks or
             // fails ingest (design D6). The dispatcher re-checks the flag and the org entitlement.
@@ -102,7 +103,7 @@ public static class IngestEndpoints
             return Results.Created($"/api/reports/case/{entity.Id}", new { entity.Id, evidenceAccepted = accepted });
         });
 
-        group.MapPost("/flag-proof-report", async (HttpRequest http, IFlagProofReportRepository reports, IUsageCounterRepository usage, EvidenceIngestService evidenceIngest, ProjectWritabilityService writability, INotificationQueue notifications, ReleaseTwin.Hosted.Api.Flags.IFlagService flags, ILoggerFactory loggerFactory, ClaimsPrincipal user) =>
+        group.MapPost("/flag-proof-report", async (HttpRequest http, IFlagProofReportRepository reports, IUsageCounterRepository usage, EvidenceIngestService evidenceIngest, ProjectWritabilityService writability, IOrganizationRepository organizations, INotificationQueue notifications, ReleaseTwin.Hosted.Api.Flags.IFlagService flags, ILoggerFactory loggerFactory, ClaimsPrincipal user) =>
         {
             var (request, screenshots, bindError) = await ReadAsync<IngestFlagProofReportRequest>(http);
             if (bindError is not null)
@@ -150,6 +151,7 @@ public static class IngestEndpoints
 
             await reports.AddAsync(entity);
             await usage.IncrementAsync(organizationId, Keys.CurrentUtcPeriod(), isFlagProof: true);
+            await organizations.MarkIngestedRealRunAsync(organizationId);
 
             // run-notifications: a flag proof that did not cleanly discriminate (failed or ineligible)
             // fires a notification — the same signal a green-in-one-environment build would hide.
