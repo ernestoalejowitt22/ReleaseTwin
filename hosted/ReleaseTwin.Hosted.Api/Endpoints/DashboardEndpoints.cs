@@ -69,11 +69,7 @@ public static class DashboardEndpoints
         // clears. Enterprise stays operator-set and unreachable here.
         group.MapPost("/upgrade", async (UpgradeRequest? request, ReleaseTwin.Hosted.Api.Billing.IPolarClient polar, ReleaseTwin.Hosted.Api.Billing.PolarOptions polarOptions, CurrentOrganizationAccessor currentOrg) =>
         {
-            var orgId = currentOrg.OrganizationId;
-            if (orgId is null)
-            {
-                return Results.Forbid();
-            }
+            var orgId = (Guid?)currentOrg.Require(OrgCapability.ManageBilling);
 
             if (!polarOptions.IsUpgradeEnabled)
             {
@@ -99,11 +95,7 @@ public static class DashboardEndpoints
         // billing: redirect-to-portal. 400 when the org has never checked out (no customer id).
         group.MapPost("/billing-portal", async (IOrganizationRepository organizations, ReleaseTwin.Hosted.Api.Billing.IPolarClient polar, ReleaseTwin.Hosted.Api.Billing.PolarOptions polarOptions, CurrentOrganizationAccessor currentOrg) =>
         {
-            var orgId = currentOrg.OrganizationId;
-            if (orgId is null)
-            {
-                return Results.Forbid();
-            }
+            var orgId = (Guid?)currentOrg.Require(OrgCapability.ManageBilling);
 
             var org = await organizations.GetAsync(orgId.Value);
             if (org?.PolarCustomerId is not { Length: > 0 } customerId)
@@ -141,8 +133,8 @@ public static class DashboardEndpoints
 
         group.MapPost("/projects/{projectId:guid}/tokens", async (Guid projectId, ProvisioningService provisioning, CurrentOrganizationAccessor currentOrg, IProjectRepository projects) =>
         {
-            var orgId = currentOrg.OrganizationId;
-            if (orgId is null || !await projects.ExistsInOrganizationAsync(orgId.Value, projectId))
+            var orgId = (Guid?)currentOrg.Require(OrgCapability.ManageTokens);
+            if (!await projects.ExistsInOrganizationAsync(orgId.Value, projectId))
             {
                 return Results.Forbid();
             }
@@ -153,8 +145,8 @@ public static class DashboardEndpoints
 
         group.MapDelete("/projects/{projectId:guid}/tokens/{tokenId:guid}", async (Guid projectId, Guid tokenId, ProvisioningService provisioning, CurrentOrganizationAccessor currentOrg, IProjectRepository projects) =>
         {
-            var orgId = currentOrg.OrganizationId;
-            if (orgId is null || !await projects.ExistsInOrganizationAsync(orgId.Value, projectId))
+            var orgId = (Guid?)currentOrg.Require(OrgCapability.ManageTokens);
+            if (!await projects.ExistsInOrganizationAsync(orgId.Value, projectId))
             {
                 return Results.Forbid();
             }

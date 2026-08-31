@@ -14,6 +14,14 @@ public interface IOrganizationRepository
 
     /// <summary>billing: every organization, for the nightly reconciliation job. Full-table Scan — never a per-request path.</summary>
     Task<IReadOnlyList<Organization>> ListAllAsync(CancellationToken cancellationToken = default);
+
+    /// <summary>org-membership: removes the organization item. Used only by the invite-accept reconcile
+    /// path to clean up an auto-created org that is provably empty (no projects, sole member).</summary>
+    Task DeleteAsync(Guid organizationId, CancellationToken cancellationToken = default);
+
+    /// <summary>org-membership: creates an additional organization and its founding admin membership
+    /// atomically (the creating user already exists).</summary>
+    Task CreateWithFounderAsync(Organization organization, Membership founder, CancellationToken cancellationToken = default);
 }
 
 public interface IUserRepository
@@ -22,6 +30,48 @@ public interface IUserRepository
 
     /// <summary>Creates the organization and user together, atomically. Throws <see cref="Amazon.DynamoDBv2.Model.ConditionalCheckFailedException"/> if a user with this ClerkUserId was created concurrently — callers should re-read via <see cref="GetByClerkUserIdAsync"/> instead of retrying the create.</summary>
     Task CreateWithOrganizationAsync(Organization organization, AppUser user, CancellationToken cancellationToken = default);
+
+    /// <summary>org-membership: creates the organization, the user, and the user's founding admin
+    /// <see cref="Membership"/> together, atomically. Same concurrency contract as
+    /// <see cref="CreateWithOrganizationAsync"/>.</summary>
+    Task CreateWithOrganizationAsync(Organization organization, AppUser user, Membership foundingMembership, CancellationToken cancellationToken = default);
+
+    /// <summary>org-membership: persists a user with no new organization — used when signup follows an
+    /// accepted invitation. Same concurrency contract as <see cref="CreateWithOrganizationAsync"/>.</summary>
+    Task CreateAsync(AppUser user, CancellationToken cancellationToken = default);
+}
+
+/// <summary>org-membership: the many-to-many link between users and organizations. Membership items live
+/// under the org partition; the reverse "orgs for a user" lookup rides the overloaded GSI1.</summary>
+public interface IMembershipRepository
+{
+    Task<IReadOnlyList<Membership>> ListMembersByOrgAsync(Guid organizationId, CancellationToken cancellationToken = default);
+    Task<IReadOnlyList<Membership>> ListOrgsByUserAsync(Guid userId, CancellationToken cancellationToken = default);
+    Task<Membership?> GetAsync(Guid organizationId, Guid userId, CancellationToken cancellationToken = default);
+    Task PutAsync(Membership membership, CancellationToken cancellationToken = default);
+    Task DeleteAsync(Guid organizationId, Guid userId, CancellationToken cancellationToken = default);
+}
+
+/// <summary>org-membership: outstanding invitations to join an organization. Single-use consumption is
+/// atomic — see <see cref="ClaimAsync"/>.</summary>
+public interface IInvitationRepository
+{
+    Task PutAsync(Invitation invitation, CancellationToken cancellationToken = default);
+
+    /// <summary>Locates the invitation from the token alone (the token encodes the org id as its prefix).</summary>
+    Task<Invitation?> GetByTokenAsync(string token, CancellationToken cancellationToken = default);
+    Task<IReadOnlyList<Invitation>> ListByOrgAsync(Guid organizationId, CancellationToken cancellationToken = default);
+    Task DeleteAsync(Guid organizationId, string token, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Atomically consumes <paramref name="invitation"/> and creates <paramref name="membership"/> in one
+    /// all-or-nothing write: a claim marker guarantees the invite is used at most once, and the membership
+    /// write guards against a duplicate join. Throws
+    /// <see cref="Amazon.DynamoDBv2.Model.ConditionalCheckFailedException"/> if the invite was already
+    /// claimed or the user is already a member. On success the invitation is also flipped to
+    /// <see cref="InvitationState.Accepted"/> for listings.
+    /// </summary>
+    Task ClaimAsync(Invitation invitation, Membership membership, CancellationToken cancellationToken = default);
 }
 
 public interface IProjectRepository

@@ -24,6 +24,21 @@ public sealed class UserRepository : IUserRepository
         ], cancellationToken);
     }
 
+    public async Task CreateWithOrganizationAsync(Organization organization, AppUser user, Membership foundingMembership, CancellationToken cancellationToken = default)
+    {
+        await _table.TransactWritePutAsync(
+        [
+            (OrganizationRepository.ToItem(organization), null),
+            (ToItem(user), "attribute_not_exists(PK)"),
+            (MembershipRepository.ToItem(foundingMembership), null),
+        ], cancellationToken);
+    }
+
+    public async Task CreateAsync(AppUser user, CancellationToken cancellationToken = default)
+    {
+        await _table.PutItemAsync(ToItem(user), "attribute_not_exists(PK)", cancellationToken);
+    }
+
     private static Dictionary<string, Amazon.DynamoDBv2.Model.AttributeValue> ToItem(AppUser user) => new()
     {
         ["PK"] = Attrs.S(Keys.User(user.ClerkUserId)),
