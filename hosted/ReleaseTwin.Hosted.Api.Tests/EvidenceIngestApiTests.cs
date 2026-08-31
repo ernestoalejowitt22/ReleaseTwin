@@ -21,7 +21,7 @@ public class EvidenceIngestApiTests : IClassFixture<CustomWebApplicationFactory>
         var project = await provisioning.CreateProjectAsync(user.OrganizationId, "P");
         if (paid)
         {
-            await provisioning.UpgradeOrganizationAsync(user.OrganizationId);
+            await provisioning.UpgradeToTeamAsync(user.OrganizationId);
         }
 
         var (_, raw) = await provisioning.IssueTokenAsync(project.Id, user.OrganizationId);

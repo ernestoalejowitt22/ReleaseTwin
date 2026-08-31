@@ -22,6 +22,13 @@ public sealed class IngestCaseReportRequest
     public required long DurationMs { get; init; }
 
     /// <summary>
+    /// release-readiness-rollup: the uploaded case's optional free-form <c>release</c> label, carried
+    /// unchanged from the case file. A short opaque grouping identifier — same "no sensitive content"
+    /// guarantee as <see cref="CaseId"/>. Absent ⇒ stored exactly as before this field existed.
+    /// </summary>
+    public string? Release { get; init; }
+
+    /// <summary>
     /// evidence-capture: an optional, already-redacted evidence document. Opaque here — the ingest
     /// API never inspects it for sensitive content (redaction is the caller's completed
     /// responsibility, done in their CLI). Absent ⇒ the request is exactly the pre-evidence shape.
@@ -38,6 +45,9 @@ public sealed class IngestFlagProofReportRequest
     public required string Outcome { get; init; }
     public bool? KnownBadLegPassed { get; init; }
     public bool? KnownGoodLegPassed { get; init; }
+
+    /// <summary>release-readiness-rollup: see <see cref="IngestCaseReportRequest.Release"/>.</summary>
+    public string? Release { get; init; }
 
     /// <summary>evidence-capture: see <see cref="IngestCaseReportRequest.Evidence"/>.</summary>
     public JsonElement? Evidence { get; init; }

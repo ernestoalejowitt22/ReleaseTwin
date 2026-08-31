@@ -39,6 +39,27 @@ public sealed class OrganizationRepository : IOrganizationRepository
         Id = item.GetGuid("Id"),
         Name = item.GetS("Name"),
         CreatedAt = item.GetDateTimeOffset("CreatedAt"),
-        PlanTier = item.TryGetValue("PlanTier", out var v) && v.S is not null ? Enum.Parse<PlanTier>(v.S) : PlanTier.Free,
+        PlanTier = ParsePlanTier(item.TryGetValue("PlanTier", out var v) ? v.S : null),
     };
+
+    /// <summary>
+    /// plan-catalog-and-entitlements: the enum went Free/Paid → Free/Team/Enterprise. Any row still
+    /// storing the old "Paid" string is read-repaired to <see cref="PlanTier.Team"/> (and rewritten
+    /// to "Team" on its next <see cref="SetPlanTierAsync"/> / put), so a missed backfill row degrades
+    /// gracefully instead of throwing on <see cref="Enum.Parse{TEnum}(string)"/>.
+    /// </summary>
+    internal static PlanTier ParsePlanTier(string? stored)
+    {
+        if (string.IsNullOrWhiteSpace(stored))
+        {
+            return PlanTier.Free;
+        }
+
+        if (string.Equals(stored, "Paid", StringComparison.OrdinalIgnoreCase))
+        {
+            return PlanTier.Team;
+        }
+
+        return Enum.TryParse<PlanTier>(stored, ignoreCase: true, out var tier) ? tier : PlanTier.Free;
+    }
 }

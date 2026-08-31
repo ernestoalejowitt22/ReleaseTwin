@@ -140,6 +140,9 @@ resource "aws_lambda_function" "hosted_api" {
       GitHubConnection__CallbackUrl  = var.github_callback_url
       # evidence-purge-and-blob-store: presence of this switches the blob store from filesystem to S3.
       Evidence__BlobBucket = aws_s3_bucket.evidence_blobs.id
+      # plan-catalog-and-entitlements: Clerk user ids allowed to call the operator-only admin tier
+      # endpoint (setting an org to Enterprise). Empty ⇒ the admin surface is closed.
+      Admin__OperatorUserIds = var.admin_operator_user_ids
     }
   }
 }
@@ -166,6 +169,12 @@ variable "clerk_domain" {
     condition     = length(var.clerk_domain) > 0
     error_message = "clerk_domain must be set (CLERK_DOMAIN repo variable / -var). It is the JWT issuer the API validates against."
   }
+}
+
+variable "admin_operator_user_ids" {
+  description = "plan-catalog-and-entitlements: comma/space-separated Clerk user ids allowed to call the operator-only admin tier endpoint (PUT /api/admin/organizations/{id}/tier — the code path for granting Enterprise). Empty ⇒ nobody is an operator and the admin surface is closed. Supplied from the ADMIN_OPERATOR_USER_IDS repo variable by deploy-hosted.yml."
+  type        = string
+  default     = ""
 }
 
 variable "github_client_id" {

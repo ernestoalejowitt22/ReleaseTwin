@@ -13,6 +13,9 @@ public sealed class UploadedFlagProofReport
     public required string Outcome { get; set; }
     public bool? KnownBadLegPassed { get; set; }
     public bool? KnownGoodLegPassed { get; set; }
+
+    /// <summary>release-readiness-rollup: the uploaded case's optional free-form <c>release</c> label, stored verbatim.</summary>
+    public string? Release { get; set; }
     public DateTimeOffset UploadedAt { get; set; }
 
     public Guid ProjectId { get; set; }

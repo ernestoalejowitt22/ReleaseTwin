@@ -24,7 +24,7 @@ public class ConnectionFlowTests
         var projects = new ProjectRepository(table);
         var tokens = new ApiTokenRepository(table);
         var connectionRepo = new ConnectionRepository(table);
-        var provisioning = new ProvisioningService(users, organizations, projects, tokens, new TokenService());
+        var provisioning = new ProvisioningService(users, organizations, projects, tokens, new TokenService(), TestEntitlements.Service);
         var connections = new ConnectionService(projects, connectionRepo);
         return new Fixture(provisioning, connections, connectionRepo, users);
     }

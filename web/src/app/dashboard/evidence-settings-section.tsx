@@ -42,7 +42,7 @@ export function EvidenceSettingsSection({
       <CardContent>
         {!config.available ? (
           <p className="text-sm text-muted-foreground">
-            Evidence capture requires the Paid tier. Upgrade your organization to enable it.
+            Evidence capture requires the Team tier. Upgrade your organization to enable it.
           </p>
         ) : (
           <form action={formAction} className="flex flex-col gap-3">

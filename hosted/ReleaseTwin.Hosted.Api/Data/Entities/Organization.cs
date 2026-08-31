@@ -1,10 +1,11 @@
 namespace ReleaseTwin.Hosted.Api.Data.Entities;
 
-/// <summary>plan-tier-gating: one organization has exactly one tier at a time — no history, no concurrent plans — so this is a field, not a separate entity.</summary>
+/// <summary>plan-tier-gating: one organization has exactly one tier at a time — no history, no concurrent plans — so this is a field, not a separate entity. Names match the <c>id</c> values in <c>hosted/plans.json</c> (case-insensitively). The earlier two-tier model's "Paid" maps to <see cref="Team"/> on read (see <see cref="Data.Repositories.OrganizationRepository"/>).</summary>
 public enum PlanTier
 {
     Free,
-    Paid,
+    Team,
+    Enterprise,
 }
 
 public sealed class Organization

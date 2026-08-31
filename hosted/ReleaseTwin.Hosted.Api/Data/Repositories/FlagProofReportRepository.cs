@@ -18,6 +18,13 @@ public sealed class FlagProofReportRepository : IFlagProofReportRepository
         return items.Select(ToReport).ToList();
     }
 
+    public async Task<IReadOnlyList<UploadedFlagProofReport>> ListByProjectInRangeAsync(Guid projectId, DateTimeOffset from, DateTimeOffset to, CancellationToken cancellationToken = default)
+    {
+        var items = await _table.QueryRangeAsync(
+            Keys.Project(projectId), Keys.FlagProofBound(from), Keys.FlagProofBound(to), scanIndexForward: true, cancellationToken: cancellationToken);
+        return items.Select(ToReport).ToList();
+    }
+
     private static Dictionary<string, Amazon.DynamoDBv2.Model.AttributeValue> ToItem(UploadedFlagProofReport report)
     {
         var item = new Dictionary<string, Amazon.DynamoDBv2.Model.AttributeValue>
@@ -35,6 +42,7 @@ public sealed class FlagProofReportRepository : IFlagProofReportRepository
         };
         item.SetIfNotNull("KnownBadLegPassed", report.KnownBadLegPassed is null ? null : Attrs.Bool(report.KnownBadLegPassed.Value));
         item.SetIfNotNull("KnownGoodLegPassed", report.KnownGoodLegPassed is null ? null : Attrs.Bool(report.KnownGoodLegPassed.Value));
+        item.SetIfNotNull("Release", Attrs.SOrNull(report.Release));
         return item;
     }
 
@@ -47,6 +55,7 @@ public sealed class FlagProofReportRepository : IFlagProofReportRepository
         Outcome = item.GetS("Outcome"),
         KnownBadLegPassed = item.TryGetValue("KnownBadLegPassed", out var bad) && bad.NULL != true ? bad.BOOL : null,
         KnownGoodLegPassed = item.TryGetValue("KnownGoodLegPassed", out var good) && good.NULL != true ? good.BOOL : null,
+        Release = item.GetSOrNull("Release"),
         UploadedAt = item.GetDateTimeOffset("UploadedAt"),
         ProjectId = item.GetGuid("ProjectId"),
     };

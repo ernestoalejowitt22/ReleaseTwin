@@ -32,7 +32,7 @@ public class ProjectSecretFetchApiTests : IClassFixture<CustomWebApplicationFact
         var user = await provisioning.GetOrCreateUserAsync(Guid.NewGuid().ToString(), "tester", null);
         // Storing a secret requires the Paid tier (project-secrets spec) — irrelevant to fetching,
         // but the seed has to get past it to have anything stored to fetch in the first place.
-        await provisioning.UpgradeOrganizationAsync(user.OrganizationId);
+        await provisioning.UpgradeToTeamAsync(user.OrganizationId);
         var project = await provisioning.CreateProjectAsync(user.OrganizationId, "Test Project");
         var (_, raw) = await provisioning.IssueTokenAsync(project.Id, project.OrganizationId);
         await secrets.SetAsync(user.OrganizationId, project.Id, name, value, user.Id.ToString(), user.DisplayName);
