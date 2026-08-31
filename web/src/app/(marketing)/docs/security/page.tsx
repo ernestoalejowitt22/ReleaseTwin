@@ -217,8 +217,15 @@ export default function SecurityPage() {
             release.
           </li>
           <li>
-            Your evidence and run history are exportable at any time, in a documented format,
-            with no proprietary lock-in on the data itself.
+            An organization admin can download the full run history and stored evidence at any
+            time from the dashboard, as a single ZIP with a{" "}
+            <a
+              href="https://github.com/ernestoalejowitt22/ReleaseTwin/blob/main/docs/data-export.md"
+              className="underline"
+            >
+              documented format
+            </a>{" "}
+            — no proprietary lock-in on the data itself.
           </li>
           <li>
             If we wind the company down, active hosted licenses convert to perpetual for their

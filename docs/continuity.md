@@ -17,9 +17,10 @@ They need no account and make no network call to any ReleaseTwin service to run 
 flag-proof. A hosted outage, a billing lapse, or the hosted platform disappearing altogether
 does not block a release.
 
-**Your data is portable.** Run history and evidence you have uploaded are exportable at any
-time, in a documented JSON format, with no proprietary transformation you would need us to
-reverse. Evidence documents are stored exactly as your CLI redacted them.
+**Your data is portable.** An organization admin can download the full run history and all
+uploaded evidence at any time from the dashboard — one ZIP, a documented format
+(`docs/data-export.md`), no proprietary transformation you would need us to reverse. Evidence
+documents are stored, and exported, exactly as your CLI redacted them.
 
 **The hosted platform is a control plane, not a runtime.** It holds accounts, tokens, run
 history, and the evidence viewer. Losing it costs you the dashboard and the hosted history — not
@@ -49,7 +50,8 @@ If we make a public decision to cease operating the hosted platform:
 
 ## What this does not cover
 
-- Ordinary paid downtime or incident response — see the status page and SLA terms for that.
+- Ordinary paid downtime or incident response. There is no formal SLA or public status page yet;
+  today we notify affected accounts of incidents by email.
 - A pivot or feature deprecation that is not a wind-down. Normal product change is governed by
   the change/deprecation policy, not this document.
 - Third-party dependencies (your cloud, your CI, your flag provider) — those are yours to manage

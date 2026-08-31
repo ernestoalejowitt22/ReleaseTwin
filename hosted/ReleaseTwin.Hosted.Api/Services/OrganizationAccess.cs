@@ -14,6 +14,7 @@ public enum OrgCapability
     ManageMembers,
     ManageNotifications,
     ManageSharing,
+    ExportData,
     UseProjects,
     ViewEvidence,
 }

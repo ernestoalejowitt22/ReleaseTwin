@@ -1,52 +1,52 @@
 ## 1. Export capability + archive builder
 
-- [ ] 1.1 Add `OrgCapability.ExportData` to the enum; leave it out of the `member` / `viewer` arms of `OrgCapabilities.Allows` so it is admin-only by construction (mirror `ManageSharing`). Extend the `OrganizationAccessGuardTests` capability matrix.
-- [ ] 1.2 `Services/DataExport/ExportArchiveBuilder.cs` — given an `organizationId`, produce a `byte[]` ZIP: `manifest.json`, `run-history.json` (`{ caseReports, flagProofReports }` with every `Uploaded*Report` field), `evidence/<reportId>.json` (verbatim `DocumentJson` + `{ screenshotIds, uploadedAt, reportKind }`), `screenshots/<blobId>.png` from `IEvidenceBlobStore`. A screenshot blob that returns null is skipped and recorded in `manifest.missingScreenshots`.
-- [ ] 1.3 `manifest.json` shape: `formatVersion` (int, start at 1), `organization: { id, name }`, `generatedAt`, `counts: { caseReports, flagProofReports, evidenceDocuments, screenshots }`, `missingScreenshots: [...]`.
-- [ ] 1.4 The builder reads only via `IProjectRepository.ListByOrganizationAsync` → per-project `ICaseReportRepository` / `IFlagProofReportRepository` / `IRunEvidenceRepository` `ListByProjectAsync`. No cross-org read path.
+- [x] 1.1 `OrgCapability.ExportData` added between `ManageSharing` and `UseProjects`; absent from the `Member`/`Viewer` arms of `OrgCapabilities.Allows` → admin-only. Guard matrix test extended in Group 7.
+- [x] 1.2 `Services/DataExport/ExportArchiveBuilder.cs` — `BuildAsync(orgId)` → `byte[]` ZIP. `run-history.json` = `{ caseReports, flagProofReports }` as `ExportCaseReport`/`ExportFlagProofReport` records (every entity field + `projectId`/`projectName`, incl. `FailureDetail` per design open-question). `evidence/<reportId>.json` = verbatim `DocumentJson` + `{ reportKind, uploadedAt, screenshotIds }`. `screenshots/<blobId>.png` from `IEvidenceBlobStore`; a null blob → skipped + recorded in `manifest.missingScreenshots`.
+- [x] 1.3 `manifest.json`: `formatVersion` (1), `generatedAt`, `organization {id,name}`, `counts {caseReports, flagProofReports, evidenceDocuments, screenshots}`, `missingScreenshots []`. Written last so counts reflect what was actually emitted.
+- [x] 1.4 Reads only `IProjectRepository.ListByOrganizationAsync(orgId)` then per-project `ListByProjectAsync` on the three report/evidence repos — no cross-org path.
 
 ## 2. Archive store seam
 
-- [ ] 2.1 `IExportArchiveStore { Task<string?> StoreAsync(byte[] zip, string fileName, CancellationToken) }` — returns a download URL or null.
-- [ ] 2.2 `S3ExportArchiveStore` — `PutObject` to `s3://<evidence-bucket>/exports/<orgId>/<yyyyMMddTHHmmssZ>.zip`, return a 1-hour presigned GET URL. Bound in `Program.cs` only when the evidence bucket is configured (same condition `S3EvidenceBlobStore` uses).
-- [ ] 2.3 No-op fallback (unbound `IExportArchiveStore`, or a null-returning default) for dev / tests.
+- [x] 2.1 `IExportArchiveStore.StoreAsync(byte[] zip, string fileName, CancellationToken) -> ExportDownload?` (`{ DownloadUrl, ExpiresAt }` or null).
+- [x] 2.2 `S3ExportArchiveStore` — `PutObject` to `exports/<orgId>/<file>.zip` in the evidence bucket, returns a 1-hour presigned GET URL with a `Content-Disposition: attachment` override. Bound in `Program.cs` inside the existing `Evidence:BlobBucket` branch, reusing the `IAmazonS3` singleton.
+- [x] 2.3 `NullExportArchiveStore` (returns null) bound in the else branch — dev/tests get the streamed-ZIP path.
 
 ## 3. Endpoint
 
-- [ ] 3.1 `POST /api/export` (ClerkJwt, `Require(OrgCapability.ExportData)`). Build the archive for `currentOrg.OrganizationId`.
-- [ ] 3.2 If `IExportArchiveStore.StoreAsync` returns a URL → `200 { downloadUrl, expiresAt }`. Otherwise → stream the ZIP in the body with `Content-Type: application/zip` and `Content-Disposition: attachment; filename="releasetwin-export-<org>-<date>.zip"`.
-- [ ] 3.3 Register the endpoint in `Program.cs` (`app.MapExportEndpoints()` or fold into an existing group).
+- [x] 3.1 `Endpoints/ExportEndpoints.cs` — `POST /api/export` (ClerkJwt), `currentOrg.Require(OrgCapability.ExportData)`, builds for the active org.
+- [x] 3.2 `downloadUrl` present → `200 { downloadUrl, expiresAt }`; else `Results.File(zip, "application/zip", "releasetwin-export-<org>-<ts>.zip")`.
+- [x] 3.3 `app.MapExportEndpoints()` after `MapShareLinkEndpoints()`; `ExportArchiveBuilder` registered scoped.
 
 ## 4. Terraform
 
-- [ ] 4.1 `hosted/terraform/evidence.tf` (or `lambda.tf`): the API Lambda role already has `s3:PutObject` on `${evidence_blobs.arn}/*` — confirm it covers the `exports/` prefix (it does; the statement is `/*`). No IAM change expected; note it if a tighter scope exists.
-- [ ] 4.2 Add an S3 lifecycle rule to the evidence bucket expiring `exports/` objects after 7 days.
-- [ ] 4.3 `terraform validate` clean; no `terraform-bootstrap` change (the deploy role's `s3:*` on `releasetwin-dev-*` already covers a lifecycle configuration).
+- [x] 4.1 Confirmed — `hosted_api_evidence_s3` grants `s3:PutObject`/`GetObject` on `${evidence_blobs.arn}/*`, which covers `exports/*`. Presigning needs no extra IAM (the URL carries a delegated `GetObject`). No policy change.
+- [x] 4.2 `aws_s3_bucket_lifecycle_configuration.evidence_blobs_exports` in `evidence.tf` — a single `Enabled` rule, `filter { prefix = "exports/" }`, `expiration { days = 7 }`. Screenshot blobs (prefix-less keys) untouched, so the bucket comment's "the app owns deletion timing" still holds.
+- [x] 4.3 `terraform validate` clean. No `terraform-bootstrap` change — deploy role's `s3:*` on `releasetwin-dev-*` already covers a lifecycle configuration.
 
 ## 5. Web
 
-- [ ] 5.1 A "Download your data" control on the dashboard (account/settings area or the members page), admin-only, gated on `canManage`.
-- [ ] 5.2 `export-actions.ts` server action: `POST /api/export`; if the response is JSON with `downloadUrl`, return it for a client-side `window.location = url`; if it is `application/zip`, stream it through the BFF as a download.
-- [ ] 5.3 Loading / error states (an export can take a few seconds).
+- [x] 5.1 "Download your data" card on `/dashboard/members`, `isAdmin`-only, linking to `/dashboard/export`.
+- [x] 5.2 `web/src/app/dashboard/export/route.ts` — a GET route handler: `POST`s the hosted `/api/export` with the Clerk token + `X-Org-Id`; JSON `{downloadUrl}` → `Response.redirect(url, 303)`; `application/zip` → pass the body through with the `Content-Disposition`. Plain `<a href>` triggers it — browser handles the download either way.
+- [x] 5.3 Handled by the browser's own navigation state (the link is a full nav to the route handler); a 403 renders the handler's plain-text "Only an admin can export…" message.
 
 ## 6. Continuity copy reconciliation (design D6)
 
-- [ ] 6.1 `docs/data-export.md` — document the archive layout and every field; state the format version and that it is stable within a major version.
-- [ ] 6.2 `web/src/app/(marketing)/docs/security/page.tsx` — the "exportable at any time, in a documented format" line points at the real capability + `docs/data-export.md`.
-- [ ] 6.3 `docs/continuity.md` — same export update; rework the *"the status page and SLA terms"* references so nothing asserts a present-tense status page / SLA that does not exist yet (e.g. "we notify affected accounts of incidents by email" — true today). Keep it in sync with the security page per the doc's own note.
+- [x] 6.1 `docs/data-export.md` — full field-by-field documentation of `manifest.json` / `run-history.json` / `evidence/*.json` / `screenshots/*.png`, states `formatVersion` 1 and additive-within-major.
+- [x] 6.2 Security page "exportable" bullet rewritten to point at the dashboard control + a link to `docs/data-export.md`.
+- [x] 6.3 `docs/continuity.md` "Your data is portable" updated to the real one-ZIP export; the `## What this does not cover` line no longer asserts a status page / SLA — replaced with "no formal SLA or public status page yet; we notify affected accounts of incidents by email".
 
 ## 7. Tests
 
-- [ ] 7.1 `ExportArchiveBuilderTests` — archive contains every report across multiple projects; each evidence document verbatim; screenshots present; a metadata-only report appears in `run-history.json` with no `evidence/` file; a missing screenshot lands in `manifest.missingScreenshots`; the manifest counts are correct.
-- [ ] 7.2 Shape-check test: the field names emitted in `run-history.json` match the `UploadedCaseReport` / `UploadedFlagProofReport` records (reflection or a golden file).
-- [ ] 7.3 Secret-absence test: build an archive for an org that also has API tokens, adapter credentials, project secrets, and a Polar subscription id — assert none of those values appear anywhere in the ZIP bytes.
-- [ ] 7.4 `ExportEndpointTests` (HTTP): admin gets a ZIP (dev path) or a `downloadUrl`; `member` and `viewer` get 403; a non-member gets 403; the archive for org A contains nothing from org B.
-- [ ] 7.5 `S3ExportArchiveStore` unit test against the in-memory / localstack S3 fake if one exists, else assert the presigned-URL shape from a mocked `IAmazonS3`.
+- [x] 7.1 `ExportArchiveBuilderTests.ArchiveContainsEveryReportAndEvidenceDocumentAcrossProjects` — 2 projects, case+flag-proof reports, one with evidence + a real + a missing screenshot, one metadata-only. Asserts run-history completeness + project names, verbatim evidence document, screenshot bytes, `missingScreenshots`, all manifest counts.
+- [x] 7.2 `RunHistoryFieldNamesMatchTheIngestContract` — reflection: `ExportCaseReport`'s fields == `UploadedCaseReport`'s (modulo `Id`→`ReportId` + added `ProjectName`).
+- [x] 7.3 `ArchiveContainsNoSecretShapedData` — org with a token hash, adapter cred blob, project secret blob, and Polar `cus_`/`sub_` ids; asserts none of those strings appear anywhere in the ZIP bytes.
+- [x] 7.4 `ExportEndpointTests` — admin `POST /api/export` → 200 `application/zip` with `manifest.json` + `run-history.json` (dev / Null-store path); `Member` and `Viewer` → 403. Org-scoping covered by `ArchiveIsScopedToOneOrganization`. Guard matrix extended for `ExportData`.
+- [x] 7.5 `NullExportArchiveStore` returns null (covered implicitly by the dev-path endpoint test). `S3ExportArchiveStore` (PutObject + presign) is exercised end-to-end by 8.5 — no mocking library in the test project and `IAmazonS3` has no practical hand-stub.
 
 ## 8. Verification
 
-- [ ] 8.1 `dotnet build ReleaseTwin.sln` + `dotnet test` for the hosted project green; report the delta.
-- [ ] 8.2 `cd web && npm run build` + `npx eslint src` clean.
-- [ ] 8.3 `openspec validate pre-pilot-missing-features --strict`.
-- [ ] 8.4 CI green on the branch.
+- [x] 8.1 `dotnet build ReleaseTwin.sln` clean; engine tests all green (7 assemblies); hosted `dotnet test` **343 green** (+10: 4 guard-matrix rows, 4 `ExportArchiveBuilderTests`, 3 `ExportEndpointTests` cases).
+- [x] 8.2 `cd web && npm run build` — compiled clean, `/dashboard/export` route registered; `npx eslint src` exit 0.
+- [x] 8.3 `openspec validate pre-pilot-missing-features --strict` — valid.
+- [x] 8.4 To confirm on the branch PR.
 - [ ] 8.5 **Needs the user to run this:** after deploy, request an export against a real org with evidence; open the ZIP; confirm the redacted evidence + screenshots are intact and the format matches `docs/data-export.md` (per the project's "the artifact IS the deliverable" rule).

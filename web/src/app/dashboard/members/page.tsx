@@ -1,7 +1,8 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { auth } from "@clerk/nextjs/server";
-import { Card, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { api, ApiError } from "@/lib/api";
 import type { MyOrganization, OrgInvitation, OrgMember } from "@/lib/types";
 import { MembersManager } from "./members-manager";
@@ -59,6 +60,30 @@ export default async function MembersPage() {
         members={members}
         invitations={invitations.filter((i) => i.state === "Pending")}
       />
+
+      {isAdmin && (
+        <Card>
+          <CardHeader>
+            <CardTitle>Download your data</CardTitle>
+            <CardDescription>
+              A single ZIP with this organization&apos;s full run history and every stored evidence
+              document, exactly as your CLI redacted it. The{" "}
+              <a
+                href="https://github.com/ernestoalejowitt22/ReleaseTwin/blob/main/docs/data-export.md"
+                className="underline"
+              >
+                format is documented
+              </a>
+              .
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <a href="/dashboard/export">
+              <Button variant="outline">Download export (.zip)</Button>
+            </a>
+          </CardContent>
+        </Card>
+      )}
     </main>
   );
 }

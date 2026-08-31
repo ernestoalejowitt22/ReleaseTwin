@@ -137,15 +137,22 @@ if (!string.IsNullOrWhiteSpace(evidenceBlobBucket))
     });
     builder.Services.AddSingleton<IEvidenceBlobStore>(sp =>
         new S3EvidenceBlobStore(sp.GetRequiredService<IAmazonS3>(), evidenceBlobBucket));
+    // data-export: the built ZIP is put in the same bucket under exports/ and downloaded via a
+    // presigned URL, so it never streams back through the Lambda (design D2).
+    builder.Services.AddSingleton<ReleaseTwin.Hosted.Api.Services.DataExport.IExportArchiveStore>(sp =>
+        new ReleaseTwin.Hosted.Api.Services.DataExport.S3ExportArchiveStore(sp.GetRequiredService<IAmazonS3>(), evidenceBlobBucket));
 }
 else
 {
     builder.Services.AddSingleton<IEvidenceBlobStore>(_ => new FileSystemEvidenceBlobStore(
         builder.Configuration["Evidence:BlobDirectory"]
         ?? Path.Combine(Path.GetTempPath(), "releasetwin-evidence-blobs")));
+    builder.Services.AddSingleton<ReleaseTwin.Hosted.Api.Services.DataExport.IExportArchiveStore,
+        ReleaseTwin.Hosted.Api.Services.DataExport.NullExportArchiveStore>();
 }
 builder.Services.AddScoped<EvidenceIngestService>();
 builder.Services.AddScoped<EvidencePurgeService>();
+builder.Services.AddScoped<ReleaseTwin.Hosted.Api.Services.DataExport.ExportArchiveBuilder>();
 
 builder.Services.AddScoped<ITokenService, TokenService>();
 builder.Services.AddScoped<ProvisioningService>();
@@ -457,6 +464,7 @@ app.MapDashboardEndpoints();
 app.MapMembershipEndpoints();
 app.MapNotificationEndpoints();
 app.MapShareLinkEndpoints();
+app.MapExportEndpoints();
 ReleaseTwin.Hosted.Api.Billing.BillingEndpoints.MapBillingEndpoints(app);
 app.MapTrendEndpoints();
 app.MapReleaseEndpoints();
