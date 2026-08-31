@@ -144,6 +144,11 @@ resource "aws_lambda_function" "hosted_api" {
       # endpoint (setting an org to Enterprise). Empty ⇒ the admin surface is closed.
       Admin__OperatorUserIds = var.admin_operator_user_ids
 
+      # run-notifications: presence of the queue URL switches INotificationQueue from the no-op to the
+      # SQS producer. Web__BaseUrl also builds the invite accept link + notification dashboard links.
+      Notifications__QueueUrl = aws_sqs_queue.run_notifications.id
+      Web__BaseUrl            = var.web_base_url
+
       # billing: Polar (Merchant of Record). Empty ApiToken/WebhookSecret/product ids ⇒
       # PolarOptions.IsConfigured is false and every billing surface stays closed (the webhook
       # returns 503, the upgrade button errors gracefully). Secrets come from repo *secrets*,

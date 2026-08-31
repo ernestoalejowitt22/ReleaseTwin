@@ -8,6 +8,14 @@
       "description": "Inert end-to-end proof that the feature-flag seam is wired on every surface. Gates nothing user-visible; safe to flip.",
       "surfaces": ["web", "hosted", "cli"],
       "owner": "platform"
+    },
+    {
+      "key": "run-notifications",
+      "type": "boolean",
+      "default": false,
+      "description": "commercial-readiness-gaps: master switch for outbound run-failure notifications (Slack / webhook). Off by default — the ingest path skips enqueue and the dispatcher Lambda drops every message while this is false. Independent of the per-org Team entitlement, which still gates configuration and delivery.",
+      "surfaces": ["hosted"],
+      "owner": "platform"
     }
   ]
 }

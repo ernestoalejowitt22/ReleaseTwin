@@ -175,6 +175,18 @@ public interface IProjectSecretRepository
     Task DeleteAsync(Guid projectId, string name, CancellationToken cancellationToken = default);
 }
 
+/// <summary>run-notifications: a project's outbound notification targets (Slack / generic webhook).</summary>
+public interface INotificationTargetRepository
+{
+    Task<IReadOnlyList<NotificationTarget>> ListByProjectAsync(Guid projectId, CancellationToken cancellationToken = default);
+    Task<NotificationTarget?> GetAsync(Guid projectId, Guid targetId, CancellationToken cancellationToken = default);
+    Task PutAsync(NotificationTarget target, CancellationToken cancellationToken = default);
+    Task DeleteAsync(Guid projectId, Guid targetId, CancellationToken cancellationToken = default);
+
+    /// <summary>Records the outcome of a delivery attempt (read-mutate-put). A no-op if the target was deleted meanwhile.</summary>
+    Task RecordOutcomeAsync(Guid projectId, Guid targetId, string outcome, DateTimeOffset attemptedAt, CancellationToken cancellationToken = default);
+}
+
 public interface IUsageCounterRepository
 {
     /// <summary>Atomically increments the counter for (organizationId, current period) — safe under concurrent ingest requests.</summary>
