@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="780" height="266">
+<rect x="0.5" y="0.5" width="779" height="265" rx="6" fill="#0b0f14" stroke="#2b333d"/>
+<rect x="0" y="0" width="780" height="40" fill="#11161c"/>
+<circle cx="20" cy="20" r="5" fill="#3a4048"/>
+<circle cx="38" cy="20" r="5" fill="#3a4048"/>
+<circle cx="56" cy="20" r="5" fill="#3a4048"/>
+<text x="78" y="25" font-size="12" fill="#8b949e">ci: release-proof gate</text>
+<text x="20" y="68" font-size="13" font-family="ui-monospace,SFMono-Regular,Menlo,monospace" fill="#8b949e">$ releasetwin ./cases --summary-json releasetwin-summary.json</text>
+<text x="20" y="112" font-size="13" font-family="ui-monospace,SFMono-Regular,Menlo,monospace" fill="#f85149">  FAIL  DEMO-GATE-1</text>
+<text x="20" y="134" font-size="13" font-family="ui-monospace,SFMono-Regular,Menlo,monospace" fill="#3fb950">  PASS  NAHA-ADMIN-AUTH-1</text>
+<text x="20" y="178" font-size="13" font-family="ui-monospace,SFMono-Regular,Menlo,monospace" fill="#d7dee6">  2 cases · 1 passed · 1 failed</text>
+<text x="20" y="200" font-size="13" font-family="ui-monospace,SFMono-Regular,Menlo,monospace" fill="#8b949e">  flag proof: 0 proven · 0 ineligible · 0 regressed</text>
+<text x="20" y="244" font-size="13" font-family="ui-monospace,SFMono-Regular,Menlo,monospace" fill="#f85149">  step failed — exit 1 — merge blocked</text>
+</svg>

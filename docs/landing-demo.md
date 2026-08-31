@@ -18,12 +18,18 @@ the steps here — never hand-authored mock data (see
 | `pr-check-failed.svg` | ① merge gate (failing) | generated from `demo-summaries/failed.json` by `web/scripts/capture-landing-demo.mjs` |
 | `pr-comment-failed.svg` | ② readable verdict | same generator; wording mirrors `integrations/github-action/render.mjs` `renderBody()` |
 | `pr-check-passed.svg` | ③ merge gate (green after the fix) | same generator, from `demo-summaries/passed.json` |
-| `dashboard-runs.png` | ④ dashboard — run history | `web/cypress/e2e/capture-landing-demo.cy.ts` → `web/scripts/capture-dashboard-demo.mjs` |
-| `dashboard-evidence.png` | ④ dashboard — evidence viewer (redacted header visible) | same capture spec |
+| `pipeline-log.svg` | ④ "not GitHub-specific" — generic CI log | same generator, from `demo-summaries/failed.json` (`pipelineLogSvg()`); neutral CI-log style, no vendor chrome |
+| `dashboard-runs.png` | ⑤ dashboard — run history | `web/cypress/e2e/capture-landing-demo.cy.ts` → `web/scripts/capture-dashboard-demo.mjs` |
+| `dashboard-evidence.png` | ⑤ dashboard — evidence viewer (redacted header visible) | same capture spec |
 
 `pr-comment-passed.svg` is also generated but not currently placed on the page. Trend-analytics
 and release-rollup panels are deferred — they need seeded history / `release:` labels to look
 right.
+
+The Bitbucket Pipelines snippet shown next to `pipeline-log.svg` on the landing page is
+**not** an image — it is the shared constant `web/src/lib/ci-snippets.ts`, imported by both
+`web/src/app/(marketing)/page.tsx` and `web/src/app/(marketing)/docs/ci/page.tsx`, so the
+two surfaces cannot drift. `web/src/lib/ci-snippets.test.ts` asserts they stay identical.
 
 ## Prerequisites
 

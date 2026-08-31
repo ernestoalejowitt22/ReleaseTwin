@@ -4,7 +4,37 @@ import { auth } from "@clerk/nextjs/server";
 import { SITE_DESCRIPTION } from "@/lib/site";
 import { FlaskConical, ShieldCheck, EyeOff, ServerCog } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { CodeBlock } from "@/components/code-block";
 import { HOMEPAGE_FEATURES, FEATURE_COPY } from "@/lib/plans";
+import { BITBUCKET_PIPELINES_LABEL, BITBUCKET_PIPELINES_SNIPPET } from "@/lib/ci-snippets";
+
+/**
+ * The "why" above the demo: the failure mode ReleaseTwin catches, then a without/with
+ * list where every gain restates a claim made elsewhere on the site or in /docs (the
+ * demo panel captions, the "Your data stays put" section, the flag-proof hero copy).
+ */
+const VALUE_ROWS = [
+  {
+    without: "Release-proofing is a manual pre-release checklist someone runs by hand.",
+    with: "A required check on the pull request — the same lane as unit tests, no human step.",
+  },
+  {
+    without: "“Did we test the real integration?” gets answered in a Slack thread, days later.",
+    with: "The PR comment is the answer — totals, flag-proof verdict, failing cases, updated in place.",
+  },
+  {
+    without: "Proof of what passed lives in someone’s terminal scrollback.",
+    with: "Dashboard run history plus redacted request/response for every run, linkable in an audit.",
+  },
+  {
+    without: "SaaS test vendors want your integration data on their infrastructure.",
+    with: "Execution and test data stay in your own runner; only metadata ever leaves.",
+  },
+  {
+    without: "The suite is green — with no signal that a real, credentialed call was made.",
+    with: "Flag-proof: evidence a real credentialed path executed, not a mock.",
+  },
+] as const;
 
 const TRUST = [
   {
@@ -114,25 +144,66 @@ export default async function LandingPage() {
             <Link href="/docs/quickstart">Read the quickstart</Link>
           </Button>
         </div>
+      </section>
 
-        <div className="mt-6 w-full max-w-2xl">
-          {/* <object>, not <img>: svg-term's CSS keyframe animation only runs when the SVG is its
-              own document. The nested <img> is the static fallback. */}
-          <object
-            type="image/svg+xml"
-            data="/demo-flag-proof.svg"
-            aria-label="Terminal recording: running a zero-credential HTTP case, then a flag-proof run that reports FLAGPROOF CHECKOUT-FIX-1 (Passed)"
-            className="w-full rounded-xl ring-1 ring-foreground/10"
-            style={{ aspectRatio: "828 / 435" }}
-          >
-            {/* eslint-disable-next-line @next/next/no-img-element -- animated asciinema SVG */}
-            <img
-              src="/demo-flag-proof.svg"
-              alt="Terminal recording of a passing flag-proof run"
-              className="w-full rounded-xl ring-1 ring-foreground/10"
-            />
-          </object>
+      {/* Why — the failure mode, then without/with. Sits above the demo so the panel
+          captions below read as answers to it. */}
+      <section className="mx-auto flex w-full max-w-3xl flex-col gap-6 px-6 pb-10">
+        <p className="mx-auto max-w-2xl text-center text-base text-muted-foreground">
+          Your unit tests are green and the release still breaks — an API contract drifted,
+          a sandbox credential expired, a downstream call only fails under real
+          authentication. You find out from a customer.
+        </p>
+        <div className="grid grid-cols-1 overflow-hidden rounded-lg border sm:grid-cols-2">
+          <div className="border-b p-5 sm:border-r sm:border-b-0">
+            <p className="mb-3 text-xs font-semibold tracking-wide text-muted-foreground uppercase">
+              Without ReleaseTwin
+            </p>
+            <ul className="flex flex-col gap-3">
+              {VALUE_ROWS.map((row) => (
+                <li key={row.without} className="text-sm text-muted-foreground">
+                  {row.without}
+                </li>
+              ))}
+            </ul>
+          </div>
+          <div className="p-5">
+            <p className="mb-3 text-xs font-semibold tracking-wide text-primary uppercase">
+              What you gain
+            </p>
+            <ul className="flex flex-col gap-3">
+              {VALUE_ROWS.map((row) => (
+                <li key={row.with} className="text-sm">
+                  {row.with}
+                </li>
+              ))}
+            </ul>
+          </div>
         </div>
+      </section>
+
+      {/* Supporting "under the hood" element — demoted below the why, per the
+          marketing-site spec. */}
+      <section className="mx-auto flex w-full max-w-2xl flex-col items-center gap-2 px-6 pb-16">
+        {/* <object>, not <img>: svg-term's CSS keyframe animation only runs when the SVG is its
+            own document. The nested <img> is the static fallback. */}
+        <object
+          type="image/svg+xml"
+          data="/demo-flag-proof.svg"
+          aria-label="Terminal recording: running a zero-credential HTTP case, then a flag-proof run that reports FLAGPROOF CHECKOUT-FIX-1 (Passed)"
+          className="w-full rounded-xl ring-1 ring-foreground/10"
+          style={{ aspectRatio: "828 / 435" }}
+        >
+          {/* eslint-disable-next-line @next/next/no-img-element -- animated asciinema SVG */}
+          <img
+            src="/demo-flag-proof.svg"
+            alt="Terminal recording of a passing flag-proof run"
+            className="w-full rounded-xl ring-1 ring-foreground/10"
+          />
+        </object>
+        <p className="text-center text-xs text-muted-foreground">
+          Under the hood: the CLI running a zero-credential case, then a flag-proof run.
+        </p>
       </section>
 
       {/* The CI loop — merge gate → readable verdict → dashboard */}
@@ -161,6 +232,39 @@ export default async function LandingPage() {
             </li>
           ))}
         </ol>
+
+        {/* Non-GitHub CI panel: same --summary-json contract, no packaged Bitbucket
+            integration. Snippet is the shared constant from @/lib/ci-snippets (also
+            rendered on /docs/ci); the log SVG is generated by capture-landing-demo.mjs
+            from the same real run summary. */}
+        <div className="mt-10 flex w-full flex-col items-center gap-3">
+          <h3 className="text-lg font-semibold tracking-tight">The verdict isn&apos;t GitHub-specific</h3>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src="/demo/pipeline-log.svg"
+            width={780}
+            height={266}
+            alt="A generic CI pipeline log: releasetwin runs the cases, DEMO-GATE-1 fails, and the step exits 1, blocking the merge"
+            loading="lazy"
+            className="w-full max-w-2xl rounded-lg ring-1 ring-foreground/10"
+          />
+          <CodeBlock
+            label={BITBUCKET_PIPELINES_LABEL}
+            code={BITBUCKET_PIPELINES_SNIPPET}
+            className="w-full max-w-2xl"
+          />
+          <p className="max-w-xl text-center text-sm text-muted-foreground">
+            The deliverable is a CI-agnostic{" "}
+            <code className="text-foreground">--summary-json</code> contract, not a GitHub
+            integration. On Bitbucket Pipelines the gate is one step and a non-zero exit
+            blocks the merge — same verdict, no packaged Bitbucket app required.{" "}
+            <Link href="/docs/ci" className="underline underline-offset-4 hover:text-foreground">
+              CI docs
+            </Link>
+            .
+          </p>
+        </div>
+
         <p className="mt-8 mb-6 max-w-xl text-center text-sm text-muted-foreground">
           Connect the hosted dashboard and each run&apos;s history and{" "}
           <Link href="/docs/hosted-platform" className="underline underline-offset-4 hover:text-foreground">
