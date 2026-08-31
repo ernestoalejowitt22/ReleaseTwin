@@ -35,6 +35,16 @@ precedence = "override"
 SPDX-FileCopyrightText = "2026 Ernesto Alejo and the ReleaseTwin contributors"
 SPDX-License-Identifier = "Apache-2.0"
 
+# --- Integrations (the GitHub Action): Apache-2.0 --------------------------------
+# ci-pr-integration: the PR-annotations Action is deliberately permissive, independent of
+# the engine's copyleft, so it can be forked and adapted freely. It runs the published CLI
+# container and talks only to GitHub's own APIs — it links nothing from src/.
+[[annotations]]
+path = ["integrations/**"]
+precedence = "override"
+SPDX-FileCopyrightText = "2026 Ernesto Alejo and the ReleaseTwin contributors"
+SPDX-License-Identifier = "Apache-2.0"
+
 # --- The hosted platform: Business Source License 1.1 ----------------------------
 [[annotations]]
 path = ["hosted/**", "web/**"]

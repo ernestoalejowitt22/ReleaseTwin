@@ -29,7 +29,8 @@ public sealed class IngestClient : IDisposable
     }
 
     /// <summary>Uploads a case report. Returns whether an accompanying evidence document was accepted (true when none was sent).</summary>
-    public async Task<bool> UploadCaseReportAsync(CaseReport report, RedactionResult? evidence, CancellationToken cancellationToken)
+    /// <param name="release">release-readiness-rollup: the uploaded case's optional <c>release</c> label. Null ⇒ the payload is the pre-release shape.</param>
+    public async Task<bool> UploadCaseReportAsync(CaseReport report, RedactionResult? evidence, CancellationToken cancellationToken, string? release = null)
     {
         var payload = new
         {
@@ -41,12 +42,13 @@ public sealed class IngestClient : IDisposable
             failureDetail = report.FailureDetail,
             cleanupStatus = report.CleanupStatus.ToString(),
             durationMs = (long)report.Duration.TotalMilliseconds,
+            release,
         };
 
         return await SendAsync("/api/ingest/case-report", payload, evidence, cancellationToken);
     }
 
-    public async Task<bool> UploadFlagProofReportAsync(FlagProofResult result, RedactionResult? evidence, CancellationToken cancellationToken)
+    public async Task<bool> UploadFlagProofReportAsync(FlagProofResult result, RedactionResult? evidence, CancellationToken cancellationToken, string? release = null)
     {
         var payload = new
         {
@@ -56,6 +58,7 @@ public sealed class IngestClient : IDisposable
             outcome = result.Outcome.ToString(),
             knownBadLegPassed = result.KnownBadLeg?.Passed,
             knownGoodLegPassed = result.KnownGoodLeg?.Passed,
+            release,
         };
 
         return await SendAsync("/api/ingest/flag-proof-report", payload, evidence, cancellationToken);

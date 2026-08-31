@@ -1,4 +1,5 @@
 id: HTTP-DEMO-1
+release: "4.2"
 oracle:
   locator: docs/customer-pilot-guide.md
 fixture:

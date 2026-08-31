@@ -3,6 +3,10 @@ namespace ReleaseTwin.Cli.CaseLoading;
 internal sealed class CaseFileDto
 {
     public string? Id { get; set; }
+
+    /// <summary>release-readiness-rollup: free-form; loosely typed so a non-scalar value gets a clear error rather than a raw YAML exception.</summary>
+    public object? Release { get; set; }
+
     public OracleDto? Oracle { get; set; }
     public FixtureDto? Fixture { get; set; }
     public List<string>? Requires { get; set; }

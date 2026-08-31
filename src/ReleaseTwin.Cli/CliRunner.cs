@@ -394,6 +394,11 @@ public sealed class CliRunner
                 return 1;
             }
 
+            // ci-pr-integration: build the JSON run summary from the same per-case results printed
+            // below, when --summary-json / RELEASETWIN_SUMMARY_JSON is set (design.md D-A).
+            var summaryPath = Get("RELEASETWIN_SUMMARY_JSON") is { Length: > 0 } sp ? sp : null;
+            var summary = summaryPath is null ? null : new RunSummaryBuilder();
+
             var passed = 0;
             var failed = 0;
             foreach (var loadedCase in cases)
@@ -405,6 +410,7 @@ public sealed class CliRunner
                     if (featureStateController is null)
                     {
                         failed++;
+                        summary?.AddCase(testCase.CaseId, passed: false, classification: null, flagProofOutcome: "Ineligible", release: testCase.Release);
                         output.WriteLine($"FLAGPROOF {testCase.CaseId} (Ineligible): no installed adapter exposes feature-state control");
                         continue;
                     }
@@ -422,6 +428,7 @@ public sealed class CliRunner
                         failed++;
                     }
 
+                    summary?.AddCase(result.CaseId, result.Outcome == FlagProofOutcome.Passed, classification: null, flagProofOutcome: result.Outcome.ToString(), release: testCase.Release);
                     output.WriteLine($"FLAGPROOF {result.CaseId} ({result.Outcome})");
 
                     if (ingestClient is not null)
@@ -435,7 +442,7 @@ public sealed class CliRunner
                                 evidence = redactor.Redact(seed, flagProofExecution.KnownBadEvidence, flagProofExecution.KnownGoodEvidence, loadedCase.Evidence);
                             }
 
-                            var evidenceAccepted = await ingestClient.UploadFlagProofReportAsync(result, evidence, cancellationToken);
+                            var evidenceAccepted = await ingestClient.UploadFlagProofReportAsync(result, evidence, cancellationToken, testCase.Release);
                             if (evidence is not null && !evidenceAccepted)
                             {
                                 output.WriteLine($"WARN evidence not accepted for {result.CaseId} (report uploaded; check your plan tier)");
@@ -454,6 +461,7 @@ public sealed class CliRunner
 
                 var execution = await executor.ExecuteAsync(testCase, executionOptions, cancellationToken);
                 var report = execution.Report;
+                summary?.AddCase(report.CaseId, report.Passed, report.Classification?.ToString(), flagProofOutcome: null, release: testCase.Release);
                 if (report.Passed)
                 {
                     passed++;
@@ -473,7 +481,7 @@ public sealed class CliRunner
                             ? null
                             : redactor.Redact(execution.Evidence, null, null, loadedCase.Evidence);
 
-                        var evidenceAccepted = await ingestClient.UploadCaseReportAsync(report, evidence, cancellationToken);
+                        var evidenceAccepted = await ingestClient.UploadCaseReportAsync(report, evidence, cancellationToken, testCase.Release);
                         if (evidence is not null && !evidenceAccepted)
                         {
                             output.WriteLine($"WARN evidence not accepted for {report.CaseId} (report uploaded; check your plan tier)");
@@ -489,6 +497,21 @@ public sealed class CliRunner
             }
 
             output.WriteLine($"{passed} passed, {failed} failed");
+
+            if (summaryPath is not null && summary is not null)
+            {
+                // Written on pass or fail (design.md D-A). The destination directory was validated
+                // up front in CliEntrypoint, so this only fails on a genuine I/O fault.
+                try
+                {
+                    RunSummaryWriter.Write(summaryPath, summary.Build());
+                }
+                catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+                {
+                    output.WriteLine($"WARN: failed to write run summary to {summaryPath}: {ex.Message}");
+                }
+            }
+
             return failed == 0 ? 0 : 1;
         }
         finally

@@ -86,6 +86,7 @@ export AZDO_VARIABLE_GROUP_ID=1
 
 ```yaml
 id: MY-CASE-1
+release: "4.2"                    # optional — groups this case in the hosted release rollup
 oracle:
   locator: tickets/MY-CASE-1
 fixture:

@@ -44,4 +44,11 @@ public sealed record TestCase(
     IReadOnlyList<CapabilityRequirement>? RequiredCapabilities = null)
 {
     public IReadOnlyList<CapabilityRequirement> RequiredCapabilities { get; init; } = RequiredCapabilities ?? Array.Empty<CapabilityRequirement>();
+
+    /// <summary>
+    /// release-readiness-rollup: an optional free-form label naming the release, sprint, or epic
+    /// this case belongs to. Carried for grouping only — it has no effect on execution, eligibility,
+    /// flag-proof behavior, or exit code.
+    /// </summary>
+    public string? Release { get; init; }
 }
