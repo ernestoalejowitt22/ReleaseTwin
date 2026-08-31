@@ -3,9 +3,7 @@
 ## Purpose
 
 Gives every organization a plan tier (Free, Team, or Enterprise) and enforces its limits from the shared plan catalog via the entitlement service — never by comparing a tier value inline. Provides a self-serve, no-payment way to move from Free to Team, a placeholder for the eventual paid flow, not billing itself; Enterprise is operator-set.
-
 ## Requirements
-
 ### Requirement: Every organization has a plan tier, defaulting to Free
 Every organization SHALL have a plan tier that is one of `Free`, `Team`, or `Enterprise`,
 set to `Free` at creation unless explicitly upgraded. The tier is stored as a single
@@ -61,3 +59,23 @@ an explicit placeholder for the eventual real paid flow. Moving an organization 
 #### Scenario: Enterprise is not reachable by self-service
 - **WHEN** a customer attempts to set their own organization's tier to `Enterprise`
 - **THEN** the request is rejected; the tier can only be set to `Enterprise` by an operator
+
+### Requirement: Run notifications and evidence sharing are Team-gated entitlements
+The plan catalog SHALL define two additional entitlement keys — one for run
+notifications and one for evidence sharing — and the entitlement service SHALL
+report them as granted for `Team` and `Enterprise` and denied for `Free`.
+Enforcement of these features SHALL route through the entitlement service and
+SHALL NOT compare the tier value inline.
+
+#### Scenario: Free is denied both entitlements
+- **WHEN** the entitlement service is asked whether a `Free` organization may configure run notifications or create evidence share links
+- **THEN** both are reported as denied, each with a reason naming the required tier
+
+#### Scenario: Team is granted both entitlements
+- **WHEN** the entitlement service is asked the same for a `Team` organization
+- **THEN** both are reported as granted
+
+#### Scenario: Losing the tier revokes the entitlement
+- **WHEN** an organization moves from `Team` to `Free`
+- **THEN** the entitlement service immediately reports both entitlements as denied, and features that depend on them stop operating
+
