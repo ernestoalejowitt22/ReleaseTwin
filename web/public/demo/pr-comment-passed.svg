@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="780" height="196" font-family="-apple-system,Segoe UI,Helvetica,Arial,sans-serif" font-size="14">
+<rect x="0.5" y="0.5" width="779" height="195" rx="6" fill="#0d1117" stroke="#30363d"/>
+<rect x="0" y="0" width="780" height="44" fill="#161b22"/>
+<circle cx="26" cy="22" r="11" fill="#30363d"/>
+<text x="46" y="27" font-weight="600" fill="#e6edf3">github-actions</text>
+<rect x="146" y="12" width="34" height="20" rx="10" fill="none" stroke="#30363d"/>
+<text x="163" y="26" font-size="11" fill="#8b949e" text-anchor="middle">Bot</text>
+<text x="192" y="27" fill="#8b949e">commented on pull request #74</text>
+<text x="24" y="72" font-size="22" font-weight="700" fill="#e6edf3">ReleaseTwin — ✅ passed</text>
+<line x1="24" y1="90" x2="756" y2="90" stroke="#30363d"/>
+<text x="24" y="124" font-size="14" fill="#e6edf3">2 passed · 0 failed · 2 cases</text>
+<text x="24" y="154" font-size="14" fill="#e6edf3">Flag proof: 0 proven · 0 ineligible · 0 regressed</text>
+</svg>
