@@ -14,7 +14,8 @@ public class BillingReconciliationServiceTests
         FakePolarClient Polar,
         InMemoryHostedTable Table,
         OrganizationRepository Orgs,
-        ProjectRepository Projects);
+        ProjectRepository Projects,
+        InMemoryOperatorAlertPublisher Alerts);
 
     private static Harness New(bool dryRun)
     {
@@ -24,8 +25,15 @@ public class BillingReconciliationServiceTests
         var polar = new FakePolarClient();
         var writability = new ProjectWritabilityService(orgs, projects, TestEntitlements.Service);
         var options = new PolarOptions { ReconciliationDryRun = dryRun };
-        var service = new BillingReconciliationService(orgs, projects, polar, writability, options, NullLogger<BillingReconciliationService>.Instance);
-        return new Harness(service, polar, table, orgs, projects);
+        var usageCounters = new UsageCounterRepository(table);
+        var caseReports = new CaseReportRepository(table);
+        var flagProofReports = new FlagProofReportRepository(table);
+        var metrics = new BillingMetricsCollector(
+            orgs, projects, usageCounters, caseReports, flagProofReports, polar, TestEntitlements.Service,
+            options, new BillingMetricsOptions(), NullLogger<BillingMetricsCollector>.Instance);
+        var alerts = new InMemoryOperatorAlertPublisher();
+        var service = new BillingReconciliationService(orgs, projects, polar, writability, options, metrics, alerts, NullLogger<BillingReconciliationService>.Instance);
+        return new Harness(service, polar, table, orgs, projects, alerts);
     }
 
     private static async Task<Guid> AddPaidOrgAsync(Harness h, string subscriptionId, int projectCount)
