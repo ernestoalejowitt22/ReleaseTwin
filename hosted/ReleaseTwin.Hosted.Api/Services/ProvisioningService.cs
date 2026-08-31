@@ -1,6 +1,7 @@
 using Amazon.DynamoDBv2.Model;
 using ReleaseTwin.Hosted.Api.Data.Entities;
 using ReleaseTwin.Hosted.Api.Data.Repositories;
+using ReleaseTwin.Hosted.Api.Plans;
 
 namespace ReleaseTwin.Hosted.Api.Services;
 
@@ -15,14 +16,16 @@ public sealed class ProvisioningService
     private readonly IProjectRepository _projects;
     private readonly IApiTokenRepository _tokens;
     private readonly ITokenService _tokenService;
+    private readonly IEntitlementService _entitlements;
 
-    public ProvisioningService(IUserRepository users, IOrganizationRepository organizations, IProjectRepository projects, IApiTokenRepository tokens, ITokenService tokenService)
+    public ProvisioningService(IUserRepository users, IOrganizationRepository organizations, IProjectRepository projects, IApiTokenRepository tokens, ITokenService tokenService, IEntitlementService entitlements)
     {
         _users = users;
         _organizations = organizations;
         _projects = projects;
         _tokens = tokens;
         _tokenService = tokenService;
+        _entitlements = entitlements;
     }
 
     /// <summary>First login auto-creates a personal organization so the account is immediately usable — no separate "create org" step required to satisfy the self-serve requirement.</summary>
@@ -68,31 +71,42 @@ public sealed class ProvisioningService
     }
 
     /// <summary>
-    /// plan-tier-gating: Free-tier organizations are limited to one project. Reads the organization
-    /// and, only if Free, its current project count before creating — two extra reads on an already
-    /// low-frequency operation (project creation, not ingest), avoiding a maintained counter that
-    /// could drift from the actual project list (design.md).
+    /// plan-tier-gating: the project cap comes from the organization tier's <c>maxProjects</c>
+    /// entitlement (null = unlimited). Reads the organization and, only when a cap applies, its
+    /// current project count before creating — extra reads on an already low-frequency operation
+    /// (project creation, not ingest), avoiding a maintained counter that could drift from the
+    /// actual project list (design.md).
     /// </summary>
     public async Task<Project> CreateProjectAsync(Guid organizationId, string name, CancellationToken cancellationToken = default)
     {
         var organization = await _organizations.GetAsync(organizationId, cancellationToken)
             ?? throw new InvalidOperationException($"Cannot create a project: organization {organizationId} not found.");
 
-        if (organization.PlanTier == PlanTier.Free)
+        var maxProjects = _entitlements.For(organization).MaxProjects;
+        if (maxProjects is not null)
         {
             var existingProjects = await _projects.ListByOrganizationAsync(organizationId, cancellationToken);
-            if (existingProjects.Count >= 1)
+            if (existingProjects.Count >= maxProjects.Value)
             {
-                throw new ProjectLimitExceededException("Free-tier organizations are limited to one project. Upgrade to create more.");
+                throw new ProjectLimitExceededException(
+                    $"The {organization.PlanTier} tier is limited to {maxProjects.Value} project(s). Upgrade to create more.");
             }
         }
 
         return await _projects.CreateAsync(organizationId, name, cancellationToken);
     }
 
-    /// <summary>plan-tier-gating: no payment collected — an explicit placeholder for the eventual real paid flow, not billing itself.</summary>
-    public async Task UpgradeOrganizationAsync(Guid organizationId, CancellationToken cancellationToken = default) =>
-        await _organizations.SetPlanTierAsync(organizationId, PlanTier.Paid, cancellationToken);
+    /// <summary>
+    /// plan-catalog-and-entitlements: the single tier-mutation point. A future billing webhook calls
+    /// this; for now it is reached only by the payment-free self-serve upgrade
+    /// (<see cref="UpgradeToTeamAsync"/>) and by an operator setting Enterprise out-of-band.
+    /// </summary>
+    public Task SetTierAsync(Guid organizationId, PlanTier tier, CancellationToken cancellationToken = default) =>
+        _organizations.SetPlanTierAsync(organizationId, tier, cancellationToken);
+
+    /// <summary>plan-tier-gating: self-serve Free → Team. No payment collected — an explicit placeholder for the eventual real paid flow. Enterprise is deliberately not reachable this way.</summary>
+    public Task UpgradeToTeamAsync(Guid organizationId, CancellationToken cancellationToken = default) =>
+        SetTierAsync(organizationId, PlanTier.Team, cancellationToken);
 
     /// <summary>
     /// Returns the raw token value once — it is never retrievable again after this call.

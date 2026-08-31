@@ -21,15 +21,15 @@ public class ProjectSecretServiceTests
         var table = new InMemoryHostedTable();
         var secretRepository = new ProjectSecretRepository(table);
         var organizations = new OrganizationRepository(table);
-        var provisioning = new ProvisioningService(new UserRepository(table), organizations, new ProjectRepository(table), new ApiTokenRepository(table), new TokenService());
-        var service = new ProjectSecretService(secretRepository, organizations, new EphemeralDataProtectionProvider());
+        var provisioning = new ProvisioningService(new UserRepository(table), organizations, new ProjectRepository(table), new ApiTokenRepository(table), new TokenService(), TestEntitlements.Service);
+        var service = new ProjectSecretService(secretRepository, organizations, TestEntitlements.Service, new EphemeralDataProtectionProvider());
         return new Fixture(service, secretRepository, provisioning, organizations);
     }
 
     private static async Task<Guid> NewPaidOrganizationAsync(Fixture fixture)
     {
         var user = await fixture.Provisioning.GetOrCreateUserAsync("clerk-" + Guid.NewGuid(), "Alice", null);
-        await fixture.Organizations.SetPlanTierAsync(user.OrganizationId, PlanTier.Paid);
+        await fixture.Organizations.SetPlanTierAsync(user.OrganizationId, PlanTier.Team);
         return user.OrganizationId;
     }
 
@@ -53,7 +53,7 @@ public class ProjectSecretServiceTests
         // Free is the default tier a freshly-provisioned organization starts on — no upgrade call.
         var user = await fixture.Provisioning.GetOrCreateUserAsync("clerk-" + Guid.NewGuid(), "Bob", null);
 
-        await Assert.ThrowsAsync<PaidTierRequiredException>(() =>
+        await Assert.ThrowsAsync<EntitlementRequiredException>(() =>
             fixture.Service.SetAsync(user.OrganizationId, Guid.NewGuid(), "SOME_SECRET", "value", "user-1", "Bob"));
     }
 

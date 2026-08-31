@@ -1,0 +1,59 @@
+{
+  "$comment": "plan-catalog-and-entitlements: the single source of truth for commercial tiers. Loaded by ReleaseTwin.Hosted.Api (embedded resource, for enforcement) and by web/ (JSON import, for display). A shape-check test on each side fails the build if this drifts. maxProjects / maxEvidenceRetentionDays: null means no limit / custom. Prices with placeholder=true render with the early-access caveat.",
+  "tiers": [
+    {
+      "id": "free",
+      "name": "Free",
+      "price": { "amount": 0, "unit": "forever", "placeholder": false },
+      "support": "Community / GitHub",
+      "entitlements": {
+        "maxProjects": 1,
+        "evidenceViewer": false,
+        "maxEvidenceRetentionDays": 30,
+        "customRedactionRules": false,
+        "projectSecrets": false,
+        "trendAnalytics": false,
+        "releaseRollup": false,
+        "ciIntegration": true,
+        "sso": false,
+        "auditLog": false
+      }
+    },
+    {
+      "id": "team",
+      "name": "Team",
+      "price": { "amount": 49, "unit": "project/month", "placeholder": true },
+      "support": "Email",
+      "entitlements": {
+        "maxProjects": null,
+        "evidenceViewer": true,
+        "maxEvidenceRetentionDays": 365,
+        "customRedactionRules": true,
+        "projectSecrets": true,
+        "trendAnalytics": true,
+        "releaseRollup": true,
+        "ciIntegration": true,
+        "sso": false,
+        "auditLog": false
+      }
+    },
+    {
+      "id": "enterprise",
+      "name": "Enterprise",
+      "price": { "amount": 99, "unit": "project/month", "placeholder": true },
+      "support": "SLA + shared Slack",
+      "entitlements": {
+        "maxProjects": null,
+        "evidenceViewer": true,
+        "maxEvidenceRetentionDays": null,
+        "customRedactionRules": true,
+        "projectSecrets": true,
+        "trendAnalytics": true,
+        "releaseRollup": true,
+        "ciIntegration": true,
+        "sso": true,
+        "auditLog": true
+      }
+    }
+  ]
+}

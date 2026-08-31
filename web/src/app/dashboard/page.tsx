@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { ThemeToggle } from "@/components/theme-toggle";
-import { PlayCircle, ListChecks, LayoutDashboard } from "lucide-react";
+import { PlayCircle, ListChecks, LayoutDashboard, TrendingUp } from "lucide-react";
 import {
   Card,
   CardContent,
@@ -31,6 +31,7 @@ import type {
 import { IssueTokenButton } from "./issue-token-button";
 import { SetupSection } from "./setup-section";
 import { EvidenceSettingsSection } from "./evidence-settings-section";
+import { ReleasesSection } from "./releases-section";
 import {
   createProject,
   disconnectConnection,
@@ -42,11 +43,18 @@ import {
 export default async function DashboardPage({
   searchParams,
 }: {
-  searchParams: Promise<{ projectId?: string; connectionError?: string; projectLimitError?: string }>;
+  searchParams: Promise<{
+    projectId?: string;
+    connectionError?: string;
+    projectLimitError?: string;
+    release?: string;
+    releaseWindow?: string;
+  }>;
 }) {
   await auth.protect();
 
-  const { projectId, connectionError, projectLimitError } = await searchParams;
+  const { projectId, connectionError, projectLimitError, release, releaseWindow } =
+    await searchParams;
   const view = await api.get<DashboardView>(
     `/api/dashboard${projectId ? `?projectId=${projectId}` : ""}`,
   );
@@ -69,6 +77,14 @@ export default async function DashboardPage({
           Dashboard
         </h1>
         <div className="flex items-center gap-2">
+          <Link
+            href={`/dashboard/trends${selectedProject ? `?projectId=${selectedProject.id}` : ""}`}
+          >
+            <Button variant="outline" size="sm" className="gap-1.5">
+              <TrendingUp className="size-4" />
+              Trends
+            </Button>
+          </Link>
           <ThemeToggle />
           <UserButton />
         </div>
@@ -105,7 +121,7 @@ export default async function DashboardPage({
             </div>
           </div>
           <div className="flex items-center gap-3 border-t pt-4">
-            <Badge variant={view.planTier === "Paid" ? "default" : "secondary"}>
+            <Badge variant={view.planTier === "Free" ? "secondary" : "default"}>
               {view.planTier} plan
             </Badge>
             {view.planTier === "Free" && (
@@ -168,7 +184,7 @@ export default async function DashboardPage({
             connection={view.connection}
             adapterCredentials={adapterCredentials}
             projectSecrets={projectSecrets}
-            isPaidTier={view.planTier === "Paid"}
+            isPaidTier={view.entitlements.projectSecrets}
             disconnectConnection={disconnectConnection.bind(null, selectedProject.id)}
             startGitHubConnection={startGitHubConnection.bind(null, selectedProject.id)}
           />
@@ -248,6 +264,13 @@ export default async function DashboardPage({
               <ListChecks className="size-4" />
               Results
             </h2>
+
+            <ReleasesSection
+              projectId={selectedProject.id}
+              entitled={view.entitlements.releaseRollup}
+              selectedRelease={release}
+              releaseWindow={releaseWindow}
+            />
 
             <Card>
               <CardHeader>

@@ -1,6 +1,7 @@
 using ReleaseTwin.Hosted.Api.Data.Entities;
 using ReleaseTwin.Hosted.Api.Data.Repositories;
 using ReleaseTwin.Hosted.Api.Data.Store;
+using ReleaseTwin.Hosted.Api.Plans;
 
 namespace ReleaseTwin.Hosted.Api.Services;
 
@@ -26,6 +27,7 @@ public sealed record DashboardView(
     IReadOnlyList<DashboardFlagProofReportView> FlagProofReports,
     DashboardUsageSummary Usage,
     PlanTier PlanTier,
+    Entitlements Entitlements,
     bool IsSelectedProjectStale);
 
 /// <summary>
@@ -45,6 +47,7 @@ public sealed class DashboardService
     private readonly IFlagProofReportRepository _flagProofReports;
     private readonly IUsageCounterRepository _usage;
     private readonly IRunEvidenceRepository _runEvidence;
+    private readonly IEntitlementService _entitlements;
 
     public DashboardService(
         IOrganizationRepository organizations,
@@ -54,7 +57,8 @@ public sealed class DashboardService
         ICaseReportRepository caseReports,
         IFlagProofReportRepository flagProofReports,
         IUsageCounterRepository usage,
-        IRunEvidenceRepository runEvidence)
+        IRunEvidenceRepository runEvidence,
+        IEntitlementService entitlements)
     {
         _organizations = organizations;
         _projects = projects;
@@ -64,12 +68,14 @@ public sealed class DashboardService
         _flagProofReports = flagProofReports;
         _usage = usage;
         _runEvidence = runEvidence;
+        _entitlements = entitlements;
     }
 
     public async Task<DashboardView> GetDashboardViewAsync(Guid organizationId, Guid? projectId, CancellationToken cancellationToken = default)
     {
         var organization = await _organizations.GetAsync(organizationId, cancellationToken);
         var planTier = organization?.PlanTier ?? PlanTier.Free;
+        var entitlements = _entitlements.For(organization);
         var projects = await _projects.ListByOrganizationAsync(organizationId, cancellationToken);
 
         // A project only ever resolves if it belongs to the caller's own organization — the source
@@ -87,7 +93,7 @@ public sealed class DashboardService
 
         if (selectedProject is null)
         {
-            return new DashboardView(projectSummaries, null, null, [], [], [], usage, planTier, IsSelectedProjectStale: false);
+            return new DashboardView(projectSummaries, null, null, [], [], [], usage, planTier, entitlements, IsSelectedProjectStale: false);
         }
 
         var connection = await _connections.GetAsync(selectedProject.Id, cancellationToken);
@@ -96,7 +102,7 @@ public sealed class DashboardService
         var flagProofReports = await _flagProofReports.ListByProjectAsync(selectedProject.Id, cancellationToken);
 
         // evidence-store: per-report evidence state for the dashboard drill-down.
-        var evidenceEntitled = planTier == PlanTier.Paid;
+        var evidenceEntitled = entitlements.EvidenceViewer;
         var evidenceByReport = evidenceEntitled
             ? (await _runEvidence.ListByProjectAsync(selectedProject.Id, cancellationToken)).ToDictionary(e => e.ReportId)
             : new Dictionary<Guid, Data.Entities.UploadedRunEvidence>();
@@ -133,6 +139,7 @@ public sealed class DashboardService
             flagProofReports.Select(r => new DashboardFlagProofReportView(r.CaseId, r.BuildIdentity, r.Outcome, r.KnownBadLegPassed, r.KnownGoodLegPassed, r.UploadedAt, r.Id, EvidenceStatus(r.Id))).ToList(),
             usage,
             planTier,
+            entitlements,
             isStale);
     }
 }

@@ -5,10 +5,12 @@ using Amazon.S3;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.IdentityModel.Tokens;
+using ReleaseTwin.Hosted.Api.Analytics;
 using ReleaseTwin.Hosted.Api.Auth;
 using ReleaseTwin.Hosted.Api.Data.Repositories;
 using ReleaseTwin.Hosted.Api.Data.Store;
 using ReleaseTwin.Hosted.Api.Endpoints;
+using ReleaseTwin.Hosted.Api.Releases;
 using ReleaseTwin.Hosted.Api.Services;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -77,6 +79,14 @@ if (useRealDynamoDb)
         .PersistKeysToAWSSystemsManager($"/{tableName}/DataProtection/Keys");
 }
 
+// plan-catalog-and-entitlements: load + validate the plan catalog once at startup. A malformed or
+// incomplete plans.json throws here and fails the app rather than yielding an empty entitlement set.
+builder.Services.AddSingleton(ReleaseTwin.Hosted.Api.Plans.PlanCatalog.Load());
+builder.Services.AddSingleton<ReleaseTwin.Hosted.Api.Plans.IEntitlementService, ReleaseTwin.Hosted.Api.Plans.EntitlementService>();
+// plan-catalog-and-entitlements: operator allowlist for the admin tier endpoint. Empty/unset ⇒
+// nobody is an operator (admin surface closed by default).
+builder.Services.AddSingleton<AdminOperators>();
+
 builder.Services.AddScoped<IOrganizationRepository, OrganizationRepository>();
 builder.Services.AddScoped<IUserRepository, UserRepository>();
 builder.Services.AddScoped<IProjectRepository, ProjectRepository>();
@@ -125,6 +135,8 @@ builder.Services.AddScoped<ITokenService, TokenService>();
 builder.Services.AddScoped<ProvisioningService>();
 builder.Services.AddScoped<ConnectionService>();
 builder.Services.AddScoped<DashboardService>();
+builder.Services.AddScoped<ReleaseTwin.Hosted.Api.Analytics.TrendService>();
+builder.Services.AddScoped<ReleaseTwin.Hosted.Api.Releases.ReleaseRollupService>();
 builder.Services.AddScoped<JourneyService>();
 builder.Services.AddScoped<AdapterCredentialService>();
 builder.Services.AddScoped<ProjectSecretService>();
@@ -286,8 +298,12 @@ app.UseAuthentication();
 app.UseAuthorization();
 
 app.MapRazorPages();
+app.MapPlansEndpoints();
+app.MapAdminEndpoints();
 app.MapIngestEndpoints();
 app.MapDashboardEndpoints();
+app.MapTrendEndpoints();
+app.MapReleaseEndpoints();
 app.MapConnectionEndpoints();
 app.MapJourneyEndpoints();
 app.MapJourneyFetchEndpoints();

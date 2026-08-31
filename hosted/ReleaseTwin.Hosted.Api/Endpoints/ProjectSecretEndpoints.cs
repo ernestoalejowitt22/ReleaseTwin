@@ -51,11 +51,11 @@ public static class ProjectSecretEndpoints
                 await secrets.SetAsync(orgId.Value, projectId, name, request.Value, userId, displayName);
                 return Results.NoContent();
             }
-            catch (PaidTierRequiredException)
+            catch (EntitlementRequiredException ex)
             {
-                // plan-tier-gating convention: a distinct error code, not a generic 400/500, so the
-                // frontend can show the right message and upgrade prompt.
-                return Results.Json(new { error = "paid-tier-required" }, statusCode: StatusCodes.Status403Forbidden);
+                // plan-catalog-and-entitlements convention: a distinct error code + the missing
+                // entitlement key, not a generic 400/500, so the frontend shows the right upgrade prompt.
+                return Results.Json(new { error = "entitlement-required", entitlement = ex.Entitlement }, statusCode: StatusCodes.Status403Forbidden);
             }
         });
 

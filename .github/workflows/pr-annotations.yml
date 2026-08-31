@@ -1,0 +1,30 @@
+# SPDX-FileCopyrightText: 2026 Ernesto Alejo and the ReleaseTwin contributors
+# SPDX-License-Identifier: AGPL-3.0-only WITH LicenseRef-ReleaseTwin-Adapter-Exception
+#
+# ci-pr-integration: dogfoods integrations/github-action against the bundled HTTP example,
+# proving the PR-comment + check-run path end to end. Builds this repo's CLI image locally
+# so the run reflects the code on the PR, not a published release.
+name: PR annotations (dogfood)
+
+on:
+  pull_request:
+
+permissions:
+  contents: read
+  pull-requests: write
+  checks: write
+
+jobs:
+  annotate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build the CLI image
+        run: docker build -t releasetwin-cli:ci .
+
+      - name: Run ReleaseTwin on the HTTP example and annotate the PR
+        uses: ./integrations/github-action
+        with:
+          cases-path: examples/cases-http-only
+          image: releasetwin-cli:ci

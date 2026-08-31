@@ -68,6 +68,23 @@ public sealed class DynamoDbHostedTable : IHostedTable
         return response.Items;
     }
 
+    public async Task<IReadOnlyList<Dictionary<string, AttributeValue>>> QueryRangeAsync(string pk, string skFrom, string skTo, bool scanIndexForward = true, CancellationToken cancellationToken = default)
+    {
+        var response = await _client.QueryAsync(new QueryRequest
+        {
+            TableName = _tableName,
+            ScanIndexForward = scanIndexForward,
+            KeyConditionExpression = "PK = :pk AND SK BETWEEN :from AND :to",
+            ExpressionAttributeValues = new Dictionary<string, AttributeValue>
+            {
+                [":pk"] = Attrs.S(pk),
+                [":from"] = Attrs.S(skFrom),
+                [":to"] = Attrs.S(skTo),
+            },
+        }, cancellationToken);
+        return response.Items;
+    }
+
     public async Task<IReadOnlyList<Dictionary<string, AttributeValue>>> QueryGsiAsync(string indexName, string gsiPk, CancellationToken cancellationToken = default)
     {
         var pkAttr = indexName == "GSI1" ? "GSI1PK" : "GSI2PK";

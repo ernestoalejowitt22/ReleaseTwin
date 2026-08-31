@@ -65,7 +65,9 @@ public static class DashboardEndpoints
                 return Results.Forbid();
             }
 
-            await provisioning.UpgradeOrganizationAsync(orgId.Value);
+            // plan-tier-gating: self-serve upgrade targets Team only — no payment collected.
+            // Enterprise is operator-set and deliberately unreachable from this customer-facing path.
+            await provisioning.UpgradeToTeamAsync(orgId.Value);
             return Results.NoContent();
         });
 

@@ -14,8 +14,17 @@ export function SiteFooter() {
           <Link href="/docs" className="hover:text-foreground">
             Docs
           </Link>
+          <Link href="/features" className="hover:text-foreground">
+            Features
+          </Link>
           <Link href="/pricing" className="hover:text-foreground">
             Pricing
+          </Link>
+          <Link href="/terms" className="hover:text-foreground">
+            Terms
+          </Link>
+          <Link href="/privacy" className="hover:text-foreground">
+            Privacy
           </Link>
           <a href={GITHUB_URL} target="_blank" rel="noreferrer" className="hover:text-foreground">
             GitHub

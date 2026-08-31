@@ -5,6 +5,7 @@ using Microsoft.AspNetCore.Routing;
 using ReleaseTwin.Hosted.Api.Auth;
 using ReleaseTwin.Hosted.Api.Data.Entities;
 using ReleaseTwin.Hosted.Api.Data.Repositories;
+using ReleaseTwin.Hosted.Api.Plans;
 using ReleaseTwin.Hosted.Api.Services;
 
 namespace ReleaseTwin.Hosted.Api.Endpoints;
@@ -37,7 +38,7 @@ public static class EvidenceConfigEndpoints
         var dash = app.MapGroup("/api/projects")
             .RequireAuthorization(policy => policy.RequireAuthenticatedUser().AddAuthenticationSchemes("ClerkJwt"));
 
-        dash.MapGet("/{projectId:guid}/evidence-config", async (Guid projectId, IProjectRepository projects, IOrganizationRepository organizations, CurrentOrganizationAccessor currentOrg) =>
+        dash.MapGet("/{projectId:guid}/evidence-config", async (Guid projectId, IProjectRepository projects, IOrganizationRepository organizations, IEntitlementService entitlements, CurrentOrganizationAccessor currentOrg) =>
         {
             var orgId = currentOrg.OrganizationId;
             if (orgId is null)
@@ -52,18 +53,19 @@ public static class EvidenceConfigEndpoints
             }
 
             var organization = await organizations.GetAsync(orgId.Value);
+            var ent = entitlements.For(organization);
             return Results.Ok(new
             {
                 captureDefault = project.EvidenceCaptureDefault,
                 retentionDays = project.EvidenceRetentionDays,
-                maxRetentionDays = Project.MaxEvidenceRetentionDays,
-                available = organization?.PlanTier == PlanTier.Paid,
+                maxRetentionDays = ent.MaxEvidenceRetentionDays ?? Project.MaxEvidenceRetentionDays,
+                available = ent.EvidenceViewer,
             });
         });
 
         dash.MapPut("/{projectId:guid}/evidence-config", async (
             Guid projectId, SetEvidenceConfigRequest request,
-            IProjectRepository projects, IOrganizationRepository organizations, CurrentOrganizationAccessor currentOrg) =>
+            IProjectRepository projects, IOrganizationRepository organizations, IEntitlementService entitlements, CurrentOrganizationAccessor currentOrg) =>
         {
             var orgId = currentOrg.OrganizationId;
             if (orgId is null || await projects.GetAsync(orgId.Value, projectId) is null)
@@ -72,14 +74,16 @@ public static class EvidenceConfigEndpoints
             }
 
             var organization = await organizations.GetAsync(orgId.Value);
-            if (organization?.PlanTier != PlanTier.Paid)
+            var ent = entitlements.For(organization);
+            if (!ent.EvidenceViewer)
             {
-                return Results.Json(new { error = "paid-tier-required" }, statusCode: StatusCodes.Status403Forbidden);
+                return Results.Json(new { error = "entitlement-required", entitlement = "evidenceViewer" }, statusCode: StatusCodes.Status403Forbidden);
             }
 
-            if (request.RetentionDays is < 1 or > Project.MaxEvidenceRetentionDays)
+            var maxRetention = ent.MaxEvidenceRetentionDays ?? Project.MaxEvidenceRetentionDays;
+            if (request.RetentionDays < 1 || request.RetentionDays > maxRetention)
             {
-                return Results.BadRequest(new { error = $"retentionDays must be between 1 and {Project.MaxEvidenceRetentionDays}" });
+                return Results.BadRequest(new { error = $"retentionDays must be between 1 and {maxRetention} on the {organization!.PlanTier} tier" });
             }
 
             await projects.SetEvidenceConfigAsync(orgId.Value, projectId, request.CaptureDefault, request.RetentionDays);

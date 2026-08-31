@@ -91,7 +91,7 @@ export function ProjectSecretsSection({
     // control itself already lives in the usage card above.
     return (
       <p className="text-sm text-muted-foreground">
-        Requires the Paid tier — upgrade above to store secrets your journeys can reference as{" "}
+        Requires the Team tier — upgrade above to store secrets your journeys can reference as{" "}
         <code>{"${VAR_NAME}"}</code>.
       </p>
     );

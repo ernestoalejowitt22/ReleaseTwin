@@ -2,8 +2,15 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { Check, Minus } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  entitlementKeys,
+  formatEntitlementValue,
+  formatPrice,
+  tiersForDisplay,
+  FEATURE_COPY,
+  type PlanTier,
+} from "@/lib/plans";
 
 export const metadata: Metadata = {
   title: "Pricing — ReleaseTwin",
@@ -13,20 +20,33 @@ export const metadata: Metadata = {
 
 const CONTACT = "mailto:ernestoalejo22@gmail.com?subject=ReleaseTwin%20early%20access";
 
-type Row = { label: string; free: string | boolean; team: string | boolean; enterprise: string | boolean };
+/**
+ * Authored, per-tier framing only — the tier set, prices, support, and feature values all come
+ * from the plan catalog (`@/lib/plans`). Adding or re-pricing a tier in `hosted/plans.json` is
+ * reflected here with no edit to this file.
+ */
+const TIER_META: Record<
+  PlanTier["id"],
+  { blurb: string; cta: { label: string; href: string; external?: boolean; variant: "default" | "outline" }; note?: string }
+> = {
+  free: {
+    blurb: "Run cases and land results on a dashboard.",
+    cta: { label: "Create an account", href: "/sign-in", variant: "default" },
+  },
+  team: {
+    blurb: "Unlimited projects and the full evidence trail.",
+    cta: { label: "Request early access", href: CONTACT, external: true, variant: "outline" },
+    note: "Billed annually (~$59 on-demand).",
+  },
+  enterprise: {
+    blurb: "Controls, private deployment, and hands-on onboarding.",
+    cta: { label: "Talk to us", href: CONTACT, external: true, variant: "outline" },
+    note: "Billed annually. Founding Setup onboarding included.",
+  },
+};
 
-const ROWS: Row[] = [
-  { label: "CLI, Core & adapters (run anywhere)", free: true, team: true, enterprise: true },
-  { label: "Flag-proof runs", free: true, team: true, enterprise: true },
-  { label: "Projects", free: "1", team: "Unlimited (billed per active)", enterprise: "Unlimited" },
-  { label: "Uploaded run history", free: true, team: true, enterprise: true },
-  { label: "Evidence viewer (request/response + screenshots)", free: false, team: true, enterprise: true },
-  { label: "Evidence retention", free: "30 days", team: "12 months", enterprise: "Custom" },
-  { label: "Custom redaction allow/deny rules", free: false, team: true, enterprise: true },
-  { label: "SSO, audit log, private deployment", free: false, team: false, enterprise: true },
-  { label: "Founding Setup onboarding", free: false, team: false, enterprise: "Included" },
-  { label: "Support", free: "Community / GitHub", team: "Email", enterprise: "SLA + shared Slack" },
-];
+const PLACEHOLDER_CAVEAT =
+  "Early-access placeholder — the final number is set from the first cohort's usage.";
 
 function Cell({ value }: { value: string | boolean }) {
   if (value === true) return <Check className="mx-auto size-4 text-primary" />;
@@ -34,56 +54,10 @@ function Cell({ value }: { value: string | boolean }) {
   return <span className="text-sm">{value}</span>;
 }
 
-const PLANS = [
-  {
-    name: "Free",
-    price: "$0",
-    unit: "1 project",
-    blurb: "Run cases and land results on a dashboard.",
-    features: [
-      "CLI, execution kernel & all adapters",
-      "Flag-proof runs, uploaded run history",
-      "1 project · 30-day evidence retention",
-      "Community support",
-    ],
-    cta: { label: "Create an account", href: "/sign-in" as const, variant: "default" as const },
-    highlight: false,
-  },
-  {
-    name: "Team",
-    price: "~$49",
-    unit: "per project / month",
-    blurb: "Unlimited projects and the full evidence trail.",
-    features: [
-      "Everything in Free, plus:",
-      "Unlimited projects (billed per active)",
-      "Evidence viewer — request/response + screenshots",
-      "12-month retention · custom redaction rules",
-      "Email support",
-    ],
-    cta: { label: "Request early access", href: CONTACT, variant: "outline" as const, external: true },
-    highlight: false,
-    note: "Billed annually (~$59 on-demand). Early-access placeholder — final number set from the first cohort's usage.",
-  },
-  {
-    name: "Enterprise",
-    price: "~$99",
-    unit: "per project / month",
-    blurb: "Controls, private deployment, and hands-on onboarding.",
-    features: [
-      "Everything in Team, plus:",
-      "SSO, audit log, private deployment",
-      "Custom retention",
-      "Founding Setup — your first workflow wired, included",
-      "SLA + shared Slack",
-    ],
-    cta: { label: "Talk to us", href: CONTACT, variant: "outline" as const, external: true },
-    highlight: false,
-    note: "Billed annually.",
-  },
-];
-
 export default function PricingPage() {
+  const tiers = tiersForDisplay();
+  const keys = entitlementKeys();
+
   return (
     <main className="mx-auto flex w-full max-w-5xl flex-1 flex-col gap-12 px-6 py-16">
       <header className="flex flex-col items-center gap-3 text-center">
@@ -97,46 +71,39 @@ export default function PricingPage() {
       </header>
 
       <div className="grid grid-cols-1 gap-6 md:grid-cols-3">
-        {PLANS.map((plan) => (
-          <Card
-            key={plan.name}
-            className={`flex flex-col ${plan.highlight ? "ring-2 ring-primary" : ""}`}
-          >
-            <CardHeader className="gap-2">
-              <div className="flex items-center justify-between">
-                <CardTitle>{plan.name}</CardTitle>
-                {plan.highlight ? <Badge>Most popular</Badge> : null}
-              </div>
-              <div className="flex items-baseline gap-1.5">
-                <p className="text-2xl font-semibold">{plan.price}</p>
-                <span className="text-xs text-muted-foreground">{plan.unit}</span>
-              </div>
-              <p className="text-sm text-muted-foreground">{plan.blurb}</p>
-            </CardHeader>
-            <CardContent className="flex flex-1 flex-col gap-4">
-              <ul className="flex flex-col gap-2 text-sm">
-                {plan.features.map((f) => (
-                  <li key={f} className="flex gap-2">
-                    <Check className="mt-0.5 size-4 shrink-0 text-primary" />
-                    <span className={f.endsWith("plus:") ? "text-muted-foreground" : undefined}>{f}</span>
-                  </li>
-                ))}
-              </ul>
-              <div className="mt-auto flex flex-col gap-3">
-                <Button asChild variant={plan.cta.variant}>
-                  {"external" in plan.cta && plan.cta.external ? (
-                    <a href={plan.cta.href}>{plan.cta.label}</a>
-                  ) : (
-                    <Link href={plan.cta.href as "/sign-in"}>{plan.cta.label}</Link>
-                  )}
-                </Button>
-                {plan.note ? (
-                  <p className="text-xs text-muted-foreground">{plan.note}</p>
-                ) : null}
-              </div>
-            </CardContent>
-          </Card>
-        ))}
+        {tiers.map((tier) => {
+          const meta = TIER_META[tier.id];
+          return (
+            <Card key={tier.id} className="flex flex-col">
+              <CardHeader className="gap-2">
+                <CardTitle>{tier.name}</CardTitle>
+                <div className="flex items-baseline gap-1.5">
+                  <p className="text-2xl font-semibold">{formatPrice(tier.price)}</p>
+                  <span className="text-xs text-muted-foreground">{tier.price.unit}</span>
+                </div>
+                <p className="text-sm text-muted-foreground">{meta.blurb}</p>
+              </CardHeader>
+              <CardContent className="flex flex-1 flex-col gap-4">
+                <p className="text-sm text-muted-foreground">
+                  Support: <span className="text-foreground">{tier.support}</span>
+                </p>
+                <div className="mt-auto flex flex-col gap-3">
+                  <Button asChild variant={meta.cta.variant}>
+                    {meta.cta.external ? (
+                      <a href={meta.cta.href}>{meta.cta.label}</a>
+                    ) : (
+                      <Link href={meta.cta.href as "/sign-in"}>{meta.cta.label}</Link>
+                    )}
+                  </Button>
+                  {tier.price.placeholder ? (
+                    <p className="text-xs text-muted-foreground">{PLACEHOLDER_CAVEAT}</p>
+                  ) : null}
+                  {meta.note ? <p className="text-xs text-muted-foreground">{meta.note}</p> : null}
+                </div>
+              </CardContent>
+            </Card>
+          );
+        })}
       </div>
 
       <section className="flex flex-col gap-4">
@@ -146,29 +113,47 @@ export default function PricingPage() {
             <thead className="border-b bg-muted/50">
               <tr>
                 <th className="px-4 py-3 font-medium">Feature</th>
-                <th className="px-4 py-3 text-center font-medium">Free</th>
-                <th className="px-4 py-3 text-center font-medium">Team</th>
-                <th className="px-4 py-3 text-center font-medium">Enterprise</th>
+                {tiers.map((tier) => (
+                  <th key={tier.id} className="px-4 py-3 text-center font-medium">
+                    {tier.name}
+                  </th>
+                ))}
               </tr>
             </thead>
             <tbody>
-              {ROWS.map((row) => (
-                <tr key={row.label} className="border-b last:border-0">
-                  <td className="px-4 py-3">{row.label}</td>
-                  <td className="px-4 py-3 text-center">
-                    <Cell value={row.free} />
+              <tr className="border-b">
+                <td className="px-4 py-3">CLI, execution kernel &amp; adapters (run anywhere)</td>
+                {tiers.map((tier) => (
+                  <td key={tier.id} className="px-4 py-3 text-center">
+                    <Cell value={true} />
                   </td>
-                  <td className="px-4 py-3 text-center">
-                    <Cell value={row.team} />
+                ))}
+              </tr>
+              <tr className="border-b">
+                <td className="px-4 py-3">Uploaded run history</td>
+                {tiers.map((tier) => (
+                  <td key={tier.id} className="px-4 py-3 text-center">
+                    <Cell value={true} />
                   </td>
-                  <td className="px-4 py-3 text-center">
-                    <Cell value={row.enterprise} />
-                  </td>
+                ))}
+              </tr>
+              {keys.map((key) => (
+                <tr key={key} className="border-b last:border-0">
+                  <td className="px-4 py-3">{FEATURE_COPY[key].label}</td>
+                  {tiers.map((tier) => (
+                    <td key={tier.id} className="px-4 py-3 text-center">
+                      <Cell value={formatEntitlementValue(key, tier.entitlements[key])} />
+                    </td>
+                  ))}
                 </tr>
               ))}
             </tbody>
           </table>
         </div>
+        <p className="text-xs text-muted-foreground">
+          Every row is generated from the plan catalog the hosted API enforces — see the full
+          list on the <Link href="/features" className="underline underline-offset-4">features page</Link>.
+        </p>
       </section>
 
       <section className="flex flex-col gap-3 rounded-xl border bg-muted/30 p-6">

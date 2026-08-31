@@ -75,6 +75,41 @@ jobs:
         </UL>
       </DocSection>
 
+      <DocSection title="PR annotations">
+        <P>
+          The <code className="text-foreground">integrations/github-action</code> Action runs your
+          cases and renders the result onto the pull request — a comment (updated in place on
+          re-runs) with the pass/fail totals and flag-proof verdict, plus a{" "}
+          <code className="text-foreground">ReleaseTwin</code> check run you can make a required
+          status check. It talks only to GitHub&apos;s own APIs with the workflow&apos;s{" "}
+          <code className="text-foreground">GITHUB_TOKEN</code> — no ReleaseTwin account. It is
+          Apache-2.0, so you can fork and adapt it.
+        </P>
+        <CodeBlock
+          label=".github/workflows/release-proof.yml"
+          code={`permissions:
+  contents: read
+  pull-requests: write
+  checks: write
+
+jobs:
+  release-proof:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ernestoalejowitt22/ReleaseTwin/integrations/github-action@v1
+        with:
+          cases-path: cases
+          image: ghcr.io/OWNER/releasetwin/cli:VERSION`}
+        />
+        <P>
+          The CLI still writes a machine-readable summary on its own with{" "}
+          <code className="text-foreground">--summary-json &lt;path&gt;</code> (or{" "}
+          <code className="text-foreground">RELEASETWIN_SUMMARY_JSON</code>) if you want to render it
+          somewhere else.
+        </P>
+      </DocSection>
+
       <DocSection title="Live example in this repo">
         <P>
           <code className="text-foreground">.github/workflows/releasetwin-demo.yml</code> runs the

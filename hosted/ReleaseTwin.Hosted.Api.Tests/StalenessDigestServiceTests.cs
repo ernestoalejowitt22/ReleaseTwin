@@ -40,7 +40,7 @@ public class StalenessDigestServiceTests
         var caseReports = new CaseReportRepository(table);
         var flagProofReports = new FlagProofReportRepository(table);
 
-        var provisioning = new ProvisioningService(users, organizations, projects, tokens, new TokenService());
+        var provisioning = new ProvisioningService(users, organizations, projects, tokens, new TokenService(), TestEntitlements.Service);
         var alerts = new InMemoryOperatorAlertPublisher();
         var digest = new StalenessDigestService(
             projects,

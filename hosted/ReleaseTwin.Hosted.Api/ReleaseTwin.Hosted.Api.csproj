@@ -7,6 +7,13 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <!-- plan-catalog-and-entitlements: the single plan catalog lives at hosted/plans.json (BSL side,
+         same license as web/ which also reads it) and is embedded here for enforcement. Manifest
+         name: ReleaseTwin.Hosted.Api.Plans.plans.json (see PlanCatalog.Load). -->
+    <EmbeddedResource Include="..\plans.json" Link="Plans\plans.json" />
+  </ItemGroup>
+
+  <ItemGroup>
     <PackageReference Include="Amazon.Lambda.AspNetCoreServer.Hosting" Version="2.2.1" />
     <PackageReference Include="Microsoft.AspNetCore.Authentication.JwtBearer" Version="10.0.0" />
     <PackageReference Include="AWSSDK.DynamoDBv2" Version="4.0.5" />

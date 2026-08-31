@@ -42,6 +42,12 @@ internal static class Keys
     public static string TokenId(Guid tokenId) => $"TOKENID#{tokenId}";
     public static string CaseReport(DateTimeOffset uploadedAt, Guid id) => $"CASEREPORT#{uploadedAt:O}#{id}";
     public static string FlagProof(DateTimeOffset uploadedAt, Guid id) => $"FLAGPROOF#{uploadedAt:O}#{id}";
+
+    // trend-analytics: sort-key bounds for a half-open [from, to) windowed Query. The real item keys
+    // carry a "#<guid>" suffix, so an item at exactly <to> sorts past the suffix-less upper bound and
+    // is excluded, while one at exactly <from> is included — the natural bucketing semantic.
+    public static string CaseReportBound(DateTimeOffset at) => $"CASEREPORT#{at:O}";
+    public static string FlagProofBound(DateTimeOffset at) => $"FLAGPROOF#{at:O}";
     public static string Journey(Guid journeyId) => $"JOURNEY#{journeyId}";
 
     /// <summary>Zero-padded so lexicographic sort-key ordering matches numeric version ordering.</summary>

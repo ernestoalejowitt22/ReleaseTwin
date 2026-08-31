@@ -24,6 +24,13 @@ public interface IHostedTable
     /// <summary>Query the primary table by partition key, optionally restricted to sort keys with a given prefix.</summary>
     Task<IReadOnlyList<Dictionary<string, AttributeValue>>> QueryAsync(string pk, string? skBeginsWith = null, bool scanIndexForward = true, CancellationToken cancellationToken = default);
 
+    /// <summary>
+    /// trend-analytics design.md: query one partition for sort keys in a lexicographic range
+    /// (<c>SK BETWEEN :from AND :to</c>) — a native windowed read over the time-ordered
+    /// <c>CASEREPORT#</c> / <c>FLAGPROOF#</c> keys, no GSI. BETWEEN is inclusive on both bounds.
+    /// </summary>
+    Task<IReadOnlyList<Dictionary<string, AttributeValue>>> QueryRangeAsync(string pk, string skFrom, string skTo, bool scanIndexForward = true, CancellationToken cancellationToken = default);
+
     /// <summary>Query a GSI (eventually consistent, per real DynamoDB semantics — never used for the security-critical token lookup).</summary>
     Task<IReadOnlyList<Dictionary<string, AttributeValue>>> QueryGsiAsync(string indexName, string gsiPk, CancellationToken cancellationToken = default);
 

@@ -21,8 +21,8 @@ export async function setEvidenceConfig(
     await api.put(`/api/projects/${projectId}/evidence-config`, { captureDefault, retentionDays });
   } catch (err) {
     if (err instanceof ApiError) {
-      if (err.status === 403 && err.message.includes("paid-tier-required")) {
-        return { error: "Evidence capture requires the Paid tier.", paidTierRequired: true };
+      if (err.status === 403 && err.message.includes("entitlement-required")) {
+        return { error: "Evidence capture requires the Team tier.", paidTierRequired: true };
       }
       return { error: err.message || "Could not save evidence settings." };
     }

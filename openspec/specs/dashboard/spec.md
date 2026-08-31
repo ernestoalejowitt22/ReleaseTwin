@@ -163,3 +163,42 @@ The dashboard SHALL display stored evidence only to members of the organization 
 - **WHEN** a customer views any dashboard view
 - **THEN** no evidence belonging to another organization is displayed
 
+### Requirement: The dashboard presents trend views for entitled organizations
+For an organization holding the `trendAnalytics` entitlement, the dashboard SHALL present
+a trends view at both the project level and the organization level, showing the case pass
+rate, flag-proof pass rate, and run volume over a selectable window (7 / 30 / 90 days), a
+failure-classification breakdown, and the flakiest-cases list. For an organization without
+that entitlement, the dashboard SHALL show an upgrade prompt in place of the trends view
+rather than the charts.
+
+#### Scenario: An entitled organization sees trend charts
+- **WHEN** a customer whose organization holds `trendAnalytics` opens the trends view
+- **THEN** the pass-rate, flag-proof-rate, and volume charts and the flakiest-cases list
+  are shown for the selected window
+
+#### Scenario: The window can be changed
+- **WHEN** the customer switches the window from 30 to 90 days
+- **THEN** the charts re-render with weekly buckets over the 90-day window
+
+#### Scenario: An unentitled organization sees an upgrade prompt
+- **WHEN** a customer whose organization lacks `trendAnalytics` opens the trends view
+- **THEN** an upgrade prompt is shown in place of the charts
+
+### Requirement: The project view presents a release readiness section for entitled organizations
+For an organization holding the `releaseRollup` entitlement, the project view SHALL present
+a Releases section: the list of release labels seen in that project's reports, and, for a
+selected release, its readiness rollup — the headline state (Proven / Not proven /
+Incomplete), the green / failing / stale counts, and the per-case latest result. For an
+organization without that entitlement, the dashboard SHALL show an upgrade prompt in place
+of the Releases section.
+
+#### Scenario: An entitled organization sees the release rollup
+- **WHEN** a customer whose organization holds `releaseRollup` opens a project with
+  release-labelled reports
+- **THEN** the Releases section lists the labels and shows the selected release's headline
+  state, counts, and per-case results
+
+#### Scenario: An unentitled organization sees an upgrade prompt
+- **WHEN** a customer whose organization lacks `releaseRollup` opens the Releases section
+- **THEN** an upgrade prompt is shown in place of the rollup
+
