@@ -1,0 +1,39 @@
+# Your first ReleaseTwin case. Runs with no credentials — it hits a public test API.
+#
+#   releasetwin run          (from this project's root)
+#
+# Then edit `url` and the assertions below to point at your own API.
+
+id: {{caseId}}
+
+# Where the requirement / ticket for this case lives. Any path or URL — it is
+# recorded on the report, never fetched.
+oracle:
+  locator: docs/your-requirement.md
+
+# The request body / payload for this case. Resolved relative to ../fixtures/.
+# `sha256` pins the exact bytes so a case can't silently drift; leave it and
+# ReleaseTwin fills it in, or run `sha256sum fixtures/{{caseId}}.json`.
+fixture:
+  locator: {{caseId}}.json
+  sha256: ca3d163bab055381827226140568f3bef7eaac187cebd76878e0b63e9e442356
+
+pipeline:
+  # One HTTP call. `${ENV_VAR}` in any value is resolved at load time, so real
+  # URLs and tokens never get committed:
+  #   headers:
+  #     Authorization: Bearer ${API_TOKEN}
+  - operation: http.request
+    with:
+      method: GET
+      url: https://jsonplaceholder.typicode.com/posts/1
+
+  # Assert on the JSON response. Add as many as you need.
+  - operation: http.assertJsonPath
+    with:
+      path: $.id
+      expected: 1
+  - operation: http.assertJsonPath
+    with:
+      path: $.userId
+      expected: 1
