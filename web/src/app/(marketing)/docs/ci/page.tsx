@@ -110,6 +110,41 @@ jobs:
         </P>
       </DocSection>
 
+      <DocSection title="Bitbucket, GitLab, and other CI">
+        <P>
+          The GitHub Action is a convenience wrapper. The portable primitive is the
+          non-zero exit code plus the{" "}
+          <code className="text-foreground">--summary-json</code> file — nothing about
+          either is GitHub-specific. On Bitbucket Pipelines the gate is one step:
+        </P>
+        <CodeBlock
+          label="bitbucket-pipelines.yml"
+          code={`pipelines:
+  pull-requests:
+    '**':
+      - step:
+          name: Release-proof gate
+          services: [docker]
+          script:
+            - >
+              docker run --rm -v "$BITBUCKET_CLONE_DIR/cases:/workspace:ro" -v "$BITBUCKET_CLONE_DIR:/out"
+              ghcr.io/OWNER/releasetwin/cli:VERSION /workspace --summary-json /out/releasetwin-summary.json
+          artifacts:
+            - releasetwin-summary.json`}
+        />
+        <P>
+          A non-zero exit fails the step and blocks the merge with no extra wiring. To
+          render the summary as a Bitbucket PR comment, parse{" "}
+          <code className="text-foreground">releasetwin-summary.json</code> and POST it to
+          the{" "}
+          <code className="text-foreground">
+            /2.0/repositories/&#123;workspace&#125;/&#123;repo&#125;/pullrequests/&#123;id&#125;/comments
+          </code>{" "}
+          API — the same shape as the GitHub Action&apos;s{" "}
+          <code className="text-foreground">render.mjs</code>, which you can adapt.
+        </P>
+      </DocSection>
+
       <DocSection title="Live example in this repo">
         <P>
           <code className="text-foreground">.github/workflows/releasetwin-demo.yml</code> runs the
