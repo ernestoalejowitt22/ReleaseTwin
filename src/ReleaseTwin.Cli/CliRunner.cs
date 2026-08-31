@@ -39,7 +39,8 @@ public sealed class CliRunner
         HttpMessageHandler? adapterCredentialsHandlerForTesting = null,
         HttpMessageHandler? projectSecretsHandlerForTesting = null,
         HttpMessageHandler? evidenceConfigHandlerForTesting = null) =>
-        RunCoreAsync(
+        RunWithConfigAsync(
+            () => ReleaseTwinConfig.LoadFor(casesDirectory),
             environment, output, cancellationToken,
             LoadLocalCasesAsync(casesDirectory),
             azureDevOpsHandlerForTesting, httpAdapterHandlerForTesting, uploadHandlerForTesting, launchDarklyHandlerForTesting, adapterCredentialsHandlerForTesting, projectSecretsHandlerForTesting, evidenceConfigHandlerForTesting);
@@ -65,10 +66,41 @@ public sealed class CliRunner
         HttpMessageHandler? adapterCredentialsHandlerForTesting = null,
         HttpMessageHandler? projectSecretsHandlerForTesting = null,
         HttpMessageHandler? evidenceConfigHandlerForTesting = null) =>
-        RunCoreAsync(
+        RunWithConfigAsync(
+            () => ReleaseTwinConfig.LoadFor(Directory.GetCurrentDirectory()),
             environment, output, cancellationToken,
             LoadHostedJourneyAsync(journeyId, version, environment, journeyFetchHandlerForTesting),
             azureDevOpsHandlerForTesting, httpAdapterHandlerForTesting, uploadHandlerForTesting, launchDarklyHandlerForTesting, adapterCredentialsHandlerForTesting, projectSecretsHandlerForTesting, evidenceConfigHandlerForTesting);
+
+    private async Task<int> RunWithConfigAsync(
+        Func<ReleaseTwinConfig> loadConfig,
+        IReadOnlyDictionary<string, string?> environment,
+        TextWriter output,
+        CancellationToken cancellationToken,
+        Func<Func<string, string?>, Task<(IReadOnlyList<LoadedCase>? Cases, string? Error)>> loadCasesAsync,
+        HttpMessageHandler? azureDevOpsHandlerForTesting,
+        HttpMessageHandler? httpAdapterHandlerForTesting,
+        HttpMessageHandler? uploadHandlerForTesting,
+        HttpMessageHandler? launchDarklyHandlerForTesting,
+        HttpMessageHandler? adapterCredentialsHandlerForTesting,
+        HttpMessageHandler? projectSecretsHandlerForTesting,
+        HttpMessageHandler? evidenceConfigHandlerForTesting)
+    {
+        ReleaseTwinConfig config;
+        try
+        {
+            config = loadConfig();
+        }
+        catch (ReleaseTwinConfigException ex)
+        {
+            output.WriteLine(ex.Message);
+            return 1;
+        }
+
+        return await RunCoreAsync(
+            config, environment, output, cancellationToken, loadCasesAsync,
+            azureDevOpsHandlerForTesting, httpAdapterHandlerForTesting, uploadHandlerForTesting, launchDarklyHandlerForTesting, adapterCredentialsHandlerForTesting, projectSecretsHandlerForTesting, evidenceConfigHandlerForTesting);
+    }
 
     // hosted-project-secrets: takes the effective environment-variable resolver (local environment
     // first, hosted-fetched project secrets as fallback) built by RunCoreAsync, so both loading paths
@@ -124,6 +156,7 @@ public sealed class CliRunner
     };
 
     private async Task<int> RunCoreAsync(
+        ReleaseTwinConfig config,
         IReadOnlyDictionary<string, string?> environment,
         TextWriter output,
         CancellationToken cancellationToken,
@@ -184,32 +217,43 @@ public sealed class CliRunner
             return 1;
         }
 
+        // config-driven-adapter-selection: with a `releasetwin.yaml` `adapters:` list, only listed
+        // adapters are considered; the partial-config check above still fires regardless.
         AzureDevOpsAdapter? azureDevOpsAdapter = null;
-        if (missing.Count == 0)
+        if (config.Considers("azure-devops"))
         {
-            var options = new AzureDevOpsOptions(Get("AZDO_ORG")!, Get("AZDO_PROJECT")!, Get("AZDO_PAT")!);
-            var variableGroupId = int.Parse(Get("AZDO_VARIABLE_GROUP_ID")!);
-            azureDevOpsAdapter = new AzureDevOpsAdapter(options, Get("AZDO_AREA_PATH")!, variableGroupId, handler: azureDevOpsHandlerForTesting);
-        }
-        else if (apiToken is { Length: > 0 })
-        {
-            // hosted-adapter-credentials: environment vars are entirely absent for this adapter —
-            // fall back to a hosted fetch before deciding it's not installed. Env vars, when fully
-            // present, always win (handled above, before this branch is ever reached).
-            var fields = await TryFetchAdapterCredentialAsync("azure-devops", apiToken, apiUrl, adapterCredentialsHandlerForTesting, output, cancellationToken);
-            if (fields is not null)
+            if (missing.Count == 0)
             {
-                try
+                var options = new AzureDevOpsOptions(Get("AZDO_ORG")!, Get("AZDO_PROJECT")!, Get("AZDO_PAT")!);
+                var variableGroupId = int.Parse(Get("AZDO_VARIABLE_GROUP_ID")!);
+                azureDevOpsAdapter = new AzureDevOpsAdapter(options, Get("AZDO_AREA_PATH")!, variableGroupId, handler: azureDevOpsHandlerForTesting);
+            }
+            else if (apiToken is { Length: > 0 })
+            {
+                // hosted-adapter-credentials: environment vars are entirely absent for this adapter —
+                // fall back to a hosted fetch before deciding it's not installed. Env vars, when fully
+                // present, always win (handled above, before this branch is ever reached).
+                var fields = await TryFetchAdapterCredentialAsync("azure-devops", apiToken, apiUrl, adapterCredentialsHandlerForTesting, output, cancellationToken);
+                if (fields is not null)
                 {
-                    var options = new AzureDevOpsOptions(fields["org"], fields["project"], fields["pat"]);
-                    var variableGroupId = int.Parse(fields["variableGroupId"]);
-                    azureDevOpsAdapter = new AzureDevOpsAdapter(options, fields["areaPath"], variableGroupId, handler: azureDevOpsHandlerForTesting);
-                }
-                catch (Exception ex) when (ex is KeyNotFoundException or FormatException)
-                {
-                    output.WriteLine($"WARN: hosted 'azure-devops' credentials are missing or malformed: {ex.Message}");
+                    try
+                    {
+                        var options = new AzureDevOpsOptions(fields["org"], fields["project"], fields["pat"]);
+                        var variableGroupId = int.Parse(fields["variableGroupId"]);
+                        azureDevOpsAdapter = new AzureDevOpsAdapter(options, fields["areaPath"], variableGroupId, handler: azureDevOpsHandlerForTesting);
+                    }
+                    catch (Exception ex) when (ex is KeyNotFoundException or FormatException)
+                    {
+                        output.WriteLine($"WARN: hosted 'azure-devops' credentials are missing or malformed: {ex.Message}");
+                    }
                 }
             }
+        }
+
+        if (config.Requires("azure-devops") && azureDevOpsAdapter is null)
+        {
+            output.WriteLine("releasetwin.yaml lists 'azure-devops' but its credentials are set in neither the environment (AZDO_ORG / AZDO_PROJECT / AZDO_PAT / AZDO_AREA_PATH / AZDO_VARIABLE_GROUP_ID) nor a hosted adapter credential.");
+            return 1;
         }
 
         var presentLd = LaunchDarklyEnvironmentVariables.Where(key => !string.IsNullOrWhiteSpace(Get(key))).ToList();
@@ -228,32 +272,42 @@ public sealed class CliRunner
         var ldFlagKey = Get("LAUNCHDARKLY_FLAG_KEY") is { Length: > 0 } flagKeyOverride ? flagKeyOverride : "release-proof-feature";
 
         LaunchDarklyAdapter? launchDarklyAdapter = null;
-        if (missingLd.Count == 0)
+        if (config.Considers("launchdarkly"))
         {
-            var ldOptions = new LaunchDarklyOptions(Get("LAUNCHDARKLY_API_TOKEN")!, Get("LAUNCHDARKLY_PROJECT_KEY")!, Get("LAUNCHDARKLY_ENVIRONMENT_KEY")!);
-            launchDarklyAdapter = new LaunchDarklyAdapter(ldOptions, ldFlagKey, launchDarklyHandlerForTesting);
-        }
-        else if (apiToken is { Length: > 0 })
-        {
-            var fields = await TryFetchAdapterCredentialAsync("launchdarkly", apiToken, apiUrl, adapterCredentialsHandlerForTesting, output, cancellationToken);
-            if (fields is not null)
+            if (missingLd.Count == 0)
             {
-                try
+                var ldOptions = new LaunchDarklyOptions(Get("LAUNCHDARKLY_API_TOKEN")!, Get("LAUNCHDARKLY_PROJECT_KEY")!, Get("LAUNCHDARKLY_ENVIRONMENT_KEY")!);
+                launchDarklyAdapter = new LaunchDarklyAdapter(ldOptions, ldFlagKey, launchDarklyHandlerForTesting);
+            }
+            else if (apiToken is { Length: > 0 })
+            {
+                var fields = await TryFetchAdapterCredentialAsync("launchdarkly", apiToken, apiUrl, adapterCredentialsHandlerForTesting, output, cancellationToken);
+                if (fields is not null)
                 {
-                    var ldOptions = new LaunchDarklyOptions(fields["apiToken"], fields["projectKey"], fields["environmentKey"]);
-                    launchDarklyAdapter = new LaunchDarklyAdapter(ldOptions, ldFlagKey, launchDarklyHandlerForTesting);
-                }
-                catch (KeyNotFoundException ex)
-                {
-                    output.WriteLine($"WARN: hosted 'launchdarkly' credentials are missing or malformed: {ex.Message}");
+                    try
+                    {
+                        var ldOptions = new LaunchDarklyOptions(fields["apiToken"], fields["projectKey"], fields["environmentKey"]);
+                        launchDarklyAdapter = new LaunchDarklyAdapter(ldOptions, ldFlagKey, launchDarklyHandlerForTesting);
+                    }
+                    catch (KeyNotFoundException ex)
+                    {
+                        output.WriteLine($"WARN: hosted 'launchdarkly' credentials are missing or malformed: {ex.Message}");
+                    }
                 }
             }
+        }
+
+        if (config.Requires("launchdarkly") && launchDarklyAdapter is null)
+        {
+            output.WriteLine("releasetwin.yaml lists 'launchdarkly' but its credentials are set in neither the environment (LAUNCHDARKLY_API_TOKEN / LAUNCHDARKLY_PROJECT_KEY / LAUNCHDARKLY_ENVIRONMENT_KEY) nor a hosted adapter credential.");
+            return 1;
         }
 
         // Unlike the credential-gated adapters above, the UI adapter needs no credentials — but
         // launching a real browser process is expensive and requires browser binaries to be
         // installed, so it's opt-in rather than unconditional like the HTTP adapter.
-        var uiEnabled = Get("RELEASETWIN_UI_ENABLED") is { Length: > 0 } uiFlag && (uiFlag == "1" || string.Equals(uiFlag, "true", StringComparison.OrdinalIgnoreCase));
+        var uiEnabled = (Get("RELEASETWIN_UI_ENABLED") is { Length: > 0 } uiFlag && (uiFlag == "1" || string.Equals(uiFlag, "true", StringComparison.OrdinalIgnoreCase)))
+            || config.Requires("ui");
         // ui-session-video: opt-in browser-session recording, same shape as RELEASETWIN_UI_ENABLED.
         var uiVideoDir = Get("RELEASETWIN_UI_VIDEO_DIR") is { Length: > 0 } dir ? dir : null;
         UiAdapter? uiAdapter = null;

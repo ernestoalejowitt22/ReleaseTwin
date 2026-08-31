@@ -66,6 +66,21 @@ docker run --rm -v "$PWD:/workspace" -w /workspace \
 
 A non-zero exit code means a case failed — wire it straight into CI.
 
+## Choosing adapters — `releasetwin.yaml`
+
+By default the CLI loads every adapter whose credentials it finds. To pin the set, list them:
+
+```yaml
+# releasetwin.yaml
+adapters:
+  - http
+  - launchdarkly
+```
+
+Only listed adapters are considered (`http` is always available). A listed adapter with no
+credentials is a **startup error** — you asked for it, so a missing `LAUNCHDARKLY_*` is a
+mistake, not a silent skip. Credentials themselves never go in this file.
+
 ## More
 
 - `releasetwin new ORDERS-2` — add another case + fixture.
