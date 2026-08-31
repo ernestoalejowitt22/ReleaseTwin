@@ -55,6 +55,9 @@ internal static class Keys
 
     public static string AdapterCredential(string adapter) => $"ADAPTERCRED#{adapter}";
 
+    /// <summary>billing (design.md D3): webhook idempotency item — PK == SK == <c>EVENT#&lt;providerEventId&gt;</c>.</summary>
+    public static string BillingEvent(string providerEventId) => $"EVENT#{providerEventId}";
+
     public static string ProjectSecret(string name) => $"SECRET#{name}";
 
     public static DateOnly CurrentUtcPeriod() => DateOnly.FromDateTime(DateTimeOffset.UtcNow.UtcDateTime);

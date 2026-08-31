@@ -12,6 +12,12 @@ public interface IEntitlementService
 {
     Entitlements For(PlanTier tier);
 
+    /// <summary>
+    /// billing (D4): entitlements are <c>tier ∧ billing status</c>. After resolving the tier's catalog
+    /// entitlements, a <see cref="BillingStatus.PastDue"/> org keeps them for a 14-day grace window
+    /// measured from <see cref="Organization.BillingStatusSince"/>; past that, or when
+    /// <see cref="BillingStatus.Canceled"/>, it drops to Free entitlements.
+    /// </summary>
     Entitlements For(Organization? organization) => For(organization?.PlanTier ?? PlanTier.Free);
 
     /// <summary>The full catalog, for <c>GET /plans</c> and the dashboard's entitlement DTO.</summary>
@@ -29,6 +35,36 @@ public sealed class EntitlementService : IEntitlementService
     }
 
     public PlanCatalog Catalog { get; }
+
+    /// <summary>billing (D4): grace window for a <see cref="BillingStatus.PastDue"/> org before its entitlements degrade to Free.</summary>
+    public static readonly TimeSpan PastDueGraceWindow = TimeSpan.FromDays(14);
+
+    public Entitlements For(Organization? organization)
+    {
+        if (organization is null)
+        {
+            return For(PlanTier.Free);
+        }
+
+        var tierEntitlements = For(organization.PlanTier);
+
+        switch (organization.BillingStatus)
+        {
+            case BillingStatus.Active:
+                return tierEntitlements;
+
+            case BillingStatus.PastDue when DateTimeOffset.UtcNow <= organization.BillingStatusSince + PastDueGraceWindow:
+                return tierEntitlements;
+
+            case BillingStatus.PastDue:
+            case BillingStatus.Canceled:
+            default:
+                // Grace window elapsed, or a hard cancellation: fall back to Free entitlements. The
+                // stored tier is left untouched so a recovery event restores full access with no
+                // re-provisioning.
+                return For(PlanTier.Free);
+        }
+    }
 
     public Entitlements For(PlanTier tier)
     {

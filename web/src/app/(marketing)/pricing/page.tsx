@@ -4,9 +4,12 @@ import { Check, Minus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
+  annualSavingsPct,
+  defaultPrice,
   entitlementKeys,
   formatEntitlementValue,
   formatPrice,
+  priceFor,
   tiersForDisplay,
   FEATURE_COPY,
   type PlanTier,
@@ -36,7 +39,7 @@ const TIER_META: Record<
   team: {
     blurb: "Unlimited projects and the full evidence trail.",
     cta: { label: "Request early access", href: CONTACT, external: true, variant: "outline" },
-    note: "Billed annually (~$59 on-demand).",
+    note: "Monthly or annual, per project. Cancel anytime.",
   },
   enterprise: {
     blurb: "Controls, private deployment, and hands-on onboarding.",
@@ -73,14 +76,23 @@ export default function PricingPage() {
       <div className="grid grid-cols-1 gap-6 md:grid-cols-3">
         {tiers.map((tier) => {
           const meta = TIER_META[tier.id];
+          const price = defaultPrice(tier);
+          const annual = priceFor(tier, "annual");
+          const savings = annualSavingsPct(tier);
           return (
             <Card key={tier.id} className="flex flex-col">
               <CardHeader className="gap-2">
                 <CardTitle>{tier.name}</CardTitle>
                 <div className="flex items-baseline gap-1.5">
-                  <p className="text-2xl font-semibold">{formatPrice(tier.price)}</p>
-                  <span className="text-xs text-muted-foreground">{tier.price.unit}</span>
+                  <p className="text-2xl font-semibold">{formatPrice(price)}</p>
+                  <span className="text-xs text-muted-foreground">{price.unit}</span>
                 </div>
+                {annual && annual.interval !== price.interval ? (
+                  <p className="text-xs text-muted-foreground">
+                    or {formatPrice(annual)}/{annual.unit} billed annually
+                    {savings ? ` — save ${savings}%` : ""}
+                  </p>
+                ) : null}
                 <p className="text-sm text-muted-foreground">{meta.blurb}</p>
               </CardHeader>
               <CardContent className="flex flex-1 flex-col gap-4">
@@ -95,7 +107,7 @@ export default function PricingPage() {
                       <Link href={meta.cta.href as "/sign-in"}>{meta.cta.label}</Link>
                     )}
                   </Button>
-                  {tier.price.placeholder ? (
+                  {price.placeholder ? (
                     <p className="text-xs text-muted-foreground">{PLACEHOLDER_CAVEAT}</p>
                   ) : null}
                   {meta.note ? <p className="text-xs text-muted-foreground">{meta.note}</p> : null}

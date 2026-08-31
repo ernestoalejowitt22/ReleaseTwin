@@ -25,9 +25,44 @@ export async function createProject(formData: FormData) {
   redirect(`/dashboard?projectId=${created.id}`);
 }
 
-export async function upgradeOrganization() {
-  await api.post("/api/dashboard/upgrade");
+/**
+ * billing: starts a Merchant-of-Record checkout for the chosen cadence and redirects the browser to
+ * the hosted checkout URL. The tier does NOT change here — only the subscription webhook moves it,
+ * once payment clears.
+ */
+export async function upgradeOrganization(formData: FormData) {
+  const cadence = String(formData.get("cadence") ?? "Monthly");
+
+  let result: { checkoutUrl?: string };
+  try {
+    result = await api.post<{ checkoutUrl: string }>("/api/dashboard/upgrade", { cadence });
+  } catch (err) {
+    if (err instanceof ApiError && err.status === 503) {
+      redirect(
+        `/dashboard?projectLimitError=${encodeURIComponent("Paid upgrades aren't available yet — please check back soon.")}`,
+      );
+    }
+    throw err;
+  }
+
+  if (result.checkoutUrl) {
+    redirect(result.checkoutUrl);
+  }
   revalidatePath("/dashboard");
+}
+
+/** billing: redirects the browser to the Merchant of Record's hosted customer portal. */
+export async function openBillingPortal() {
+  const result = await api.post<{ portalUrl: string }>("/api/dashboard/billing-portal");
+  if (result.portalUrl) {
+    redirect(result.portalUrl);
+  }
+  revalidatePath("/dashboard");
+}
+
+export async function deleteProject(projectId: string) {
+  await api.del(`/api/dashboard/projects/${projectId}`);
+  redirect("/dashboard");
 }
 
 export async function issueToken(projectId: string) {

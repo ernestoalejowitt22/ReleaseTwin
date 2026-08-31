@@ -35,6 +35,7 @@ import { ReleasesSection } from "./releases-section";
 import {
   createProject,
   disconnectConnection,
+  openBillingPortal,
   revokeToken,
   startGitHubConnection,
   upgradeOrganization,
@@ -102,6 +103,35 @@ export default async function DashboardPage({
         </div>
       )}
 
+      {(view.hasReadOnlyProjects || view.billingStatus !== "Active") && (
+        <div className="rounded-md border border-amber-500/50 bg-amber-500/10 p-3 text-sm">
+          <p className="font-medium">
+            {view.billingStatus === "PastDue"
+              ? "Your last payment didn't go through."
+              : view.billingStatus === "Canceled"
+                ? "Your subscription has been canceled."
+                : "Some projects are read-only."}
+          </p>
+          <p className="text-muted-foreground">
+            Projects beyond your current plan&apos;s limit stay visible with all their
+            evidence, but can&apos;t accept new runs until you&apos;re back under the limit.
+          </p>
+          {view.billingEnabled && (
+            <div className="mt-2">
+              {view.hasBillingLinkage ? (
+                <form action={openBillingPortal}>
+                  <Button variant="outline" size="sm" type="submit">
+                    Manage billing
+                  </Button>
+                </form>
+              ) : (
+                <UpgradeControl />
+              )}
+            </div>
+          )}
+        </div>
+      )}
+
       <Card>
         <CardHeader>
           <CardTitle>Usage this month</CardTitle>
@@ -120,18 +150,29 @@ export default async function DashboardPage({
               <p className="text-sm text-muted-foreground">flag-proof reports</p>
             </div>
           </div>
-          <div className="flex items-center gap-3 border-t pt-4">
+          <div className="flex flex-wrap items-center gap-3 border-t pt-4">
             <Badge variant={view.planTier === "Free" ? "secondary" : "default"}>
               {view.planTier} plan
             </Badge>
-            {view.planTier === "Free" && (
+            {view.planTier === "Free" && !view.hasBillingLinkage && (
               <>
                 <p className="text-sm text-muted-foreground">Limited to 1 project.</p>
-                <form action={upgradeOrganization}>
-                  <Button variant="outline" size="sm" type="submit">
-                    Upgrade
-                  </Button>
-                </form>
+                {view.billingEnabled && <UpgradeControl />}
+              </>
+            )}
+            {view.hasBillingLinkage && (
+              <>
+                <p className="text-sm text-muted-foreground">
+                  {view.billingCadence === "Annual" ? "Renews annually" : "Renews monthly"} · billed
+                  per project through our payment provider.
+                </p>
+                {view.billingEnabled && (
+                  <form action={openBillingPortal}>
+                    <Button variant="outline" size="sm" type="submit">
+                      Manage billing
+                    </Button>
+                  </form>
+                )}
               </>
             )}
           </div>
@@ -145,7 +186,7 @@ export default async function DashboardPage({
         <CardContent className="flex flex-col gap-4">
           <ul className="flex flex-col gap-1">
             {view.projects.map((project) => (
-              <li key={project.id}>
+              <li key={project.id} className="flex items-center gap-2">
                 <Link
                   href={`/dashboard?projectId=${project.id}`}
                   className={
@@ -156,6 +197,11 @@ export default async function DashboardPage({
                 >
                   {project.name}
                 </Link>
+                {project.readOnly && (
+                  <Badge variant="secondary" className="text-xs">
+                    Read-only
+                  </Badge>
+                )}
               </li>
             ))}
           </ul>
@@ -389,6 +435,33 @@ export default async function DashboardPage({
         </>
       )}
     </main>
+  );
+}
+
+/**
+ * billing: cadence choice + "Upgrade" submit. design.md D7 — monthly is preselected (small
+ * mid-cycle proration); annual is offered as "save 17%". Submitting starts a Merchant-of-Record
+ * checkout and redirects there; the tier only changes once the subscription webhook is processed.
+ */
+function UpgradeControl() {
+  return (
+    <form action={upgradeOrganization} className="flex items-center gap-2">
+      <label htmlFor="cadence" className="sr-only">
+        Billing cadence
+      </label>
+      <select
+        id="cadence"
+        name="cadence"
+        defaultValue="Monthly"
+        className="h-9 rounded-md border border-input bg-transparent px-2 text-sm"
+      >
+        <option value="Monthly">Monthly</option>
+        <option value="Annual">Annual — save 17%</option>
+      </select>
+      <Button variant="outline" size="sm" type="submit">
+        Upgrade
+      </Button>
+    </form>
   );
 }
 
