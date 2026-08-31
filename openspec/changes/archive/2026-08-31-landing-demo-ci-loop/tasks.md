@@ -28,12 +28,13 @@
   on `main` (443a13c).
 - [x] 2.4 Done — commit a6117b6 on `releasetwin-gate` fixes the assertion; run 33360603651
   **green**, comment **updated in place** to ✅ passed (2 passed · 0 failed).
-- [~] 2.5 **Can't do on NAHA as-is** — required status checks need GitHub Pro or a public
-  repo; NAHA is private on the free plan (confirmed: both the branch-protection API and
-  the rulesets API return 403 "Upgrade to GitHub Pro"). Options: GitHub Pro on the account
-  (then NAHA → Settings → Rules → Rulesets → require the `release-proof` check on `main`),
-  or leave it — the landing-page caption already frames it as "a failing check you make
-  required," matching `/docs/ci`. Recommended: leave it.
+- [x] 2.5 **Won't do** — required status checks on NAHA need GitHub Pro or a public repo
+  (both the branch-protection and rulesets APIs return 403 "Upgrade to GitHub Pro" on the
+  free plan). Decision: leave the check unenforced on NAHA. The landing-page caption and
+  `/docs/ci` already frame it as "a failing check you make required," which is accurate —
+  the gate runs and fails the PR; whether it *blocks* merge is a repo-settings choice. If
+  GitHub Pro is added later: NAHA → Settings → Rules → Rulesets → require `release-proof`
+  on `main`.
 
 ## 3. Capture script
 
