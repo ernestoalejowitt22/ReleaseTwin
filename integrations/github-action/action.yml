@@ -81,6 +81,9 @@ runs:
       shell: bash
       env:
         GITHUB_TOKEN: ${{ inputs.github-token }}
+        # On a pull_request event GITHUB_SHA is the ephemeral merge commit — the check run
+        # must land on the PR head so it shows as a PR status check.
+        RELEASETWIN_HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
         RELEASETWIN_SUMMARY: ${{ steps.run.outputs.summary }}
         RELEASETWIN_EXIT_CODE: ${{ steps.run.outputs.exit-code }}
         RELEASETWIN_COMMENT: ${{ inputs.comment }}

@@ -12,7 +12,9 @@ const API = "https://api.github.com";
 
 const token = required("GITHUB_TOKEN");
 const [owner, repo] = required("GITHUB_REPOSITORY").split("/");
-const sha = required("GITHUB_SHA");
+// The PR head on a pull_request event; the plain commit otherwise. GITHUB_SHA on a
+// pull_request event is the merge commit, which would hide the check run from the PR.
+const sha = process.env.RELEASETWIN_HEAD_SHA || required("GITHUB_SHA");
 const summaryPath = required("RELEASETWIN_SUMMARY");
 const wantComment = (process.env.RELEASETWIN_COMMENT ?? "true") !== "false";
 const wantCheck = (process.env.RELEASETWIN_CHECK ?? "true") !== "false";
