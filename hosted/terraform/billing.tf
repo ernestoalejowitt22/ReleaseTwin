@@ -116,6 +116,22 @@ resource "aws_iam_role_policy" "billing_reconciliation_dynamodb" {
   policy = data.aws_iam_policy_document.billing_reconciliation_dynamodb.json
 }
 
+# billing-metrics-digest: the nightly reconciliation run also composes an operator digest of
+# billing-integrity + abuse signals and publishes it to the same operator alerts topic the
+# staleness digest uses (alerting.tf). Publish-only, scoped to that one topic.
+data "aws_iam_policy_document" "billing_reconciliation_sns" {
+  statement {
+    actions   = ["sns:Publish"]
+    resources = [aws_sns_topic.operator_alerts.arn]
+  }
+}
+
+resource "aws_iam_role_policy" "billing_reconciliation_sns" {
+  name   = "sns-publish-access"
+  role   = aws_iam_role.billing_reconciliation.id
+  policy = data.aws_iam_policy_document.billing_reconciliation_sns.json
+}
+
 resource "aws_lambda_function" "billing_reconciliation" {
   function_name = "${var.table_prefix}releasetwin-billing-reconciliation"
   role          = aws_iam_role.billing_reconciliation.arn
@@ -142,6 +158,10 @@ resource "aws_lambda_function" "billing_reconciliation" {
       Polar__ProductIds__Team__Monthly = var.polar_product_team_monthly
       Polar__ProductIds__Team__Annual  = var.polar_product_team_annual
       Polar__ReconciliationDryRun      = tostring(var.polar_reconciliation_dry_run)
+
+      # billing-metrics-digest: without this the digest degrades to a log-only warning (it never
+      # fails the reconciliation run). Same topic + SNS client the staleness digest uses.
+      Alerting__OperatorTopicArn = aws_sns_topic.operator_alerts.arn
     }
   }
 }
