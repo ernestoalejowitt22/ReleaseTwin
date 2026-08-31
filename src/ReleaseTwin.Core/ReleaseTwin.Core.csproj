@@ -6,4 +6,17 @@
     <Nullable>enable</Nullable>
   </PropertyGroup>
 
+  <ItemGroup>
+    <!-- add-feature-flag-seam: the single feature-flag registry lives at the repo root (imported
+         directly by web/, embedded here and in hosted/). Manifest name:
+         ReleaseTwin.Core.FeatureFlags.flags.json (see FlagRegistry.Load). -->
+    <EmbeddedResource Include="..\..\flags.json" Link="FeatureFlags\flags.json" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- add-feature-flag-seam: OpenFeature (Apache-2.0) — flagged for the licensing review; the
+         engine is AGPL and already carries adapter SDKs. -->
+    <PackageReference Include="OpenFeature" Version="2.14.1" />
+  </ItemGroup>
+
 </Project>

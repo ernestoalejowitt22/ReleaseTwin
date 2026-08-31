@@ -3,9 +3,9 @@ name: Hosted CI
 on:
   push:
     branches: [main]
-    paths: ["hosted/**"]
+    paths: ["hosted/**", "flags.json"]
   pull_request:
-    paths: ["hosted/**"]
+    paths: ["hosted/**", "flags.json"]
 
 jobs:
   build-and-test:

@@ -82,6 +82,18 @@ if (useRealDynamoDb)
 // plan-catalog-and-entitlements: load + validate the plan catalog once at startup. A malformed or
 // incomplete plans.json throws here and fails the app rather than yielding an empty entitlement set.
 builder.Services.AddSingleton(ReleaseTwin.Hosted.Api.Plans.PlanCatalog.Load());
+
+// add-feature-flag-seam: the feature-flag seam (design D1/D3). Registry + provider are singletons;
+// the provider is a plain in-process static resolver — no streaming socket, no background thread, so
+// it is safe across Lambda freeze/thaw. Adopting LaunchDarkly later = swap the FeatureProvider
+// registration here for LaunchDarkly.OpenFeature.ServerProvider; nothing calling IFlagService moves.
+builder.Services.AddSingleton(ReleaseTwin.Hosted.Api.Flags.FlagRegistry.Load());
+builder.Services.AddSingleton<OpenFeature.FeatureProvider>(sp =>
+    new ReleaseTwin.Hosted.Api.Flags.StaticFlagProvider(
+        sp.GetRequiredService<ReleaseTwin.Hosted.Api.Flags.FlagRegistry>(),
+        sp.GetRequiredService<IConfiguration>()));
+builder.Services.AddScoped<ReleaseTwin.Hosted.Api.Flags.IFlagContextFactory, ReleaseTwin.Hosted.Api.Flags.FlagContextFactory>();
+builder.Services.AddScoped<ReleaseTwin.Hosted.Api.Flags.IFlagService, ReleaseTwin.Hosted.Api.Flags.FlagService>();
 builder.Services.AddSingleton<ReleaseTwin.Hosted.Api.Plans.IEntitlementService, ReleaseTwin.Hosted.Api.Plans.EntitlementService>();
 // plan-catalog-and-entitlements: operator allowlist for the admin tier endpoint. Empty/unset ⇒
 // nobody is an operator (admin surface closed by default).

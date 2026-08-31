@@ -11,6 +11,10 @@
          same license as web/ which also reads it) and is embedded here for enforcement. Manifest
          name: ReleaseTwin.Hosted.Api.Plans.plans.json (see PlanCatalog.Load). -->
     <EmbeddedResource Include="..\plans.json" Link="Plans\plans.json" />
+    <!-- add-feature-flag-seam: the single feature-flag registry lives at the repo root (imported
+         directly by web/, embedded here and in the CLI). Manifest name:
+         ReleaseTwin.Hosted.Api.Flags.flags.json (see FlagRegistry.Load). -->
+    <EmbeddedResource Include="..\..\flags.json" Link="Flags\flags.json" />
   </ItemGroup>
 
   <ItemGroup>
@@ -23,6 +27,7 @@
     <!-- evidence-purge-and-blob-store: S3EvidenceBlobStore. v4 line, matching the AWSSDK.Core
          the DynamoDB/SNS packages already pull. -->
     <PackageReference Include="AWSSDK.S3" Version="4.0.6" />
+    <PackageReference Include="OpenFeature" Version="2.14.1" />
   </ItemGroup>
 
 </Project>

@@ -171,6 +171,33 @@ public sealed class CliRunner
     {
         string? Get(string key) => environment.TryGetValue(key, out var value) ? value : null;
 
+        // add-feature-flag-seam: end-to-end proof the flag seam is wired on the CLI surface. Fully
+        // offline — resolves from the embedded registry + releasetwin.yaml overrides. The smoke line
+        // is RELEASETWIN_DEBUG-only; unknown-override warnings always print. Gates nothing.
+        try
+        {
+            var flagRegistry = ReleaseTwin.Core.FeatureFlags.FlagRegistry.Load();
+            foreach (var unknownFlag in flagRegistry.UnknownKeys(config.FeatureFlags.Keys))
+            {
+                output.WriteLine($"WARN: releasetwin.yaml feature_flags names unknown flag '{unknownFlag}' — ignored.");
+            }
+            var flagService = new ReleaseTwin.Core.FeatureFlags.FlagService(
+                new ReleaseTwin.Core.FeatureFlags.StaticFlagProvider(flagRegistry, config.FeatureFlags), flagRegistry);
+            var flagContext = new ReleaseTwin.Core.FeatureFlags.FlagContext(
+                TargetingKey: config.Organization,
+                ProjectId: config.Project,
+                Env: string.IsNullOrEmpty(Get("CI")) ? "development" : "production");
+            var smoke = await flagService.GetBooleanAsync("flag-seam-smoke", flagContext, cancellationToken);
+            if (!string.IsNullOrEmpty(Get("RELEASETWIN_DEBUG")))
+            {
+                output.WriteLine($"flag_seam_smoke surface=cli value={smoke}");
+            }
+        }
+        catch (Exception ex)
+        {
+            output.WriteLine($"WARN: feature-flag evaluation unavailable: {ex.Message}");
+        }
+
         // cli-runner (hosted-self-serve-platform delta): upload is entirely optional. No token, no
         // upload attempt, no error — the CLI behaves exactly as it did before this capability existed.
         var apiToken = Get("RELEASETWIN_API_TOKEN");

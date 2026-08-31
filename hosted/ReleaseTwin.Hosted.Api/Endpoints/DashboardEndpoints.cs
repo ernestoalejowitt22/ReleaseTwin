@@ -20,13 +20,20 @@ public static class DashboardEndpoints
         var group = app.MapGroup("/api/dashboard")
             .RequireAuthorization(policy => policy.RequireAuthenticatedUser().AddAuthenticationSchemes("ClerkJwt"));
 
-        group.MapGet("/", async (Guid? projectId, DashboardService dashboard, CurrentOrganizationAccessor currentOrg) =>
+        group.MapGet("/", async (Guid? projectId, DashboardService dashboard, CurrentOrganizationAccessor currentOrg,
+            ReleaseTwin.Hosted.Api.Flags.IFlagService flags, ILoggerFactory loggerFactory) =>
         {
             var orgId = currentOrg.OrganizationId;
             if (orgId is null)
             {
                 return Results.Forbid();
             }
+
+            // add-feature-flag-seam: end-to-end proof the flag seam is wired on the hosted surface.
+            // Structured log only; gates nothing. Delete when a real flag replaces flag-seam-smoke.
+            var smoke = await flags.GetBooleanAsync("flag-seam-smoke");
+            loggerFactory.CreateLogger("ReleaseTwin.Hosted.Api.Flags").LogInformation(
+                "flag_seam_smoke surface=hosted value={Value}", smoke);
 
             return Results.Ok(await dashboard.GetDashboardViewAsync(orgId.Value, projectId));
         });

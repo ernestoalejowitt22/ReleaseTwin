@@ -37,6 +37,20 @@ public sealed class ReleaseTwinConfig
         Adapters is not null && Adapters.Contains(name, StringComparer.OrdinalIgnoreCase);
 
     /// <summary>
+    /// add-feature-flag-seam: optional <c>feature_flags:</c> map — per-key local overrides for
+    /// ReleaseTwin's own feature flags (see docs/feature-flags.md). Values are raw strings resolved
+    /// against each flag's declared type. Empty when there is no file or no <c>feature_flags:</c> key.
+    /// </summary>
+    public IReadOnlyDictionary<string, string?> FeatureFlags { get; private init; } =
+        new Dictionary<string, string?>();
+
+    /// <summary>add-feature-flag-seam: optional <c>organization:</c> — the org id used as the flag-evaluation targeting key.</summary>
+    public string? Organization { get; private init; }
+
+    /// <summary>add-feature-flag-seam: optional <c>project:</c> — the project id carried in the flag-evaluation context.</summary>
+    public string? Project { get; private init; }
+
+    /// <summary>
     /// Load <c>releasetwin.yaml</c> for a run whose cases live in <paramref name="casesDirectory"/>.
     /// Looks in that directory's parent, then the current directory. Absent → an empty config
     /// (auto-detection). Malformed / unknown adapter name → <see cref="ReleaseTwinConfigException"/>.
@@ -72,24 +86,46 @@ public sealed class ReleaseTwinConfig
             throw new ReleaseTwinConfigException($"{path}: not valid YAML — {ex.Message}");
         }
 
-        if (dto?.Adapters is null)
+        if (dto is null)
         {
             return new ReleaseTwinConfig();
         }
 
-        var names = dto.Adapters
-            .Select(a => (a ?? string.Empty).Trim().ToLowerInvariant())
-            .Where(a => a.Length > 0)
-            .ToList();
-
-        var unknown = names.Where(a => !KnownAdapters.Contains(a)).ToList();
-        if (unknown.Count > 0)
+        List<string>? names = null;
+        if (dto.Adapters is not null)
         {
-            throw new ReleaseTwinConfigException(
-                $"{path}: unknown adapter(s) {string.Join(", ", unknown)}. Known: {string.Join(", ", KnownAdapters)}.");
+            names = dto.Adapters
+                .Select(a => (a ?? string.Empty).Trim().ToLowerInvariant())
+                .Where(a => a.Length > 0)
+                .ToList();
+
+            var unknown = names.Where(a => !KnownAdapters.Contains(a)).ToList();
+            if (unknown.Count > 0)
+            {
+                throw new ReleaseTwinConfigException(
+                    $"{path}: unknown adapter(s) {string.Join(", ", unknown)}. Known: {string.Join(", ", KnownAdapters)}.");
+            }
         }
 
-        return new ReleaseTwinConfig { Adapters = names };
+        var featureFlags = new Dictionary<string, string?>();
+        if (dto.FeatureFlags is not null)
+        {
+            foreach (var (key, value) in dto.FeatureFlags)
+            {
+                if (!string.IsNullOrWhiteSpace(key))
+                {
+                    featureFlags[key.Trim()] = value;
+                }
+            }
+        }
+
+        return new ReleaseTwinConfig
+        {
+            Adapters = names,
+            FeatureFlags = featureFlags,
+            Organization = string.IsNullOrWhiteSpace(dto.Organization) ? null : dto.Organization.Trim(),
+            Project = string.IsNullOrWhiteSpace(dto.Project) ? null : dto.Project.Trim(),
+        };
     }
 
     private static IEnumerable<string> CandidateRoots(string casesDirectory)
@@ -106,5 +142,8 @@ public sealed class ReleaseTwinConfig
     private sealed class Dto
     {
         public List<string?>? Adapters { get; set; }
+        public Dictionary<string, string?>? FeatureFlags { get; set; }
+        public string? Organization { get; set; }
+        public string? Project { get; set; }
     }
 }
