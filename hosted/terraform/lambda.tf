@@ -144,19 +144,19 @@ resource "aws_lambda_function" "hosted_api" {
       # endpoint (setting an org to Enterprise). Empty ⇒ the admin surface is closed.
       Admin__OperatorUserIds = var.admin_operator_user_ids
 
-      # billing: Polar (Merchant of Record). Empty ApiToken/WebhookSecret/price ids ⇒
+      # billing: Polar (Merchant of Record). Empty ApiToken/WebhookSecret/product ids ⇒
       # PolarOptions.IsConfigured is false and every billing surface stays closed (the webhook
       # returns 503, the upgrade button errors gracefully). Secrets come from repo *secrets*,
       # identifiers from repo *variables* — see deploy-hosted.yml.
-      Polar__ApiToken                = var.polar_api_token
-      Polar__WebhookSecret           = var.polar_webhook_secret
-      Polar__ApiBaseUrl              = var.polar_api_base_url
-      Polar__CheckoutSuccessUrl      = var.polar_checkout_success_url
-      Polar__CheckoutCancelUrl       = var.polar_checkout_cancel_url
-      Polar__PortalReturnUrl         = var.polar_portal_return_url
-      Polar__PriceIds__Team__Monthly = var.polar_price_team_monthly
-      Polar__PriceIds__Team__Annual  = var.polar_price_team_annual
-      Polar__UpgradeEnabled          = tostring(var.polar_upgrade_enabled)
+      Polar__ApiToken                  = var.polar_api_token
+      Polar__WebhookSecret             = var.polar_webhook_secret
+      Polar__ApiBaseUrl                = var.polar_api_base_url
+      Polar__CheckoutSuccessUrl        = var.polar_checkout_success_url
+      Polar__CheckoutCancelUrl         = var.polar_checkout_cancel_url
+      Polar__PortalReturnUrl           = var.polar_portal_return_url
+      Polar__ProductIds__Team__Monthly = var.polar_product_team_monthly
+      Polar__ProductIds__Team__Annual  = var.polar_product_team_annual
+      Polar__UpgradeEnabled            = tostring(var.polar_upgrade_enabled)
     }
   }
 }

@@ -89,7 +89,7 @@ public sealed class CustomWebApplicationFactory : WebApplicationFactory<Program>
                 {
                     ApiToken = "test-token",
                     WebhookSecret = "test-webhook-secret",
-                    PriceIds = new Dictionary<string, string> { ["Team:Monthly"] = "price_monthly", ["Team:Annual"] = "price_annual" },
+                    ProductIds = new Dictionary<string, string> { ["Team:Monthly"] = "prod_monthly", ["Team:Annual"] = "prod_annual" },
                     ReconciliationDryRun = false,
                     UpgradeEnabled = UpgradeButtonEnabled,
                 });

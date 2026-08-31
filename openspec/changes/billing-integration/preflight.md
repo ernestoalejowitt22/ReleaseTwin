@@ -3,38 +3,44 @@
 Per CLAUDE.md: everything the Polar (Merchant of Record) integration needs, with a one-line
 verify per item. Standing manual steps (no code path) are flagged **MANUAL**.
 
+> **Note (post-implementation):** the final shape differs from the early assumptions below —
+> config is GitHub repo **secrets/variables** (not SSM), keys are `Polar__*`, and the checkout
+> API takes **product** ids (not price ids). `docs/billing.md` + `docs/billing-sandbox-runbook.md`
+> are the authoritative, current references. This file is kept for the credential-inventory intent.
+
 ## Polar account & catalog objects — **MANUAL** (Polar dashboard, no API to create these)
 
 | Item | Purpose | Verify |
 |---|---|---|
 | Polar organization | the MoR account | `curl -sf -H "Authorization: Bearer $POLAR_API_TOKEN" https://api.polar.sh/v1/organizations/` |
 | Product "ReleaseTwin Team" | the thing customers subscribe to | `curl -sf -H "Authorization: Bearer $POLAR_API_TOKEN" "https://api.polar.sh/v1/products/?organization_id=$POLAR_ORG_ID"` shows it |
-| Price: Team monthly (recurring, monthly, ~$59, quantity-based / per-seat) | monthly cadence | product JSON `prices[]` has a `recurring_interval: month` entry; id → `POLAR_TEAM_PRICE_MONTHLY` |
-| Price: Team annual (recurring, yearly, ~$49×12) | annual cadence | product JSON `prices[]` has a `recurring_interval: year` entry; id → `POLAR_TEAM_PRICE_ANNUAL` |
+| Product "ReleaseTwin Team" (monthly, seat-based, ~$59) | monthly cadence | product id → `POLAR_TEAM_PRODUCT_MONTHLY` |
+| Product "ReleaseTwin Team (annual)" (yearly, seat-based, ~$49×12) | annual cadence | separate product; id → `POLAR_TEAM_PRODUCT_ANNUAL` |
 | (Optional) Enterprise product + prices | only if Enterprise ever becomes self-serve — deferred, leave unset | n/a |
 | Webhook endpoint registered → `https://<api-host>/api/billing/webhook` | delivers subscription events | Polar dashboard → Webhooks shows the endpoint "active"; secret copied to `POLAR_WEBHOOK_SECRET` |
 | Customer portal enabled | "Manage billing" redirect target | Polar dashboard → Settings → Customer Portal is on |
 
-## Secrets — SSM Parameter Store (SecureString), same pattern as Clerk
+## Secrets — GitHub Actions **repository secrets** (passed as Terraform `-var` by `deploy-hosted.yml`)
 
-| Name | Verify it's set |
-|---|---|
-| `/releasetwin/<env>/polar/api-token` → env `POLAR_API_TOKEN` | `aws ssm get-parameter --name /releasetwin/dev/polar/api-token --with-decryption --query Parameter.Value --output text` |
-| `/releasetwin/<env>/polar/webhook-secret` → env `POLAR_WEBHOOK_SECRET` | `aws ssm get-parameter --name /releasetwin/dev/polar/webhook-secret --with-decryption --query Parameter.Value --output text` |
+| Name | Bound to | Verify it's set |
+|---|---|---|
+| `POLAR_API_TOKEN` | `Polar__ApiToken` | `gh secret list \| grep POLAR_API_TOKEN` |
+| `POLAR_WEBHOOK_SECRET` | `Polar__WebhookSecret` | `gh secret list \| grep POLAR_WEBHOOK_SECRET` |
 
 ## Non-secret config — GitHub repo **variables** (not secrets) + Terraform, like `CLERK_DOMAIN` / `ADMIN_OPERATOR_USER_IDS`
 
 | Repo variable | Bound to | Verify |
 |---|---|---|
-| `POLAR_ORGANIZATION_ID` | `Polar:OrganizationId` | `gh variable list \| grep POLAR_ORGANIZATION_ID` |
-| `POLAR_TEAM_PRODUCT_ID` | `Polar:Team:ProductId` | `gh variable list \| grep POLAR_TEAM_PRODUCT_ID` |
-| `POLAR_TEAM_PRICE_MONTHLY` | `Polar:Team:MonthlyPriceId` | `gh variable list \| grep POLAR_TEAM_PRICE_MONTHLY` |
-| `POLAR_TEAM_PRICE_ANNUAL` | `Polar:Team:AnnualPriceId` | `gh variable list \| grep POLAR_TEAM_PRICE_ANNUAL` |
-| `POLAR_API_BASE` (optional; default `https://api.polar.sh`, sandbox `https://sandbox-api.polar.sh`) | `Polar:ApiBase` | `gh variable list \| grep POLAR_API_BASE` |
+| `POLAR_TEAM_PRODUCT_MONTHLY` | `Polar__ProductIds__Team__Monthly` | `gh variable list \| grep POLAR_TEAM_PRODUCT_MONTHLY` |
+| `POLAR_TEAM_PRODUCT_ANNUAL` | `Polar__ProductIds__Team__Annual` | `gh variable list \| grep POLAR_TEAM_PRODUCT_ANNUAL` |
+| `POLAR_API_BASE_URL` (optional; default `https://api.polar.sh`, sandbox `https://sandbox-api.polar.sh`) | `Polar__ApiBaseUrl` | `gh variable list \| grep POLAR_API_BASE_URL` |
+| `POLAR_CHECKOUT_SUCCESS_URL` / `POLAR_CHECKOUT_CANCEL_URL` / `POLAR_PORTAL_RETURN_URL` | `Polar__CheckoutSuccessUrl` etc. | `gh variable list \| grep POLAR_` |
+| `POLAR_RECONCILIATION_DRY_RUN` (default `true`) / `POLAR_UPGRADE_ENABLED` (default `false`) | `Polar__ReconciliationDryRun` / `Polar__UpgradeEnabled` | `gh variable list \| grep POLAR_` |
 
-Empty / absent config ⇒ `IPolarClient` construction fails fast at startup **only if** the upgrade
-surface is enabled; with billing disabled (`Billing:Enabled=false`, the default until sandbox
-passes) the app starts normally and the webhook endpoint is a signature-checked no-op.
+Empty / absent config ⇒ `PolarOptions.IsConfigured` is false: the app starts normally, the webhook
+endpoint returns 503, and the upgrade/portal endpoints + dashboard button are hidden. The button
+needs both `IsConfigured` **and** `POLAR_UPGRADE_ENABLED=true` (`IsUpgradeEnabled`), so the webhook
+can be registered and events can flow before the button goes live.
 
 ## IAM — Lambda execution roles
 

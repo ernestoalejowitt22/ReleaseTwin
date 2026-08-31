@@ -22,45 +22,47 @@ repeat the config half against a real production Polar org and swap `POLAR_API_B
 
 ---
 
-## 1. Polar sandbox: org, product, prices
+## 1. Polar sandbox: org + two products
 
 At `https://sandbox.polar.sh`:
 
 1. **Create an organization** (any name, e.g. `releasetwin-sandbox`).
 2. **Products** → you should already have created:
-   - `ReleaseTwin Team` — recurring, **every 1 month**, fixed price **$59.00 USD**.
-   - `ReleaseTwin Team (annual)` — recurring, **every 1 year**, fixed price **$588.00 USD**
-     (= $49 × 12).
+   - `ReleaseTwin Team` — recurring, **every 1 month**, **seat-based** price **$59.00 USD / seat**.
+   - `ReleaseTwin Team (annual)` — recurring, **every 1 year**, **seat-based** price **$588.00 USD
+     / seat** (= $49 × 12).
    - Free trial: **off** on both. Customer-portal visibility: **Private**.
 3. **Per-project = quantity.** Our code PATCHes `quantity` on the subscription as projects are
-   added/removed and expects the invoice to be `price × quantity`. Confirm in the price settings
-   that a **seat / per-unit / quantity** multiplier applies (Polar's wording varies). If a plain
-   fixed price already multiplies by `quantity`, nothing to do. Verify against
-   `https://polar.sh/docs` — this is the assumption most likely to bite.
-4. **Copy the two price ids.** Product page → each price has an id like `price_xxx` (or
-   `<product_id>/<price_id>` — our config wants whatever the checkout API accepts as
-   `product_price_id`). Note them as `POLAR_TEAM_PRICE_MONTHLY` / `POLAR_TEAM_PRICE_ANNUAL`.
+   added/removed and expects the invoice to be `unit price × quantity`. Set each product's price
+   to a **seat-based** price (Polar: "Pricing based on number of seats"). If the sandbox test in
+   §6 shows the quantity isn't multiplying the charge, the price type is wrong — fix it in Polar,
+   no code change.
+4. **Copy the two product ids.** Open each product → its id (the checkout API takes **product**
+   ids, not price ids — `product_price_id` is deprecated). Note them as
+   `POLAR_TEAM_PRODUCT_MONTHLY` / `POLAR_TEAM_PRODUCT_ANNUAL`.
 
 ## 2. Polar sandbox: API token + webhook
 
-1. **Settings → API tokens** (or "Developers") → create an **Organization Access Token**. Scopes:
-   at least `checkouts:write`, `customer_portal:write`, `subscriptions:read`,
-   `subscriptions:write`. Copy it → `POLAR_API_TOKEN`.
-2. You need the deployed API's function URL first — deploy once with billing **not** configured
-   (it already is, if `hosted/` has shipped), then:
-   ```bash
-   cd hosted/terraform && terraform output -raw function_url
-   ```
-   The webhook URL is `<function_url>api/billing/webhook` (the function URL ends in `/`).
-3. **Settings → Webhooks → Add endpoint.**
-   - URL: the webhook URL from the previous step.
+1. **Settings → Developers / API tokens** → create an **Organization Access Token**. Scopes:
+   `checkouts:write`, `customer_sessions:write`, `subscriptions:read`, `subscriptions:write`.
+   Copy it → `POLAR_API_TOKEN`. (Sandbox tokens are separate from production — a prod token won't
+   work in the sandbox.)
+2. **Settings → Webhooks → Add endpoint.**
+   - URL: `https://aeq4mvkh3n63sqnngc4lp7567y0mqfzr.lambda-url.us-east-1.on.aws/api/billing/webhook`
+     (the deployed hosted API's Function URL — stable across redeploys; confirm with
+     `gh run view <latest deploy-hosted run> --log | grep function_url` if in doubt).
    - Format: **Raw** (Standard Webhooks — our `BillingWebhookSignature` verifies the
      `webhook-id` / `webhook-timestamp` / `webhook-signature` headers).
    - Events: `subscription.created`, `subscription.active`, `subscription.updated`,
      `subscription.canceled`, `subscription.revoked`, `subscription.uncanceled`,
      `subscription.past_due`, `order.paid`. (Extra events are harmless — unmapped types are
-     recorded and no-op'd.)
-   - Save, then **copy the signing secret** → `POLAR_WEBHOOK_SECRET`.
+     recorded and no-op'd. `order.refunded` is optional and only for logging — refunds don't
+     change entitlements; a refund that ends the subscription fires `subscription.revoked`, which
+     is handled.)
+   - Save, then open the endpoint and **copy the signing secret** → `POLAR_WEBHOOK_SECRET`.
+
+   Until PR #41 is merged and deployed the URL returns 404; after that, 503 until the config below
+   is set; then 200.
 
 ## 3. Set the config (repo secrets + variables)
 
@@ -78,16 +80,17 @@ GitHub → repo → **Settings → Secrets and variables → Actions**.
 | Name | Value |
 |---|---|
 | `POLAR_API_BASE_URL` | `https://sandbox-api.polar.sh` |
-| `POLAR_TEAM_PRICE_MONTHLY` | monthly price id |
-| `POLAR_TEAM_PRICE_ANNUAL` | annual price id |
-| `POLAR_CHECKOUT_SUCCESS_URL` | `<dashboard-url>/dashboard?upgraded=1` |
-| `POLAR_CHECKOUT_CANCEL_URL` | `<dashboard-url>/dashboard` |
-| `POLAR_PORTAL_RETURN_URL` | `<dashboard-url>/dashboard` |
+| `POLAR_TEAM_PRODUCT_MONTHLY` | monthly product id (§1.4) |
+| `POLAR_TEAM_PRODUCT_ANNUAL` | annual product id (§1.4) |
+| `POLAR_CHECKOUT_SUCCESS_URL` | `https://releasetwin.vercel.app/dashboard?upgraded=1` |
+| `POLAR_CHECKOUT_CANCEL_URL` | `https://releasetwin.vercel.app/dashboard` |
+| `POLAR_PORTAL_RETURN_URL` | `https://releasetwin.vercel.app/dashboard` |
 | `POLAR_RECONCILIATION_DRY_RUN` | `true` |
 | `POLAR_UPGRADE_ENABLED` | `false` — leave the button hidden for now |
 
-`<dashboard-url>` is wherever `web/` is deployed (the value of `RELEASETWIN_API_URL`'s sibling —
-the Vercel URL customers use).
+`https://releasetwin.vercel.app` is the `releasetwin` Vercel project's production URL. The
+`?upgraded=1` param is currently cosmetic (the dashboard doesn't read it yet) — a bare
+`/dashboard` is fine.
 
 ## 4. Deploy — webhook live, button hidden
 
@@ -172,13 +175,25 @@ Once 5–7 are all green:
 
 ## 9. Production cutover
 
-Repeat sections 1–3 against a **production** Polar org, then:
+There's a single hosted deployment (no separate prod stack), so cutover is a config swap — but
+first **clear the sandbox test orgs**, or they'll sit on Team with a `PolarSubscriptionId` that
+only exists in Polar's sandbox (the nightly reconciliation Lambda will then log
+`billing_reconciliation_read_failed` against the prod API for each, harmlessly, and they keep
+entitlements they never paid for). For each test org: delete the test Clerk account / its `ORG#`
+row, or `PUT /api/admin/organizations/{id}/tier` back to `Free`.
 
-- `POLAR_API_BASE_URL` → `https://api.polar.sh` (or remove the variable — it defaults to prod).
-- New production `POLAR_API_TOKEN` / `POLAR_WEBHOOK_SECRET` / price ids.
-- Register the production webhook at the same `<function_url>api/billing/webhook`.
+Then repeat sections 1–2 against a **production** Polar org and update the config:
+
+- `POLAR_API_BASE_URL` → `https://api.polar.sh` (or delete the variable — it defaults to prod).
+- New production `POLAR_API_TOKEN` / `POLAR_WEBHOOK_SECRET` / `POLAR_TEAM_PRODUCT_MONTHLY` /
+  `POLAR_TEAM_PRODUCT_ANNUAL`.
+- Register the production webhook at the same Function URL.
 - Start with `POLAR_UPGRADE_ENABLED=false`, send a Polar test event, do one real checkout with a
   live card, then flip the button on.
+
+Environment-specific config (GitHub Environments with separate `sandbox` / `production` values +
+`table_prefix`) is a later change — only worth it once there's a staging environment you keep
+running permanently.
 
 **Rollback at any point:** set `POLAR_UPGRADE_ENABLED=false` (buttons vanish, webhook stays live
 and idempotent). Orgs already on Team keep their tier.

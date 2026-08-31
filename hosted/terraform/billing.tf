@@ -2,7 +2,7 @@
 # nightly subscription-quantity reconciliation Lambda.
 #
 # Everything defaults to empty / dry-run so this file can be applied before Polar exists at all —
-# PolarOptions.IsConfigured is false until ApiToken + WebhookSecret + a price id are all set, and
+# PolarOptions.IsConfigured is false until ApiToken + WebhookSecret + a product id are all set, and
 # with it false the webhook returns 503 and the dashboard upgrade button degrades gracefully (the
 # "billing surface closed" safe default, tasks.md 1.2). The webhook endpoint itself lives in the
 # main hosted_api function (lambda.tf) — its DynamoDB policy already covers the GetItem/PutItem the
@@ -28,14 +28,14 @@ variable "polar_api_base_url" {
   default     = "https://api.polar.sh"
 }
 
-variable "polar_price_team_monthly" {
-  description = "billing: Polar price id for Team / monthly cadence (POLAR_TEAM_PRICE_MONTHLY variable)."
+variable "polar_product_team_monthly" {
+  description = "billing: Polar product id for the Team / monthly-cadence product (POLAR_TEAM_PRODUCT_MONTHLY variable). The checkout API takes product ids."
   type        = string
   default     = ""
 }
 
-variable "polar_price_team_annual" {
-  description = "billing: Polar price id for Team / annual cadence (POLAR_TEAM_PRICE_ANNUAL variable)."
+variable "polar_product_team_annual" {
+  description = "billing: Polar product id for the Team / annual-cadence product (POLAR_TEAM_PRODUCT_ANNUAL variable)."
   type        = string
   default     = ""
 }
@@ -65,7 +65,7 @@ variable "polar_reconciliation_dry_run" {
 }
 
 variable "polar_upgrade_enabled" {
-  description = "billing (design.md Migration Plan step 3 vs 5): the webhook goes live as soon as the Polar secrets + price ids are set, but the customer-facing dashboard upgrade / portal buttons stay closed until this is flipped true — after a real sandbox checkout has been verified end to end."
+  description = "billing (design.md Migration Plan step 3 vs 5): the webhook goes live as soon as the Polar secrets + product ids are set, but the customer-facing dashboard upgrade / portal buttons stay closed until this is flipped true — after a real sandbox checkout has been verified end to end."
   type        = bool
   default     = false
 }
@@ -133,15 +133,15 @@ resource "aws_lambda_function" "billing_reconciliation" {
 
   environment {
     variables = {
-      RELEASETWIN_LAMBDA_TASK        = "BillingReconciliation"
-      Aws__Region                    = var.region
-      Aws__DynamoDb__TablePrefix     = var.table_prefix
-      Polar__ApiToken                = var.polar_api_token
-      Polar__WebhookSecret           = var.polar_webhook_secret
-      Polar__ApiBaseUrl              = var.polar_api_base_url
-      Polar__PriceIds__Team__Monthly = var.polar_price_team_monthly
-      Polar__PriceIds__Team__Annual  = var.polar_price_team_annual
-      Polar__ReconciliationDryRun    = tostring(var.polar_reconciliation_dry_run)
+      RELEASETWIN_LAMBDA_TASK          = "BillingReconciliation"
+      Aws__Region                      = var.region
+      Aws__DynamoDb__TablePrefix       = var.table_prefix
+      Polar__ApiToken                  = var.polar_api_token
+      Polar__WebhookSecret             = var.polar_webhook_secret
+      Polar__ApiBaseUrl                = var.polar_api_base_url
+      Polar__ProductIds__Team__Monthly = var.polar_product_team_monthly
+      Polar__ProductIds__Team__Annual  = var.polar_product_team_annual
+      Polar__ReconciliationDryRun      = tostring(var.polar_reconciliation_dry_run)
     }
   }
 }

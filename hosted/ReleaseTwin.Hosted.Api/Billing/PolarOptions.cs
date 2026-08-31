@@ -26,8 +26,12 @@ public sealed class PolarOptions
     /// <summary>Where Polar sends the customer after they close the portal.</summary>
     public string? PortalReturnUrl { get; init; }
 
-    /// <summary>Polar price id per (tier, cadence). Key format: <c>"Team:Monthly"</c>.</summary>
-    public IReadOnlyDictionary<string, string> PriceIds { get; init; } = new Dictionary<string, string>();
+    /// <summary>
+    /// Polar **product** id per (tier, cadence). Key format: <c>"Team:Monthly"</c>. Each cadence is a
+    /// distinct Polar product (its own recurring interval); the checkout API takes product ids, not
+    /// price ids (the <c>product_price_id</c> field is deprecated).
+    /// </summary>
+    public IReadOnlyDictionary<string, string> ProductIds { get; init; } = new Dictionary<string, string>();
 
     /// <summary>
     /// billing (design.md Migration Plan step 4/6): the reconciliation job ships in dry-run — it logs
@@ -46,26 +50,26 @@ public sealed class PolarOptions
     public bool IsConfigured =>
         !string.IsNullOrWhiteSpace(ApiToken)
         && !string.IsNullOrWhiteSpace(WebhookSecret)
-        && PriceIds.Count > 0;
+        && ProductIds.Count > 0;
 
     /// <summary>Whether the customer-facing upgrade / portal endpoints are open (config present AND explicitly switched on).</summary>
     public bool IsUpgradeEnabled => IsConfigured && UpgradeEnabled;
 
-    public static string PriceKey(PlanTier tier, BillingCadence cadence) => $"{tier}:{cadence}";
+    public static string ProductKey(PlanTier tier, BillingCadence cadence) => $"{tier}:{cadence}";
 
-    public string? PriceIdFor(PlanTier tier, BillingCadence cadence) =>
-        PriceIds.TryGetValue(PriceKey(tier, cadence), out var id) ? id : null;
+    public string? ProductIdFor(PlanTier tier, BillingCadence cadence) =>
+        ProductIds.TryGetValue(ProductKey(tier, cadence), out var id) ? id : null;
 
     /// <summary>Binds a <see cref="PolarOptions"/> from the <c>Polar</c> configuration section.</summary>
     public static PolarOptions FromConfiguration(IConfiguration configuration)
     {
         var section = configuration.GetSection(SectionName);
-        var priceIds = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
-        foreach (var child in section.GetSection("PriceIds").GetChildren())
+        var productIds = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        foreach (var child in section.GetSection("ProductIds").GetChildren())
         {
             if (!string.IsNullOrWhiteSpace(child.Value))
             {
-                priceIds[child.Key] = child.Value;
+                productIds[child.Key] = child.Value;
             }
         }
 
@@ -77,7 +81,7 @@ public sealed class PolarOptions
             CheckoutSuccessUrl = section["CheckoutSuccessUrl"],
             CheckoutCancelUrl = section["CheckoutCancelUrl"],
             PortalReturnUrl = section["PortalReturnUrl"],
-            PriceIds = priceIds,
+            ProductIds = productIds,
             ReconciliationDryRun = !bool.TryParse(section["ReconciliationDryRun"], out var dryRun) || dryRun,
             UpgradeEnabled = bool.TryParse(section["UpgradeEnabled"], out var upgrade) && upgrade,
         };

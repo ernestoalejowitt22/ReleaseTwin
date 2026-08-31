@@ -25,26 +25,26 @@ All under the `Polar` config section (env vars use `__` for `:`), wired in
 | `Polar__ApiToken` | `POLAR_API_TOKEN` secret | organization access token |
 | `Polar__WebhookSecret` | `POLAR_WEBHOOK_SECRET` secret | Standard Webhooks signing secret |
 | `Polar__ApiBaseUrl` | `POLAR_API_BASE_URL` var | `https://sandbox-api.polar.sh` for the sandbox |
-| `Polar__PriceIds__Team__Monthly` | `POLAR_TEAM_PRICE_MONTHLY` var | |
-| `Polar__PriceIds__Team__Annual` | `POLAR_TEAM_PRICE_ANNUAL` var | |
+| `Polar__ProductIds__Team__Monthly` | `POLAR_TEAM_PRODUCT_MONTHLY` var | Polar **product** id (checkout takes product ids, not price ids) |
+| `Polar__ProductIds__Team__Annual` | `POLAR_TEAM_PRODUCT_ANNUAL` var | the annual-cadence product is a separate Polar product |
 | `Polar__CheckoutSuccessUrl` / `CheckoutCancelUrl` / `PortalReturnUrl` | repo vars | dashboard URLs |
 | `Polar__ReconciliationDryRun` | `POLAR_RECONCILIATION_DRY_RUN` var | `true` until one clean nightly cycle |
 | `Polar__UpgradeEnabled` | `POLAR_UPGRADE_ENABLED` var | `false` until a sandbox checkout is verified — see below |
 
-`IsConfigured` (webhook live) needs `ApiToken` + `WebhookSecret` + at least one price id.
+`IsConfigured` (webhook live) needs `ApiToken` + `WebhookSecret` + at least one product id.
 `IsUpgradeEnabled` (customer-facing upgrade / portal buttons) additionally needs
 `Polar__UpgradeEnabled=true` — so you can register the webhook with Polar and let events flow
 while the dashboard button stays hidden, then flip the button on once a real checkout has been
 verified end to end.
 
-**Empty `ApiToken` / `WebhookSecret` / price ids ⇒ `PolarOptions.IsConfigured` is false**: the
+**Empty `ApiToken` / `WebhookSecret` / product ids ⇒ `PolarOptions.IsConfigured` is false**: the
 webhook returns 503, the upgrade button degrades gracefully, and no billing calls are made. This
 is the safe default for any environment without Polar.
 
 Standing manual steps with no code path (do these in the Polar dashboard):
-create the organization, the product, and the two prices; register the webhook URL
-(`<function-url>/api/billing/webhook`) and copy its signing secret; create promo codes and
-founding-customer price locks directly in Polar.
+create the organization and the two products (`ReleaseTwin Team` monthly, `ReleaseTwin Team
+(annual)`); register the webhook URL (`<function-url>/api/billing/webhook`) and copy its signing
+secret; create promo codes and founding-customer price locks directly in Polar.
 
 ## Subscription → tier / quantity mapping
 
@@ -102,7 +102,7 @@ Polar event, so fix the underlying subscription in Polar too.
 ## Rollout / rollback
 
 Per `openspec/changes/billing-integration/design.md` Migration Plan: deploy fields + catalog →
-set the Polar secrets + price ids and register the webhook in Polar (`IsConfigured` — webhook
+set the Polar secrets + product ids and register the webhook in Polar (`IsConfigured` — webhook
 live, `POLAR_UPGRADE_ENABLED` still `false`) → reconciliation runs in dry-run →
 **`POLAR_UPGRADE_ENABLED=true`** after a sandbox checkout passes end to end → flip
 `POLAR_RECONCILIATION_DRY_RUN=false` after one clean nightly cycle.

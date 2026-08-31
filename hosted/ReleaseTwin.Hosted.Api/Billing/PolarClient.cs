@@ -31,12 +31,14 @@ public sealed class PolarClient : IPolarClient
 
     public async Task<CheckoutSession> CreateCheckoutSessionAsync(Guid organizationId, PlanTier tier, BillingCadence cadence, CancellationToken cancellationToken = default)
     {
-        var priceId = _options.PriceIdFor(tier, cadence)
-            ?? throw new PolarException($"No Polar price configured for {tier}/{cadence}.");
+        var productId = _options.ProductIdFor(tier, cadence)
+            ?? throw new PolarException($"No Polar product configured for {tier}/{cadence}.");
 
         var payload = new
         {
-            product_price_id = priceId,
+            // The checkout API takes a list of product ids; `product_price_id` is deprecated. Each
+            // cadence is its own Polar product, so the (tier, cadence) → product id map picks one.
+            products = new[] { productId },
             success_url = _options.CheckoutSuccessUrl,
             // design.md D2: the org id is the only link back — the webhook reads it from checkout metadata.
             metadata = new { organization_id = organizationId.ToString() },
@@ -49,8 +51,9 @@ public sealed class PolarClient : IPolarClient
 
     public async Task<PortalSession> CreatePortalSessionAsync(string customerId, CancellationToken cancellationToken = default)
     {
+        // A customer session's response carries the ready-to-use hosted portal URL.
         var payload = new { customer_id = customerId, return_url = _options.PortalReturnUrl };
-        using var response = await _http.PostAsJsonAsync("/v1/customer-portal/sessions/", payload, cancellationToken);
+        using var response = await _http.PostAsJsonAsync("/v1/customer-sessions/", payload, cancellationToken);
         var url = await ReadStringFieldAsync(response, "customer_portal_url", cancellationToken);
         return new PortalSession(url);
     }
