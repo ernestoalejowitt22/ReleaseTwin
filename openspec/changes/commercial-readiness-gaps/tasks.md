@@ -90,6 +90,6 @@
 - [x] 10.1 `dotnet build ReleaseTwin.sln` clean; engine `dotnet test` **217 green** (Core 44, CLI 118, Ui 13, AzDO 12, Http 15, LD 5, AdapterSdk 10). Hosted (separate project) `dotnet test` **333 green** — +76 across this change's 5 groups on the branch.
 - [x] 10.2 `cd web && npm run build` — 22 routes, compiled clean; `npx eslint src` — 0 errors, 0 warnings.
 - [x] 10.3 `openspec validate commercial-readiness-gaps --strict` — valid.
-- [ ] 10.4 Confirm CI (`ci.yml` / `hosted-ci.yml` / `web-ci.yml`) passes on the branch — checked after the PR opens.
+- [x] 10.4 CI green on both PRs — #51 (`ci.yml` / `hosted-ci.yml`) and #52 (`+ web-ci.yml` `build-test-lint`, `gitleaks`, Vercel). All `build-and-test` / `build-test-lint` jobs pass.
 - [ ] 10.5 **Needs the user to run this:** billing sandbox e2e (checkout → webhook → entitlement flip) per `docs/billing-sandbox-runbook.md` — hard prerequisite for charging money, tracked in the `billing-integration` change, not unblocked by code here
 - [ ] 10.6 **Needs the user to run this:** `terraform apply` for the new GSI + SQS + DLQ (CI-only via OIDC — the plan runs in GitHub Actions, but confirm the applied output matches)
