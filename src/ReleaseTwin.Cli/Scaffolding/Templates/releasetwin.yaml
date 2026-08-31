@@ -1,0 +1,11 @@
+# ReleaseTwin project config. Optional — with no `adapters:` list the CLI
+# auto-loads every adapter whose credentials are present (today's behaviour).
+#
+# The schema and semantics of this file are owned by the
+# `config-driven-adapter-selection` change; until that lands this is a marker.
+
+# adapters:
+#   - http            # credential-free, always available
+#   - azure-devops    # needs AZDO_ORG / AZDO_PROJECT / AZDO_PAT / AZDO_AREA_PATH / AZDO_VARIABLE_GROUP_ID
+#   - launchdarkly    # needs LAUNCHDARKLY_API_TOKEN / LAUNCHDARKLY_PROJECT_KEY / LAUNCHDARKLY_ENVIRONMENT_KEY
+#   - ui              # needs Playwright's Chromium; RELEASETWIN_UI_ENABLED=1
