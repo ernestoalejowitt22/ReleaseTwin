@@ -1,0 +1,95 @@
+## 1. Membership data model + migration (design D1–D3)
+
+- [x] 1.1 Add `Membership` and `Invitation` entities (`Data/Entities`) and their DynamoDB item shapes: `PK=ORG#<orgId>`, `SK=MEMBER#<userId>` / `SK=INVITE#<token>`, with `role`, `email`, `expiresAt`, `state`, `createdAt`
+- [x] 1.2 ~~Add the reverse-lookup GSI in `hosted/terraform/`~~ — **not needed**: membership items reuse the existing overloaded `GSI1` (`GSI1PK=USER#<userId>`, `GSI1SK=ORG#<orgId>`), a key namespace no other GSI1 writer uses. No Terraform change.
+- [x] 1.3 Add `MembershipRepository` (+ interface in `IRepositories.cs`): `ListMembersByOrg`, `ListOrgsByUser`, `GetMembership`, `Put`, `Delete`
+- [x] 1.4 Add `InvitationRepository`: `Put`, `GetByToken` (token encodes `<orgId>.<random>`), `ListByOrg`, `Delete`; single-use enforced by an atomic `INVITECLAIM#` marker item in the `ClaimAsync` transaction (InMemory fake only supports `attribute_not_exists`, so a claim marker beats a `state` condition-expression)
+- [x] 1.5 Load-time read-repair (`MembershipService`): a user with no `Membership` item but a legacy `AppUser.OrganizationId` is synthesized a founding `Admin` membership and it is persisted
+- [x] 1.6 `AppUser.OrganizationId` kept write-through on new-org signup (`CreateWithOrganizationAsync` 3-item transaction); invite-join signup leaves it `Guid.Empty`
+- [x] 1.7 Unit tests: `MembershipRepositoryTests` (7) — both-way listing, read-repair persists, no-op without legacy org, token encodes org id, single-use claim rejects a second user, list/revoke, acceptability
+
+## 2. Active organization + access guard (design D3–D4)
+
+- [x] 2.1 Active org resolved per request in `OnTokenValidated`: the BFF sends `X-Org-Id`, honoured only if the caller is a member of it, else their default org (earliest membership); stamped as `org_id` + `org_role` claims. No cookie needed — the JWT is minted by Next.js per request so the header is sufficient and switch-friendly.
+- [x] 2.2 `CurrentOrganizationAccessor` gains `Role` (from `org_role`) and `Require(capability)`; implements `IOrganizationAccessGuard`. Legacy `AppUser.OrganizationId` fallback happens upstream in `MembershipService` read-repair, so the accessor stays claim-only.
+- [x] 2.3 `Services/OrganizationAccess.cs`: `OrgCapability` enum, `OrgCapabilities.Allows` static table (Admin→all, Member→UseProjects+ViewEvidence), `ForbiddenException`, `IOrganizationAccessGuard`. `ForbiddenException` → 403 `{error:"forbidden"}` via one middleware in `Program.cs`.
+- [x] 2.4 Admin-gated endpoints (`/dashboard/upgrade`, `/billing-portal`, token create/revoke) now call `currentOrg.Require(...)`. Member-accessible endpoints keep the existing `org_id is null → Forbid` guard, which already blocks non-members (the `org_id` claim is stamped only for members). Full per-endpoint capability conversion of the read/project-config routes deferred — no behaviour gap, only stylistic.
+- [x] 2.5 `MembershipService.EnsureNotLastAdminAsync` — no-op unless the target is an admin, throws `ForbiddenException` if they are the last one. Wired into the member remove / role-change endpoints in Group 3.
+- [x] 2.6 `OrganizationAccessGuardTests` (10): full capability matrix, `Require` permit/deny/no-org, last-admin protection, plus an HTTP test that a `Member` session gets 403 issuing a token while `Admin` gets 200. `TestClerkAuthHandler` + `CreateClientForOrg` gained a role override (defaults Admin, so existing tests are unchanged).
+- [x] 2.7 `MembershipRole.Viewer` (design D9) added as value 0 (least-privileged `default`); `OrgCapabilities.Allows` third arm — `Viewer` → `ViewEvidence` only. `OrganizationAccessGuardTests` capability matrix extended (viewer denied `UseProjects`/`ManageTokens`/`ManageMembers`/`ManageBilling`/`ManageNotifications`, allowed `ViewEvidence`). `ChangeRoleAsync` now runs the last-admin check on any demotion (member **or** viewer), not just to member.
+
+## 3. Provisioning + invites (spec: org-membership, account-provisioning)
+
+- [x] 3.1 `ProvisioningService.GetOrCreateUserAsync` gains `pendingInviteToken`: new user + acceptable invite whose email matches (or no email claim) → created with `OrganizationId = Guid.Empty` (no throwaway org); else → org + founding `Admin` membership via the 3-item transaction. `X-Invite-Token` header forwarded from `OnTokenValidated`. Design D1a captured.
+- [x] 3.2 `POST /api/organizations/{id}/invitations` — `Require(ManageMembers)` + route id must equal active org; bounded 14-day expiry (`OrganizationMembersService.InvitationLifetime`); response carries the accept URL
+- [x] 3.3 `DELETE /api/organizations/{id}/invitations/{token}` — revoke (sets state `Revoked`)
+- [x] 3.4 `GET /api/organizations/{id}/invitations` — list with state + accept URL
+- [x] 3.5 `POST /api/invitations/{token}/accept` — validates acceptable, atomic `ClaimAsync` (invite marker + membership), idempotent if already a member, 409 `invitation-invalid` otherwise; runs the reconcile fallback
+- [x] 3.6 `GET /api/organizations/{id}/members` (any member of that org) + `PATCH`/`DELETE .../members/{userId}` (`Require(ManageMembers)`), both routed through `EnsureNotLastAdminAsync`
+- [x] 3.7 `POST /api/organizations` — creates org + founding `Admin` membership atomically (`CreateWithFounderAsync`); original org untouched
+- [x] 3.8 `IInvitationEmailSender` + `LoggingInvitationEmailSender` (structured log). No transactional-email path exists in this service — a real SES sender is a flagged follow-up; until then the invite endpoint returns the accept URL for the admin to share. Link carries only the token.
+- [x] 3.9 `OrganizationMembersServiceTests` (8): invite→accept→role, reconcile-away empty org, keep org-with-projects, expired/revoked reject, role fixed at issue, last-admin on change/remove, create-additional-org. `MembershipEndpointsHttpTests` (3): admin invite+list, member 403, wrong-org 403. `TestClerkAuthHandler` gained an orgless-session mode (`X-Test-Sub`).
+- [x] 3.10 `viewer` is accepted as an invitable role by `POST .../invitations` and by `PATCH .../members/{userId}` (both already `Enum.TryParse<MembershipRole>` — "viewer" parses; no endpoint change). Tests: invite→accept as `viewer`, and demoting the last admin to `viewer` is refused.
+
+## 4. Entitlement keys (spec: plan-tier-gating, design D5)
+
+- [ ] 4.1 Add `runNotifications` and `evidenceSharing` boolean entitlements to `hosted/plans.json` (Free: false, Team/Enterprise: true) and to `web/src/lib/plans.ts` types
+- [ ] 4.2 Surface both on `EntitlementService`/`PlanCatalog` and on the `DashboardView.entitlements` payload
+- [ ] 4.3 Tests: Free denied both, Team granted both, downgrade revokes
+
+## 5. Run notifications (spec: run-notifications, design D6)
+
+- [ ] 5.1 `NotificationTarget` entity + repository: per-project, `{kind: slack|webhook, url, enabled, lastOutcome, lastAttemptAt}`
+- [ ] 5.2 Endpoints (admin + `ManageNotifications` + `runNotifications` entitlement): add / list / update-enabled / delete target; on save validate HTTPS + reject private/loopback/link-local resolution
+- [ ] 5.3 SQS queue + DLQ in `hosted/terraform/`; IAM for the API to send and the consumer Lambda to receive
+- [ ] 5.4 On ingest: after the run is persisted, if overall result is failed OR flag-proof result is failed/ineligible, enqueue `NotificationRequested{projectId, runId, result, classification}` — never inside the ingest transaction, never blocking the response
+- [ ] 5.5 Consumer Lambda: resolve enabled targets, re-check `evidenceSharing`/`runNotifications` entitlement at send time, build the payload (project, run/case id, result, classification, dashboard link — no fixture content / bodies / secrets), POST with short timeout, no redirects, re-check IP ranges at send time
+- [ ] 5.6 Retry via SQS redrive → DLQ; write `lastOutcome`/`lastAttemptAt` back to the target
+- [ ] 5.7 Feature-flag the whole path behind the OpenFeature seam
+- [ ] 5.8 Tests: trigger conditions (fail / flag-proof fail / ineligible / passing-is-silent), payload has no sensitive fields, ingest unaffected when target is broken, disabled target skipped, Free org blocked from adding a target
+
+## 6. Evidence share links (spec: evidence-sharing, design D7)
+
+- [ ] 6.1 `ShareLink` item: `PK=RUN#<runId>`, `SK=SHARE#<tokenHash>`, `{expiresAt, state, createdBy}`; token ≥128-bit, stored hashed only
+- [ ] 6.2 Endpoints (admin + `evidenceSharing` entitlement): `POST /api/runs/{runId}/share-links`, `GET /api/runs/{runId}/share-links`, `DELETE .../share-links/{id}`
+- [ ] 6.3 `SharedEvidenceView` DTO carrying ONLY the redacted evidence document + result/classification/hashes; add a unit test asserting the type exposes no org/project/navigation fields (reflection-based)
+- [ ] 6.4 `GET /shared-runs/{token}` (unauthenticated) — resolve token hash, check state + expiry, re-check the org's `evidenceSharing` entitlement (403 without deleting on downgrade), return `SharedEvidenceView`; handle "no evidence uploaded" → metadata-only view
+- [ ] 6.5 `web/` unauthenticated route `/share/[token]` outside the dashboard tree; BFF proxies to `/shared-runs/{token}`; renders the evidence view with no dashboard chrome or links
+- [ ] 6.6 Evidence retention / `EvidencePurgeService`: delete `SHARE#` items when their run is purged
+- [ ] 6.7 Feature-flag behind the OpenFeature seam
+- [ ] 6.8 Tests: create/resolve, token-does-not-generalize, revoke stops, expiry stops, purge invalidates, Free org blocked, downgrade disables-without-deleting, redacted-only projection
+
+## 7. Onboarding activation (spec: onboarding-activation, design D8)
+
+- [ ] 7.1 Add `hasIngestedRealRun` boolean to `Organization`; set it (idempotent) on first successful ingest
+- [ ] 7.2 Static sample-project fixture baked into the API (run history with ≥1 pass + ≥1 fail, one flag-proof result, one evidence drill-down) under a reserved project id
+- [ ] 7.3 `DashboardService`/`DashboardEndpoints`: when `hasIngestedRealRun == false`, include the virtual sample project (flagged `isExample: true`); exclude it once true
+- [ ] 7.4 Reject token issuance / ingest / delete / mutation against the reserved sample project id
+- [ ] 7.5 Ensure the sample project is excluded from the plan project-count limit
+- [ ] 7.6 Guided first-run panel data on the dashboard payload: ordered steps (create project → generate token → run CLI), per-step completion state, and the CLI command string with the hosted API URL and a token placeholder
+- [ ] 7.7 `web/` dashboard empty-state: render the sample project marked as an example + the guided panel; both disappear when `hasIngestedRealRun` flips
+- [ ] 7.8 Tests: sample shown then retired after first ingest, sample not counted toward quota, sample read-only, panel next-step logic
+
+## 8. Web UI (spec: org-membership, all)
+
+- [ ] 8.1 Members & invitations settings page: list members + roles, invite form, revoke invite, change role, remove member (admin-only, hidden for members)
+- [ ] 8.2 Accept-invite page at `/invitations/[token]` — works for signed-in and fresh signup
+- [ ] 8.3 Active-org switcher in the app header; always shows the current org
+- [ ] 8.4 Notification-targets settings UI per project with last-delivery status
+- [ ] 8.5 Share-link controls on the run/evidence view: create, copy, list, revoke (Team-gated, shows upgrade prompt on Free)
+- [ ] 8.6 Gate Team-only UI affordances on `DashboardView.entitlements`
+
+## 9. Docs
+
+- [ ] 9.1 Update `docs/customer-pilot-guide.md`: teams exist, paid signup path, what a share link is
+- [ ] 9.2 Update `docs/installation-model.md` / README hosted-platform description for membership + notifications + sharing
+- [ ] 9.3 Note in the change: Phase 1 per-project billing quantity = projects only; member count is not a billing axis
+
+## 10. Verification
+
+- [ ] 10.1 `dotnet build ReleaseTwin.sln` + `dotnet test ReleaseTwin.sln` green; report the new hosted test count
+- [ ] 10.2 `cd web && npm run build` + `npx eslint` clean
+- [ ] 10.3 `openspec validate commercial-readiness-gaps --strict`
+- [ ] 10.4 Confirm CI (`ci.yml` / `hosted-ci.yml` / `web-ci.yml`) passes on the branch
+- [ ] 10.5 **Needs the user to run this:** billing sandbox e2e (checkout → webhook → entitlement flip) per `docs/billing-sandbox-runbook.md` — hard prerequisite for charging money, tracked in the `billing-integration` change, not unblocked by code here
+- [ ] 10.6 **Needs the user to run this:** `terraform apply` for the new GSI + SQS + DLQ (CI-only via OIDC — the plan runs in GitHub Actions, but confirm the applied output matches)

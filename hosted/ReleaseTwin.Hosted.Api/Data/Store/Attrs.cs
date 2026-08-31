@@ -38,6 +38,15 @@ internal static class Keys
     public static string Conn(Guid projectId) => $"CONN#{projectId}";
     public static string Counter(DateOnly period) => $"COUNTER#{period:yyyy-MM}";
     public static string User(string clerkUserId) => $"USER#{clerkUserId}";
+
+    // org-membership: membership + invitation keys. Membership lives under the org partition
+    // (PK=ORG#<orgId>, SK=MEMBER#<userId>) with an overloaded GSI1 entry keyed by the internal
+    // AppUser id for the reverse "orgs for a user" lookup. The invitation token carries the org id
+    // as its prefix so the accept flow can locate the item without a secondary index.
+    public static string Member(Guid userId) => $"MEMBER#{userId}";
+    public static string UserId(Guid userId) => $"USER#{userId}";
+    public static string Invite(string token) => $"INVITE#{token}";
+    public static string InviteClaim(string token) => $"INVITECLAIM#{token}";
     public static string Token(string tokenHash) => $"TOKEN#{tokenHash}";
     public static string TokenId(Guid tokenId) => $"TOKENID#{tokenId}";
     public static string CaseReport(DateTimeOffset uploadedAt, Guid id) => $"CASEREPORT#{uploadedAt:O}#{id}";
