@@ -3,6 +3,8 @@ export interface DashboardProjectSummary {
   name: string;
   /** billing: true when the org is over its current tier's project limit and this project is one of the excess (read-only) ones — still listed with its evidence, but ingest is blocked. */
   readOnly?: boolean;
+  /** onboarding-activation: true for the virtual seeded sample project shown until the org's first real run. Not persisted, not counted toward the plan limit, rejects every mutation. */
+  isExample?: boolean;
 }
 
 /** billing: mirrors the C# `BillingStatus` enum — a second axis alongside the tier. */
@@ -87,6 +89,23 @@ export interface EvidenceDetailView {
   uploadedAt: string;
 }
 
+/**
+ * evidence-sharing: the ONLY payload a share-link viewer receives (mirrors the C# `SharedEvidenceView`
+ * record). Carries the redacted evidence document + the run's result — nothing that identifies or
+ * links to the organization, project, or any other run.
+ */
+export interface SharedEvidenceView {
+  caseId: string;
+  reportKind: string;
+  result: string;
+  classification: string | null;
+  fixtureSha256: string;
+  hasEvidenceDocument: boolean;
+  evidenceUploadedAt: string | null;
+  document: EvidenceDocument | null;
+  screenshotIds: string[];
+}
+
 export interface EvidenceConfigView {
   captureDefault: boolean;
   retentionDays: number;
@@ -112,6 +131,8 @@ export interface Entitlements {
   trendAnalytics: boolean;
   releaseRollup: boolean;
   ciIntegration: boolean;
+  runNotifications: boolean;
+  evidenceSharing: boolean;
   sso: boolean;
   auditLog: boolean;
 }
@@ -139,6 +160,59 @@ export interface DashboardView {
   hasReadOnlyProjects: boolean;
   /** billing: the customer-facing upgrade / portal actions are live (Polar configured AND switched on after a verified sandbox checkout). */
   billingEnabled: boolean;
+  /** onboarding-activation: the guided first-run panel, present only until the org's first real run. */
+  guidedSetup: GuidedSetupView | null;
+}
+
+/** onboarding-activation: mirrors the C# `GuidedSetupView` record. */
+export interface GuidedSetupView {
+  hasProject: boolean;
+  hasToken: boolean;
+  apiUrl: string;
+  cliCommand: string;
+}
+
+/** org-membership: an organization the current user belongs to (GET /api/me/organizations). */
+export interface MyOrganization {
+  id: string;
+  name: string;
+  role: "Admin" | "Member" | "Viewer";
+  active: boolean;
+}
+
+export interface OrgMember {
+  userId: string;
+  role: "Admin" | "Member" | "Viewer";
+  displayName: string | null;
+  email: string | null;
+  joinedAt: string;
+}
+
+export interface OrgInvitation {
+  token: string;
+  email: string;
+  role: "Admin" | "Member" | "Viewer";
+  state: "Pending" | "Accepted" | "Revoked";
+  expiresAt: string;
+  acceptUrl: string;
+}
+
+/** run-notifications: a per-project outbound notification target. */
+export interface NotificationTarget {
+  id: string;
+  kind: "Slack" | "Webhook";
+  url: string;
+  enabled: boolean;
+  lastOutcome: string | null;
+  lastAttemptAt: string | null;
+}
+
+/** evidence-sharing: a share link for one run (management view — never the token). */
+export interface ShareLinkSummary {
+  id: string;
+  state: "Active" | "Revoked";
+  expiresAt: string;
+  createdAt: string;
 }
 
 /** trend-analytics: mirrors the C# `TrendBucket`. Rates are null (a gap) when their denominator is zero. */

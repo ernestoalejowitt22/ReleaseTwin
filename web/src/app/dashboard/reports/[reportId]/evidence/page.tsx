@@ -18,7 +18,9 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { api, ApiError } from "@/lib/api";
-import type { EvidenceDetailView, EvidenceLeg } from "@/lib/types";
+import type { EvidenceDetailView, EvidenceLeg, MyOrganization } from "@/lib/types";
+import { ShareLinkControls } from "@/app/dashboard/share-link-controls";
+import { loadShareLinks } from "@/app/dashboard/share-actions";
 
 function outcomeVariant(outcome: string): "default" | "destructive" | "secondary" {
   if (outcome === "Passed" || outcome === "ExpectedFailure") return "default";
@@ -115,6 +117,12 @@ export default async function EvidenceDetailPage({
     }
   }
 
+  const organizations = await api.get<MyOrganization[]>("/api/me/organizations");
+  const canManage = (organizations.find((o) => o.active)?.role ?? "Admin") === "Admin";
+  const shareLinks = canManage
+    ? await loadShareLinks(reportId, projectId)
+    : ({ entitled: false, links: [] } as const);
+
   return (
     <main className="mx-auto flex w-full max-w-4xl flex-1 flex-col gap-6 p-6">
       <header className="flex items-center justify-between">
@@ -176,6 +184,16 @@ export default async function EvidenceDetailPage({
             </Card>
           )}
         </>
+      )}
+
+      {projectId && (
+        <ShareLinkControls
+          reportId={reportId}
+          projectId={projectId}
+          entitled={shareLinks.entitled}
+          canManage={canManage}
+          links={shareLinks.links}
+        />
       )}
     </main>
   );

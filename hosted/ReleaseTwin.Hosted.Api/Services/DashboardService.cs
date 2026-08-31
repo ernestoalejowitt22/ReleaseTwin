@@ -6,7 +6,12 @@ using ReleaseTwin.Hosted.Api.Plans;
 
 namespace ReleaseTwin.Hosted.Api.Services;
 
-public sealed record DashboardProjectSummary(Guid Id, string Name, bool ReadOnly = false);
+public sealed record DashboardProjectSummary(Guid Id, string Name, bool ReadOnly = false, bool IsExample = false);
+
+/// <summary>onboarding-activation (design D8): the guided first-run panel shown until the org ingests
+/// its first real run. Step flags reflect real progress; <see cref="CliCommand"/> is copy-pasteable
+/// with a token placeholder.</summary>
+public sealed record GuidedSetupView(bool HasProject, bool HasToken, string ApiUrl, string CliCommand);
 
 public sealed record DashboardConnectionView(string Provider, string ExternalRepo, DateTimeOffset ConnectedAt);
 
@@ -35,7 +40,8 @@ public sealed record DashboardView(
     BillingCadence? BillingCadence = null,
     bool HasBillingLinkage = false,
     bool HasReadOnlyProjects = false,
-    bool BillingEnabled = false);
+    bool BillingEnabled = false,
+    GuidedSetupView? GuidedSetup = null);
 
 /// <summary>
 /// hosted-react-frontend: the data-shaping half of what was Dashboard.cshtml.cs's OnGetAsync,
@@ -56,6 +62,7 @@ public sealed class DashboardService
     private readonly IRunEvidenceRepository _runEvidence;
     private readonly IEntitlementService _entitlements;
     private readonly PolarOptions _polarOptions;
+    private readonly string? _apiPublicUrl;
 
     public DashboardService(
         IOrganizationRepository organizations,
@@ -67,9 +74,11 @@ public sealed class DashboardService
         IUsageCounterRepository usage,
         IRunEvidenceRepository runEvidence,
         IEntitlementService entitlements,
-        PolarOptions? polarOptions = null)
+        PolarOptions? polarOptions = null,
+        Microsoft.Extensions.Configuration.IConfiguration? configuration = null)
     {
         _polarOptions = polarOptions ?? new PolarOptions();
+        _apiPublicUrl = configuration?["Api:PublicUrl"];
         _organizations = organizations;
         _projects = projects;
         _connections = connections;
@@ -103,6 +112,45 @@ public sealed class DashboardService
         var projectSummaries = projects.Select(p => new DashboardProjectSummary(p.Id, p.Name, IsReadOnly(p.Id))).ToList();
         var hasReadOnlyProjects = projectSummaries.Any(p => p.ReadOnly);
 
+        // onboarding-activation (design D8): until the org's first real run lands, show a virtual
+        // sample project and a guided first-run panel. The sample is appended to the list but never
+        // persisted and never counts toward the plan limit.
+        GuidedSetupView? guidedSetup = null;
+        var showOnboarding = organization is not null && !organization.HasIngestedRealRun;
+        if (showOnboarding)
+        {
+            projectSummaries.Add(SampleProject.Summary);
+
+            var hasToken = false;
+            foreach (var p in projects)
+            {
+                if ((await _tokens.ListByProjectAsync(p.Id, cancellationToken)).Any(t => !t.IsRevoked))
+                {
+                    hasToken = true;
+                    break;
+                }
+            }
+
+            var apiUrl = string.IsNullOrWhiteSpace(_apiPublicUrl) ? "https://YOUR-HOSTED-API" : _apiPublicUrl!;
+            guidedSetup = new GuidedSetupView(
+                HasProject: projects.Count > 0,
+                HasToken: hasToken,
+                ApiUrl: apiUrl,
+                CliCommand: $"RELEASETWIN_API_URL={apiUrl} RELEASETWIN_API_TOKEN=<YOUR_TOKEN> \\\n  docker run --rm -v \"$(pwd)/examples:/workspace:ro\" ghcr.io/ernestoalejowitt22/releasetwin/cli:latest");
+
+            // Serve the sample project's canned run history when it is the selection.
+            if (SampleProject.IsSampleProject(projectId ?? Guid.Empty) || (projectId is null && selectedProject is null))
+            {
+                var counter0 = await _usage.GetAsync(organizationId, Keys.CurrentUtcPeriod(), cancellationToken);
+                return new DashboardView(organizationId, projectSummaries, SampleProject.Summary, null, [],
+                    SampleProject.CaseReports, SampleProject.FlagProofReports,
+                    new DashboardUsageSummary((int)counter0.CaseReportCount, (int)counter0.FlagProofReportCount, counter0.PeriodStart),
+                    planTier, entitlements, IsSelectedProjectStale: false,
+                    organization?.BillingStatus ?? BillingStatus.Active, organization?.BillingCadence,
+                    organization?.PolarSubscriptionId is not null, hasReadOnlyProjects, _polarOptions.IsUpgradeEnabled, guidedSetup);
+            }
+        }
+
         // usage-metering: org-wide, independent of selectedProject — see design.md's explicit
         // "org-wide, not per-project" decision. Computed even if no project is selected.
         var counter = await _usage.GetAsync(organizationId, Keys.CurrentUtcPeriod(), cancellationToken);
@@ -116,7 +164,7 @@ public sealed class DashboardService
         if (selectedProject is null)
         {
             return new DashboardView(organizationId, projectSummaries, null, null, [], [], [], usage, planTier, entitlements, IsSelectedProjectStale: false,
-                billingStatus, billingCadence, hasBillingLinkage, hasReadOnlyProjects, billingEnabled);
+                billingStatus, billingCadence, hasBillingLinkage, hasReadOnlyProjects, billingEnabled, guidedSetup);
         }
 
         var connection = await _connections.GetAsync(selectedProject.Id, cancellationToken);
@@ -169,6 +217,7 @@ public sealed class DashboardService
             billingCadence,
             hasBillingLinkage,
             hasReadOnlyProjects,
-            billingEnabled);
+            billingEnabled,
+            guidedSetup);
     }
 }

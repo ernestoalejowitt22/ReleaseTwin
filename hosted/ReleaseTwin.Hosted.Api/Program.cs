@@ -103,6 +103,8 @@ builder.Services.AddScoped<IOrganizationRepository, OrganizationRepository>();
 builder.Services.AddScoped<IUserRepository, UserRepository>();
 builder.Services.AddScoped<IMembershipRepository, MembershipRepository>();
 builder.Services.AddScoped<IInvitationRepository, InvitationRepository>();
+builder.Services.AddScoped<INotificationTargetRepository, NotificationTargetRepository>();
+builder.Services.AddScoped<IShareLinkRepository, ShareLinkRepository>();
 builder.Services.AddScoped<IProjectRepository, ProjectRepository>();
 builder.Services.AddScoped<IApiTokenRepository, ApiTokenRepository>();
 builder.Services.AddScoped<IConnectionRepository, ConnectionRepository>();
@@ -150,6 +152,40 @@ builder.Services.AddScoped<ProvisioningService>();
 builder.Services.AddScoped<MembershipService>();
 builder.Services.AddScoped<OrganizationMembersService>();
 builder.Services.AddScoped<IInvitationEmailSender, LoggingInvitationEmailSender>();
+
+// run-notifications (design D6): outbound delivery is off the ingest path. Ingest enqueues onto SQS
+// (or a no-op when no queue is configured — tests, local); a second Lambda
+// (RELEASETWIN_LAMBDA_TASK=NotificationDispatch) drains it. The dispatch HttpClient follows no
+// redirects and times out fast so a hostile or slow target can't tie it up.
+builder.Services.AddScoped<NotificationDispatchService>();
+builder.Services.AddScoped<EvidenceSharingService>();
+builder.Services.AddHttpClient(NotificationDispatchService.HttpClientName, c => c.Timeout = TimeSpan.FromSeconds(5))
+    .ConfigurePrimaryHttpMessageHandler(() => new HttpClientHandler { AllowAutoRedirect = false });
+// run-notifications: the SSRF check needs to resolve a customer-supplied host. Injected so tests are
+// deterministic and offline.
+builder.Services.AddSingleton<Func<string, System.Net.IPAddress[]>>(_ => System.Net.Dns.GetHostAddresses);
+
+var notificationsQueueUrl = builder.Configuration["Notifications:QueueUrl"];
+if (!string.IsNullOrWhiteSpace(notificationsQueueUrl))
+{
+    builder.Services.AddSingleton<Amazon.SQS.IAmazonSQS>(_ =>
+    {
+        var config = new Amazon.SQS.AmazonSQSConfig();
+        if (!string.IsNullOrWhiteSpace(builder.Configuration["Aws:Region"]))
+        {
+            config.RegionEndpoint = Amazon.RegionEndpoint.GetBySystemName(builder.Configuration["Aws:Region"]);
+        }
+        return new Amazon.SQS.AmazonSQSClient(config);
+    });
+    builder.Services.AddSingleton<INotificationQueue>(sp => new SqsNotificationQueue(
+        sp.GetRequiredService<Amazon.SQS.IAmazonSQS>(),
+        notificationsQueueUrl!,
+        sp.GetRequiredService<ILogger<SqsNotificationQueue>>()));
+}
+else
+{
+    builder.Services.AddSingleton<INotificationQueue, NullNotificationQueue>();
+}
 builder.Services.AddScoped<ConnectionService>();
 builder.Services.AddScoped<DashboardService>();
 builder.Services.AddScoped<ProjectWritabilityService>();
@@ -340,6 +376,39 @@ if (Environment.GetEnvironmentVariable("RELEASETWIN_LAMBDA_TASK") == "BillingRec
     return;
 }
 
+// run-notifications (design D6): a fourth Lambda task, but SQS-triggered rather than scheduled — the
+// event is a batch of queued RunNotification messages. Same shared-artifact pattern; parsed here
+// with a minimal SQS shape rather than taking a dependency on Amazon.Lambda.SQSEvents. Returns the
+// partial-batch-failure response so a message that fails at the message level (bad JSON, org load
+// error) is retried by SQS and lands in the DLQ after the redrive limit, without re-notifying
+// targets that already succeeded.
+if (Environment.GetEnvironmentVariable("RELEASETWIN_LAMBDA_TASK") == "NotificationDispatch")
+{
+    var sqsJson = new System.Text.Json.JsonSerializerOptions(System.Text.Json.JsonSerializerDefaults.Web);
+    await Amazon.Lambda.RuntimeSupport.LambdaBootstrapBuilder.Create(async (Stream input, Amazon.Lambda.Core.ILambdaContext _) =>
+    {
+        var batch = await System.Text.Json.JsonSerializer.DeserializeAsync<ReleaseTwin.Hosted.Api.Services.SqsBatch>(input, sqsJson);
+        var failures = new List<object>();
+        foreach (var record in batch?.Records ?? [])
+        {
+            try
+            {
+                var notification = System.Text.Json.JsonSerializer.Deserialize<ReleaseTwin.Hosted.Api.Services.RunNotification>(record.Body ?? "", sqsJson)
+                    ?? throw new InvalidOperationException("empty message body");
+                using var scope = app.Services.CreateScope();
+                await scope.ServiceProvider.GetRequiredService<NotificationDispatchService>().DispatchAsync(notification);
+            }
+            catch (Exception ex)
+            {
+                app.Logger.LogError(ex, "notification_dispatch_failed messageId={MessageId}", record.MessageId);
+                failures.Add(new { itemIdentifier = record.MessageId });
+            }
+        }
+        return new MemoryStream(System.Text.Json.JsonSerializer.SerializeToUtf8Bytes(new { batchItemFailures = failures }));
+    }).Build().RunAsync();
+    return;
+}
+
 if (!app.Environment.IsDevelopment())
 {
     app.UseExceptionHandler("/Error");
@@ -386,6 +455,8 @@ app.MapAdminEndpoints();
 app.MapIngestEndpoints();
 app.MapDashboardEndpoints();
 app.MapMembershipEndpoints();
+app.MapNotificationEndpoints();
+app.MapShareLinkEndpoints();
 ReleaseTwin.Hosted.Api.Billing.BillingEndpoints.MapBillingEndpoints(app);
 app.MapTrendEndpoints();
 app.MapReleaseEndpoints();

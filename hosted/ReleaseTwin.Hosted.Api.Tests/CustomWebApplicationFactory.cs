@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Mvc.Testing;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
 using ReleaseTwin.Hosted.Api.Billing;
@@ -23,6 +24,18 @@ public sealed class CustomWebApplicationFactory : WebApplicationFactory<Program>
 
     /// <summary>billing: whether the customer-facing upgrade/portal button is switched on. Defaults true so existing endpoint tests stay green; set false to test the "webhook live, button closed" staging state.</summary>
     public bool UpgradeButtonEnabled { get; init; } = true;
+
+    /// <summary>run-notifications: extra configuration entries merged over the host defaults — e.g. <c>("FeatureFlags:run-notifications", "true")</c>.</summary>
+    public IReadOnlyDictionary<string, string?>? ExtraConfiguration { get; init; }
+
+    /// <summary>run-notifications: swapped in for the real <see cref="ReleaseTwin.Hosted.Api.Services.INotificationQueue"/> so an ingest test can assert what was enqueued without SQS.</summary>
+    public ReleaseTwin.Hosted.Api.Services.INotificationQueue? NotificationQueueForTesting { get; init; }
+
+    /// <summary>run-notifications: a deterministic, offline host resolver for the notification-target SSRF check. "10.*"/"192.168.*" hosts map to that private literal; everything else to a public address.</summary>
+    public static Func<string, System.Net.IPAddress[]> FakeHostResolver { get; } = host =>
+        host.StartsWith("10.") || host.StartsWith("192.168.") || host is "127.0.0.1" or "localhost"
+            ? [System.Net.IPAddress.Parse(host is "localhost" ? "127.0.0.1" : host)]
+            : [System.Net.IPAddress.Parse("93.184.216.34")];
 
     /// <summary>
     /// When true, the real "ClerkJwt" JWT-bearer scheme is swapped for <see cref="TestClerkAuthHandler"/>,
@@ -49,8 +62,31 @@ public sealed class CustomWebApplicationFactory : WebApplicationFactory<Program>
 
     protected override void ConfigureWebHost(Microsoft.AspNetCore.Hosting.IWebHostBuilder builder)
     {
+        if (ExtraConfiguration is { Count: > 0 })
+        {
+            builder.ConfigureAppConfiguration((_, config) => config.AddInMemoryCollection(ExtraConfiguration));
+        }
+
         builder.ConfigureServices(services =>
         {
+            if (NotificationQueueForTesting is not null)
+            {
+                var queueDescriptor = services.SingleOrDefault(d => d.ServiceType == typeof(ReleaseTwin.Hosted.Api.Services.INotificationQueue));
+                if (queueDescriptor is not null)
+                {
+                    services.Remove(queueDescriptor);
+                }
+                services.AddSingleton(NotificationQueueForTesting);
+            }
+
+            // run-notifications: never let the SSRF host check do a real DNS lookup in a test.
+            var resolverDescriptor = services.SingleOrDefault(d => d.ServiceType == typeof(Func<string, System.Net.IPAddress[]>));
+            if (resolverDescriptor is not null)
+            {
+                services.Remove(resolverDescriptor);
+            }
+            services.AddSingleton(FakeHostResolver);
+
             var descriptor = services.SingleOrDefault(d => d.ServiceType == typeof(IHostedTable));
             if (descriptor is not null)
             {

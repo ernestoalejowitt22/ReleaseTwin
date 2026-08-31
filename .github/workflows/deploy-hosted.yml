@@ -70,6 +70,16 @@ jobs:
         working-directory: hosted/terraform
         run: terraform init
 
+      # onboarding-activation: the guided first-run panel's CLI command needs the hosted API's own
+      # public URL. Referencing aws_lambda_function_url in the function's own env block is a terraform
+      # cycle, so read it from the already-applied remote state instead and feed it back as a -var.
+      # Empty on the very first deploy (the resource doesn't exist yet) — the panel shows a
+      # placeholder until the next hosted deploy, which self-heals it. No manual step.
+      - name: Resolve API public URL from state
+        id: api_url
+        working-directory: hosted/terraform
+        run: echo "value=$(terraform output -raw function_url 2>/dev/null || true)" >> "$GITHUB_OUTPUT"
+
       # design.md two-pass apply: GitHubConnection__* vars/secrets are empty until the GitHub OAuth
       # App is registered (needs the Vercel URL, which needs this workflow's own first-pass output)
       # — re-running this workflow with those set updates the Lambda's env vars in place.
@@ -89,6 +99,8 @@ jobs:
             -var="region=${{ inputs.region || 'us-east-1' }}" \
             -var="clerk_domain=${{ vars.CLERK_DOMAIN }}" \
             -var="admin_operator_user_ids=${{ vars.ADMIN_OPERATOR_USER_IDS }}" \
+            -var="web_base_url=${{ vars.WEB_BASE_URL }}" \
+            -var="api_public_url=${{ steps.api_url.outputs.value }}" \
             -var="github_client_id=${{ vars.GH_OAUTH_CLIENT_ID }}" \
             -var="github_client_secret=${{ secrets.GH_OAUTH_CLIENT_SECRET }}" \
             -var="github_callback_url=${{ vars.GH_OAUTH_CALLBACK_URL }}" \

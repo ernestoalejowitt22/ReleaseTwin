@@ -161,7 +161,18 @@ public static class DashboardEndpoints
             CurrentOrganizationAccessor currentOrg) =>
         {
             var orgId = currentOrg.OrganizationId;
-            if (orgId is null || await projects.GetAsync(orgId.Value, projectId) is null)
+            if (orgId is null)
+            {
+                return Results.Forbid();
+            }
+
+            // onboarding-activation: the seeded sample project's evidence drill-down is canned data.
+            if (SampleProject.IsSampleProject(projectId) && SampleProject.EvidenceFor(reportId) is { } sample)
+            {
+                return Results.Ok(sample);
+            }
+
+            if (await projects.GetAsync(orgId.Value, projectId) is null)
             {
                 return Results.Forbid();
             }
