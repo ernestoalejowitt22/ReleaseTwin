@@ -1,0 +1,13 @@
+{
+  "$comment": "add-feature-flag-seam: the single registry of ReleaseTwin's own feature flags. Canonical source for web/ (imported directly, like hosted/plans.json), hosted/ and the CLI (embedded resource). See docs/feature-flags.md. NOT LaunchDarkly's product-adapter config — this gates ReleaseTwin itself.",
+  "flags": [
+    {
+      "key": "flag-seam-smoke",
+      "type": "boolean",
+      "default": true,
+      "description": "Inert end-to-end proof that the feature-flag seam is wired on every surface. Gates nothing user-visible; safe to flip.",
+      "surfaces": ["web", "hosted", "cli"],
+      "owner": "platform"
+    }
+  ]
+}

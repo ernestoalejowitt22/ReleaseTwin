@@ -28,6 +28,7 @@ import type {
   EvidenceConfigView,
   ProjectSecretSummary,
 } from "@/lib/types";
+import { FlagSeamSmoke } from "./flag-seam-smoke";
 import { IssueTokenButton } from "./issue-token-button";
 import { SetupSection } from "./setup-section";
 import { EvidenceSettingsSection } from "./evidence-settings-section";
@@ -75,6 +76,7 @@ export default async function DashboardPage({
       data-org-id={view.organizationId}
       className="mx-auto flex w-full max-w-5xl flex-1 flex-col gap-6 p-6"
     >
+      <FlagSeamSmoke />
       <header className="flex items-center justify-between">
         <h1 className="flex items-center gap-2 text-2xl font-semibold">
           <LayoutDashboard className="size-6" />

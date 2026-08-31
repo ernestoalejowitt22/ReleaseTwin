@@ -18,6 +18,10 @@ COPY src/ReleaseTwin.Adapters.LaunchDarkly/ src/ReleaseTwin.Adapters.LaunchDarkl
 COPY src/ReleaseTwin.Adapters.Ui/ src/ReleaseTwin.Adapters.Ui/
 COPY src/ReleaseTwin.Cli/ src/ReleaseTwin.Cli/
 
+# add-feature-flag-seam: ReleaseTwin.Core embeds the repo-root feature-flag registry
+# (<EmbeddedResource Include="..\..\flags.json" />), so it must be in the build context.
+COPY flags.json flags.json
+
 RUN dotnet publish src/ReleaseTwin.Cli/ReleaseTwin.Cli.csproj -c Release -o /app --no-restore
 
 FROM mcr.microsoft.com/dotnet/runtime:8.0 AS final
