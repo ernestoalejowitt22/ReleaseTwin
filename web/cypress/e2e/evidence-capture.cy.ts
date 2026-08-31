@@ -33,8 +33,7 @@ describe("evidence capture loop", () => {
     // Evidence storage is Paid-tier only — upgrade if this org is still on Free.
     cy.get("body").then(($body) => {
       if ($body.text().includes("Free plan")) {
-        cy.contains("button", "Upgrade").click();
-        cy.contains("Paid plan").should("be.visible");
+        cy.elevateToTeam();
       }
     });
 

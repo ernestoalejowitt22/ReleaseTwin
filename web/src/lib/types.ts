@@ -117,6 +117,8 @@ export interface Entitlements {
 }
 
 export interface DashboardView {
+  /** The caller's own organization id (the one every query here is scoped to). */
+  organizationId: string;
   projects: DashboardProjectSummary[];
   selectedProject: DashboardProjectSummary | null;
   connection: DashboardConnectionView | null;

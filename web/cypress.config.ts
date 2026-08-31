@@ -8,6 +8,7 @@ import { createClerkClient } from "@clerk/backend";
 import { SecretsManagerClient, GetSecretValueCommand } from "@aws-sdk/client-secrets-manager";
 import { generate as generateTotpCode, createGuardrails } from "otplib";
 import { defineConfig } from "cypress";
+import { sendBillingWebhook } from "./scripts/e2e-billing.mjs";
 
 // web-cypress-e2e design.md: Cypress runs in its own Node process — it doesn't get web/.env.local
 // for free the way `next dev` does, so load it explicitly rather than duplicating secrets into a
@@ -290,6 +291,21 @@ export default defineConfig({
             skipPasswordChecks: true,
           });
           return { created: true, userId: user.id };
+        },
+
+        // billing-integration e2e: POST a Standard-Webhooks-signed Polar subscription event to the
+        // local hosted API, exactly as Polar's servers would. This is how a spec moves a test org
+        // between billing states — the real Polar hosted checkout can't be driven from Cypress, and
+        // the webhook is the only writer of billing-driven tier/status anyway (design.md D2).
+        async sendBillingWebhook(args: {
+          orgId: string;
+          type?: string;
+          status?: string;
+          subscriptionId?: string;
+          customerId?: string;
+          cadence?: string;
+        }) {
+          return sendBillingWebhook(args);
         },
 
         // registration design.md: after registration.cy.ts drives the *real* sign-up UI through

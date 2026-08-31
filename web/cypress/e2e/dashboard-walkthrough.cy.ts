@@ -60,8 +60,11 @@ describe("dashboard walkthrough", () => {
         cy.contains(secondProjectName).should("not.exist");
         cy.screenshot("dashboard-walkthrough/02b-project-limit-rejected");
 
-        cy.contains("button", "Upgrade").click();
-        cy.contains("Paid plan").should("be.visible");
+        // billing-integration: the tier moves only when the subscription webhook is processed
+        // (design.md D2) — no payment-free "click Upgrade" anymore. A `subscription.active` event
+        // is exactly what Polar sends once checkout completes.
+        cy.elevateToTeam();
+        cy.contains("Renews monthly").should("be.visible");
         cy.contains("button", "Upgrade").should("not.exist");
         cy.screenshot("dashboard-walkthrough/02c-upgraded");
 
@@ -70,9 +73,9 @@ describe("dashboard walkthrough", () => {
         cy.contains(secondProjectName).should("be.visible");
         cy.screenshot("dashboard-walkthrough/02d-second-project-after-upgrade");
       } else {
-        // Already Paid from an earlier run against a persistent backing store — the limit doesn't
+        // Already Team from an earlier run against a persistent backing store — the limit doesn't
         // apply, nothing further to exercise here.
-        cy.contains("Paid plan").should("be.visible");
+        cy.contains("Team plan").should("be.visible");
       }
     });
 
