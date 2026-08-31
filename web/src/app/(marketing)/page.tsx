@@ -59,6 +59,25 @@ const CI_LOOP_PANELS = [
   },
 ] as const;
 
+const DASHBOARD_PANELS = [
+  {
+    img: "/demo/dashboard-runs.png",
+    w: 1904,
+    h: 447,
+    alt: "The hosted dashboard's run history: HTTP-DEMO-1 pass, CLM-042 fail classified Infrastructure, AUTH-CHAIN-DEMO-1 pass",
+    claim:
+      "Every run's history lands on the dashboard — pass/fail, your classification, and a link to the evidence.",
+  },
+  {
+    img: "/demo/dashboard-evidence.png",
+    w: 2000,
+    h: 1320,
+    alt: "The evidence viewer for a run: per-step request/response detail with a credential-shaped response header shown as «redacted»",
+    claim:
+      "Open a run and you get the request/response of every step — with credential-shaped fields stripped in your CLI before anything is uploaded.",
+  },
+] as const;
+
 export const metadata: Metadata = {
   // Home page owns the full <title> rather than the "%s — ReleaseTwin" template.
   title: { absolute: "ReleaseTwin — self-serve release-proof testing" },
@@ -142,13 +161,31 @@ export default async function LandingPage() {
             </li>
           ))}
         </ol>
-        <p className="mt-8 max-w-xl text-center text-sm text-muted-foreground">
+        <p className="mt-8 mb-6 max-w-xl text-center text-sm text-muted-foreground">
           Connect the hosted dashboard and each run&apos;s history and{" "}
           <Link href="/docs/hosted-platform" className="underline underline-offset-4 hover:text-foreground">
             redacted evidence
           </Link>{" "}
           lands there too — only metadata leaves your infra.
         </p>
+        <ol className="flex w-full flex-col gap-10">
+          {DASHBOARD_PANELS.map((panel) => (
+            <li key={panel.img} className="flex flex-col items-center gap-3">
+              {/* Real screenshots of the hosted dashboard, captured by
+                  cypress/e2e/capture-landing-demo.cy.ts — see docs/landing-demo.md. */}
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src={panel.img}
+                width={panel.w}
+                height={panel.h}
+                alt={panel.alt}
+                loading="lazy"
+                className="w-full max-w-2xl rounded-lg ring-1 ring-foreground/10"
+              />
+              <p className="max-w-xl text-center text-sm text-muted-foreground">{panel.claim}</p>
+            </li>
+          ))}
+        </ol>
       </section>
 
       {/* Trust — your data stays put */}
