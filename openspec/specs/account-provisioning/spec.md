@@ -3,9 +3,7 @@
 ## Purpose
 
 Lets a customer create an organization, a project, and an API token entirely on their own, so the path from "never heard of this" to "has credentials to upload results" requires no human on the other end.
-
 ## Requirements
-
 ### Requirement: Signup requires no human approval
 A prospective customer SHALL be able to create an account via a managed auth provider offering at least one sign-in method that does not presuppose an account on a specific unrelated third-party platform, and have it immediately usable, without any manual review, approval, or human interaction from the operator.
 
@@ -18,11 +16,24 @@ A prospective customer SHALL be able to create an account via a managed auth pro
 - **THEN** at least one available sign-in method does not require them to already hold an account on a platform unrelated to ReleaseTwin's own adapters (e.g. it does not require a GitHub account as the only path in)
 
 ### Requirement: Organization and project creation
-A signed-up customer SHALL be able to create an organization and at least one project within it, entirely through self-service.
+A signed-up customer SHALL be able to create an organization and at least one
+project within it, entirely through self-service. Signup SHALL provision a
+membership for the new user; a new default organization SHALL be created only
+when the user has no existing organization membership (for example, when they
+accepted a teammate's invitation before completing signup). A user SHALL be able
+to create additional organizations through self-service.
 
 #### Scenario: Customer creates their first project
 - **WHEN** a signed-up customer creates a project within their organization
 - **THEN** the project exists and is ready to receive an API token, with no operator action required
+
+#### Scenario: Signup after accepting an invitation does not create a second organization
+- **WHEN** a person accepts an invitation to an existing organization and then completes signup
+- **THEN** they have a membership in the inviting organization and no additional empty organization is created for them
+
+#### Scenario: Signup with no prior membership creates a default organization
+- **WHEN** a person completes signup without any pending or accepted invitation
+- **THEN** a new organization is created and they are its first admin member
 
 ### Requirement: API tokens are self-serve issued and scoped to a project
 A customer SHALL be able to generate an API token for a project through self-service, and that token SHALL only grant access to data within the project it was issued for.
@@ -37,3 +48,18 @@ A customer SHALL be able to revoke an API token through self-service, and a revo
 #### Scenario: Revoked token is rejected
 - **WHEN** a customer revokes an API token and it is subsequently used to call the ingest API
 - **THEN** the request is rejected as unauthenticated
+
+### Requirement: Self-serve access is scoped by organization membership and role
+All self-serve organization, project, token, and evidence operations SHALL be
+authorized by the requesting user's membership in the active organization and by
+that membership's role. A user without a membership in the active organization
+SHALL be treated as unauthenticated for its data.
+
+#### Scenario: Non-member cannot reach another organization's data
+- **WHEN** a signed-up user requests projects, tokens, or run data for an organization they hold no membership in
+- **THEN** the request is rejected and no data is returned
+
+#### Scenario: Role governs token management
+- **WHEN** a user acts on an API token within an organization where their membership role does not permit token management
+- **THEN** the request is rejected as forbidden
+
