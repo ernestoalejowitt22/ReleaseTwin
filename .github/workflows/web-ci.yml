@@ -1,0 +1,43 @@
+name: Web CI
+
+# add-feature-flag-seam: web/ had no CI before this — it was verified only by Vercel's deploy
+# build and local runs. The feature-flag seam needs the registry parity + fail-open tests enforced
+# on every change, so this runs the same checks CLAUDE.md lists for web/ (build + eslint) plus the
+# new vitest suite.
+on:
+  push:
+    branches: [main]
+    paths: ["web/**", ".github/workflows/web-ci.yml"]
+  pull_request:
+    paths: ["web/**", "flags.json", ".github/workflows/web-ci.yml"]
+
+jobs:
+  build-test-lint:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: web
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+
+      - name: Install
+        run: npm ci
+
+      - name: Unit tests (Vitest)
+        run: npm run test:run
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Build
+        run: npm run build
+        env:
+          # next build needs these present; real values are set in Vercel, not here.
+          NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY: pk_test_ci-placeholder
+          CLERK_SECRET_KEY: sk_test_ci-placeholder

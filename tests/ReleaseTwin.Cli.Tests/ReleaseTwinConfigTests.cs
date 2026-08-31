@@ -73,4 +73,35 @@ public class ReleaseTwinConfigTests
         var c = ReleaseTwinConfig.LoadFor(Path.Combine(root, "cases"));
         Assert.Null(c.Adapters);
     }
+
+    // add-feature-flag-seam
+
+    [Fact]
+    public void Feature_flags_map_organization_and_project_are_parsed()
+    {
+        var c = ReleaseTwinConfig.Parse(
+            "organization: org-42\nproject: proj-7\nfeature_flags:\n  flag-seam-smoke: false\n", "x");
+
+        Assert.Equal("org-42", c.Organization);
+        Assert.Equal("proj-7", c.Project);
+        Assert.Equal("false", c.FeatureFlags["flag-seam-smoke"]);
+    }
+
+    [Fact]
+    public void Feature_flags_default_to_empty_and_do_not_require_an_adapters_key()
+    {
+        var c = ReleaseTwinConfig.Parse("feature_flags:\n  flag-seam-smoke: false\n", "x");
+
+        Assert.Null(c.Adapters);
+        Assert.Single(c.FeatureFlags);
+    }
+
+    [Fact]
+    public void No_feature_flags_key_means_an_empty_map()
+    {
+        var c = ReleaseTwinConfig.Parse("adapters:\n  - http\n", "x");
+
+        Assert.Empty(c.FeatureFlags);
+        Assert.Null(c.Organization);
+    }
 }
