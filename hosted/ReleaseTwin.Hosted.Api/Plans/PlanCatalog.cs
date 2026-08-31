@@ -58,9 +58,28 @@ public sealed class PlanCatalog
         var tiers = new List<PlanTierDefinition>(document.Tiers.Count);
         foreach (var tier in document.Tiers)
         {
-            if (string.IsNullOrWhiteSpace(tier.Name) || tier.Price is null || tier.Entitlements is null || string.IsNullOrWhiteSpace(tier.Support))
+            if (string.IsNullOrWhiteSpace(tier.Name) || tier.Price is not { Count: > 0 } || tier.Entitlements is null || string.IsNullOrWhiteSpace(tier.Support))
             {
-                throw new InvalidOperationException($"Plan catalog tier '{tier.Id}' is missing name, price, support, or entitlements.");
+                throw new InvalidOperationException($"Plan catalog tier '{tier.Id}' is missing name, price (at least one cadence), support, or entitlements.");
+            }
+
+            var prices = new List<PlanPrice>(tier.Price.Count);
+            foreach (var price in tier.Price)
+            {
+                if (!Enum.TryParse<BillingInterval>(price.Interval, ignoreCase: true, out var interval)
+                    || !Enum.IsDefined(interval))
+                {
+                    throw new InvalidOperationException(
+                        $"Plan catalog tier '{tier.Id}' has a price with an unrecognised interval '{price.Interval}'. " +
+                        $"Allowed: [{string.Join(", ", Enum.GetNames<BillingInterval>()).ToLowerInvariant()}].");
+                }
+
+                if (prices.Any(p => p.Interval == interval))
+                {
+                    throw new InvalidOperationException($"Plan catalog tier '{tier.Id}' defines the '{interval}' cadence more than once.");
+                }
+
+                prices.Add(new PlanPrice(interval, price.Amount, price.Unit ?? "", price.Placeholder));
             }
 
             tier.Entitlements.EnsureComplete(tier.Id!);
@@ -68,7 +87,7 @@ public sealed class PlanCatalog
             {
                 Id = tier.Id!.ToLowerInvariant(),
                 Name = tier.Name!,
-                Price = new PlanPrice(tier.Price.Amount, tier.Price.Unit ?? "", tier.Price.Placeholder),
+                Prices = prices,
                 Support = tier.Support!,
                 Entitlements = tier.Entitlements.ToEntitlements(),
             });
@@ -88,13 +107,14 @@ public sealed class PlanCatalog
     {
         public string? Id { get; set; }
         public string? Name { get; set; }
-        public PriceDto? Price { get; set; }
+        public List<PriceDto>? Price { get; set; }
         public string? Support { get; set; }
         public EntitlementsDto? Entitlements { get; set; }
     }
 
     private sealed class PriceDto
     {
+        public string? Interval { get; set; }
         public decimal Amount { get; set; }
         public string? Unit { get; set; }
         public bool Placeholder { get; set; }
@@ -152,12 +172,31 @@ public sealed class PlanTierDefinition
 {
     public required string Id { get; init; }
     public required string Name { get; init; }
-    public required PlanPrice Price { get; init; }
+
+    /// <summary>
+    /// billing-integration: one entry per billing cadence the tier offers, in catalog order. Always
+    /// non-empty. A tier may offer a single cadence (Free) or several (Team: monthly + annual).
+    /// </summary>
+    public required IReadOnlyList<PlanPrice> Prices { get; init; }
+
     public required string Support { get; init; }
     public required Entitlements Entitlements { get; init; }
+
+    /// <summary>The price for a specific cadence, or null if the tier does not offer it.</summary>
+    public PlanPrice? PriceFor(BillingInterval interval) => Prices.FirstOrDefault(p => p.Interval == interval);
+
+    /// <summary>The cadence shown by default in upgrade / pricing UI — monthly when offered, else the first entry.</summary>
+    public PlanPrice DefaultPrice => PriceFor(BillingInterval.Monthly) ?? Prices[0];
 }
 
-public sealed record PlanPrice(decimal Amount, string Unit, bool Placeholder);
+/// <summary>billing-integration: the closed vocabulary of billing cadences. The webhook maps each Polar price to one of these.</summary>
+public enum BillingInterval
+{
+    Monthly,
+    Annual,
+}
+
+public sealed record PlanPrice(BillingInterval Interval, decimal Amount, string Unit, bool Placeholder);
 
 /// <summary>
 /// plan-catalog-and-entitlements: a fully-resolved entitlement set. Null numeric values mean

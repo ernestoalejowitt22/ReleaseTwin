@@ -1,10 +1,12 @@
 {
-  "$comment": "plan-catalog-and-entitlements: the single source of truth for commercial tiers. Loaded by ReleaseTwin.Hosted.Api (embedded resource, for enforcement) and by web/ (JSON import, for display). A shape-check test on each side fails the build if this drifts. maxProjects / maxEvidenceRetentionDays: null means no limit / custom. Prices with placeholder=true render with the early-access caveat.",
+  "$comment": "plan-catalog-and-entitlements + billing-integration: the single source of truth for commercial tiers. Loaded by ReleaseTwin.Hosted.Api (embedded resource, for enforcement) and by web/ (JSON import, for display). A shape-check test on each side fails the build if this drifts. `price` is a list of cadence entries; `interval` is a closed vocabulary (`monthly`, `annual`). maxProjects / maxEvidenceRetentionDays: null means no limit / custom. Entries with placeholder=true render with the early-access caveat.",
   "tiers": [
     {
       "id": "free",
       "name": "Free",
-      "price": { "amount": 0, "unit": "forever", "placeholder": false },
+      "price": [
+        { "interval": "monthly", "amount": 0, "unit": "forever", "placeholder": false }
+      ],
       "support": "Community / GitHub",
       "entitlements": {
         "maxProjects": 1,
@@ -22,7 +24,10 @@
     {
       "id": "team",
       "name": "Team",
-      "price": { "amount": 49, "unit": "project/month", "placeholder": true },
+      "price": [
+        { "interval": "monthly", "amount": 59, "unit": "project/month", "placeholder": true },
+        { "interval": "annual", "amount": 49, "unit": "project/month", "placeholder": true }
+      ],
       "support": "Email",
       "entitlements": {
         "maxProjects": null,
@@ -40,7 +45,10 @@
     {
       "id": "enterprise",
       "name": "Enterprise",
-      "price": { "amount": 99, "unit": "project/month", "placeholder": true },
+      "price": [
+        { "interval": "monthly", "amount": 119, "unit": "project/month", "placeholder": true },
+        { "interval": "annual", "amount": 99, "unit": "project/month", "placeholder": true }
+      ],
       "support": "SLA + shared Slack",
       "entitlements": {
         "maxProjects": null,

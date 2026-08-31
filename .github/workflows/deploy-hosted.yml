@@ -92,7 +92,17 @@ jobs:
             -var="github_client_id=${{ vars.GH_OAUTH_CLIENT_ID }}" \
             -var="github_client_secret=${{ secrets.GH_OAUTH_CLIENT_SECRET }}" \
             -var="github_callback_url=${{ vars.GH_OAUTH_CALLBACK_URL }}" \
-            -var="operator_alert_email=${{ vars.OPERATOR_ALERT_EMAIL }}"
+            -var="operator_alert_email=${{ vars.OPERATOR_ALERT_EMAIL }}" \
+            -var="polar_api_token=${{ secrets.POLAR_API_TOKEN }}" \
+            -var="polar_webhook_secret=${{ secrets.POLAR_WEBHOOK_SECRET }}" \
+            -var="polar_api_base_url=${{ vars.POLAR_API_BASE_URL || 'https://api.polar.sh' }}" \
+            -var="polar_product_team_monthly=${{ vars.POLAR_TEAM_PRODUCT_MONTHLY }}" \
+            -var="polar_product_team_annual=${{ vars.POLAR_TEAM_PRODUCT_ANNUAL }}" \
+            -var="polar_checkout_success_url=${{ vars.POLAR_CHECKOUT_SUCCESS_URL }}" \
+            -var="polar_checkout_cancel_url=${{ vars.POLAR_CHECKOUT_CANCEL_URL }}" \
+            -var="polar_portal_return_url=${{ vars.POLAR_PORTAL_RETURN_URL }}" \
+            -var="polar_reconciliation_dry_run=${{ vars.POLAR_RECONCILIATION_DRY_RUN || 'true' }}" \
+            -var="polar_upgrade_enabled=${{ vars.POLAR_UPGRADE_ENABLED || 'false' }}"
 
       - name: Function URL
         working-directory: hosted/terraform

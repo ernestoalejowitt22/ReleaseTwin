@@ -106,6 +106,14 @@ resource "aws_dynamodb_table" "hosted" {
     range_key       = "GSI2SK"
     projection_type = "ALL"
   }
+
+  # billing (design.md D3): the ProcessedBillingEvent idempotency items carry an epoch-seconds
+  # ExpiresAt and self-delete ~30d after processing — comfortably past Polar's retry window. No other
+  # item type sets ExpiresAt, so enabling TTL table-wide is harmless for them.
+  ttl {
+    attribute_name = "ExpiresAt"
+    enabled        = true
+  }
 }
 
 output "table_name" {

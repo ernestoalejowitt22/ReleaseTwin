@@ -4,9 +4,6 @@ import { auth } from "@clerk/nextjs/server";
 import { SITE_DESCRIPTION } from "@/lib/site";
 import { FlaskConical, ShieldCheck, EyeOff, ServerCog } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { HOMEPAGE_FEATURES, FEATURE_COPY } from "@/lib/plans";
 
 const TRUST = [
@@ -31,55 +28,36 @@ const TRUST = [
 ];
 
 /**
- * dashboard-visual-refresh design.md called for "a real product screenshot" — this is a live
- * render of the actual Card/Table/Badge components instead of a static image, so it can never go
- * visually stale relative to the real dashboard theme. Case IDs are the same ones the product's own
- * bundled zero-credential examples already produce (see examples/cases/), not invented data.
+ * landing-demo-ci-loop: the demo is one real loop — a pull request fails the ReleaseTwin
+ * gate, a fix turns it green, the evidence lands on the dashboard. The PR panels are
+ * regenerated from the actual run summaries of NAHA PR #74 by
+ * `web/scripts/capture-landing-demo.mjs` (SVG, committed under public/demo/), so they
+ * can't drift from the real `integrations/github-action` renderer. The dashboard panels
+ * are real screenshots of the hosted dashboard — see docs/landing-demo.md.
  */
-function DashboardPreview() {
-  return (
-    <Card className="w-full max-w-xl text-left shadow-lg">
-      <CardHeader className="flex flex-row items-center justify-between">
-        <CardTitle>Run history</CardTitle>
-        <Badge>Paid plan</Badge>
-      </CardHeader>
-      <CardContent>
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>Case</TableHead>
-              <TableHead>Outcome</TableHead>
-              <TableHead>Uploaded</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            <TableRow>
-              <TableCell>HTTP-DEMO-1</TableCell>
-              <TableCell>
-                <Badge variant="default">PASS</Badge>
-              </TableCell>
-              <TableCell className="text-muted-foreground">just now</TableCell>
-            </TableRow>
-            <TableRow>
-              <TableCell>AUTH-CHAIN-DEMO-1</TableCell>
-              <TableCell>
-                <Badge variant="default">PASS</Badge>
-              </TableCell>
-              <TableCell className="text-muted-foreground">just now</TableCell>
-            </TableRow>
-            <TableRow>
-              <TableCell>CLM-042</TableCell>
-              <TableCell>
-                <Badge variant="destructive">FAIL</Badge>
-              </TableCell>
-              <TableCell className="text-muted-foreground">just now</TableCell>
-            </TableRow>
-          </TableBody>
-        </Table>
-      </CardContent>
-    </Card>
-  );
-}
+const CI_LOOP_PANELS = [
+  {
+    img: "/demo/pr-check-failed.svg",
+    w: 560,
+    h: 56,
+    alt: "A failing ReleaseTwin check on a pull request: 1 passed, 1 failed",
+    claim: "It's a real merge gate — a failing check you make required, the same as unit tests.",
+  },
+  {
+    img: "/demo/pr-comment-failed.svg",
+    w: 780,
+    h: 298,
+    alt: "The ReleaseTwin pull-request comment: failed, 1 passed · 1 failed, with a table row for the failing case DEMO-GATE-1",
+    claim: "The verdict is readable — totals, flag-proof, and the notable cases, updated in place on every run.",
+  },
+  {
+    img: "/demo/pr-check-passed.svg",
+    w: 560,
+    h: 56,
+    alt: "A passing ReleaseTwin check on a pull request after the fix",
+    claim: "Push the fix and the same check goes green — the comment updates in place, no new noise.",
+  },
+] as const;
 
 export const metadata: Metadata = {
   // Home page owns the full <title> rather than the "%s — ReleaseTwin" template.
@@ -138,9 +116,39 @@ export default async function LandingPage() {
         </div>
       </section>
 
-      {/* Dashboard preview */}
-      <section className="flex w-full flex-col items-center px-6 pb-20">
-        <DashboardPreview />
+      {/* The CI loop — merge gate → readable verdict → dashboard */}
+      <section className="mx-auto flex w-full max-w-3xl flex-col items-center gap-3 px-6 pb-20">
+        <h2 className="text-2xl font-semibold tracking-tight">One loop, on every pull request</h2>
+        <p className="mb-6 max-w-xl text-center text-sm text-muted-foreground">
+          A change opens a PR. ReleaseTwin runs your cases in your own runner and reports
+          back. Here it catches a regression, blocks the merge, then goes green on the fix —
+          real output from a real run.
+        </p>
+        <ol className="flex w-full flex-col gap-10">
+          {CI_LOOP_PANELS.map((panel) => (
+            <li key={panel.img} className="flex flex-col items-center gap-3">
+              {/* Local trusted SVGs generated by web/scripts/capture-landing-demo.mjs;
+                  plain <img> to avoid next/image's SVG gate, matching the hero recording. */}
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src={panel.img}
+                width={panel.w}
+                height={panel.h}
+                alt={panel.alt}
+                loading="lazy"
+                className="w-full max-w-2xl rounded-lg ring-1 ring-foreground/10"
+              />
+              <p className="max-w-xl text-center text-sm text-muted-foreground">{panel.claim}</p>
+            </li>
+          ))}
+        </ol>
+        <p className="mt-8 max-w-xl text-center text-sm text-muted-foreground">
+          Connect the hosted dashboard and each run&apos;s history and{" "}
+          <Link href="/docs/hosted-platform" className="underline underline-offset-4 hover:text-foreground">
+            redacted evidence
+          </Link>{" "}
+          lands there too — only metadata leaves your infra.
+        </p>
       </section>
 
       {/* Trust — your data stays put */}

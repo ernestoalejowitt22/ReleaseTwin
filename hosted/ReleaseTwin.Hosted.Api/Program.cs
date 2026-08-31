@@ -135,6 +135,17 @@ builder.Services.AddScoped<ITokenService, TokenService>();
 builder.Services.AddScoped<ProvisioningService>();
 builder.Services.AddScoped<ConnectionService>();
 builder.Services.AddScoped<DashboardService>();
+builder.Services.AddScoped<ProjectWritabilityService>();
+
+// billing: Polar (Merchant of Record) seam. Options bind inline from the "Polar" config section
+// (SSM-backed in real AWS); empty/absent ⇒ PolarOptions.IsConfigured is false and every billing
+// endpoint returns "billing not configured" (safe default, tasks.md 1.2).
+var polarOptions = ReleaseTwin.Hosted.Api.Billing.PolarOptions.FromConfiguration(builder.Configuration);
+builder.Services.AddSingleton(polarOptions);
+builder.Services.AddHttpClient<ReleaseTwin.Hosted.Api.Billing.IPolarClient, ReleaseTwin.Hosted.Api.Billing.PolarClient>();
+builder.Services.AddScoped<ReleaseTwin.Hosted.Api.Billing.ProcessedBillingEventRepository>();
+builder.Services.AddScoped<ReleaseTwin.Hosted.Api.Billing.BillingEventProcessor>();
+builder.Services.AddScoped<ReleaseTwin.Hosted.Api.Billing.BillingReconciliationService>();
 builder.Services.AddScoped<ReleaseTwin.Hosted.Api.Analytics.TrendService>();
 builder.Services.AddScoped<ReleaseTwin.Hosted.Api.Releases.ReleaseRollupService>();
 builder.Services.AddScoped<JourneyService>();
@@ -267,6 +278,19 @@ if (Environment.GetEnvironmentVariable("RELEASETWIN_LAMBDA_TASK") == "EvidencePu
     return;
 }
 
+// billing (design.md D6): a third scheduled Lambda task — the nightly subscription-quantity
+// reconciliation backstop. Same host pattern as the staleness digest and evidence purge.
+if (Environment.GetEnvironmentVariable("RELEASETWIN_LAMBDA_TASK") == "BillingReconciliation")
+{
+    await Amazon.Lambda.RuntimeSupport.LambdaBootstrapBuilder.Create(async (Stream _, Amazon.Lambda.Core.ILambdaContext _) =>
+    {
+        using var scope = app.Services.CreateScope();
+        await scope.ServiceProvider.GetRequiredService<ReleaseTwin.Hosted.Api.Billing.BillingReconciliationService>().RunAsync();
+        return new MemoryStream();
+    }).Build().RunAsync();
+    return;
+}
+
 if (!app.Environment.IsDevelopment())
 {
     app.UseExceptionHandler("/Error");
@@ -302,6 +326,7 @@ app.MapPlansEndpoints();
 app.MapAdminEndpoints();
 app.MapIngestEndpoints();
 app.MapDashboardEndpoints();
+ReleaseTwin.Hosted.Api.Billing.BillingEndpoints.MapBillingEndpoints(app);
 app.MapTrendEndpoints();
 app.MapReleaseEndpoints();
 app.MapConnectionEndpoints();

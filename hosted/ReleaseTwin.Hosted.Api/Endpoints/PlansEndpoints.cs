@@ -23,7 +23,13 @@ public static class PlansEndpoints
                 {
                     t.Id,
                     t.Name,
-                    price = new { t.Price.Amount, t.Price.Unit, t.Price.Placeholder },
+                    price = t.Prices.Select(p => new
+                    {
+                        interval = p.Interval.ToString().ToLowerInvariant(),
+                        p.Amount,
+                        p.Unit,
+                        p.Placeholder,
+                    }),
                     t.Support,
                     t.Entitlements,
                 }),

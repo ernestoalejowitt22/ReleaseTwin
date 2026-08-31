@@ -32,7 +32,7 @@ public static class IngestEndpoints
         var group = app.MapGroup("/api/ingest")
             .RequireAuthorization(policy => policy.RequireAuthenticatedUser().AddAuthenticationSchemes(ApiTokenDefaults.Scheme));
 
-        group.MapPost("/case-report", async (HttpRequest http, ICaseReportRepository reports, IUsageCounterRepository usage, EvidenceIngestService evidenceIngest, ClaimsPrincipal user) =>
+        group.MapPost("/case-report", async (HttpRequest http, ICaseReportRepository reports, IUsageCounterRepository usage, EvidenceIngestService evidenceIngest, ProjectWritabilityService writability, ClaimsPrincipal user) =>
         {
             var (request, screenshots, bindError) = await ReadAsync<IngestCaseReportRequest>(http);
             if (bindError is not null)
@@ -59,6 +59,12 @@ public static class IngestEndpoints
 
             var projectId = GetProjectId(user);
             var organizationId = GetOrganizationId(user);
+
+            if (!await writability.IsWritableAsync(organizationId, projectId, http.HttpContext.RequestAborted))
+            {
+                return ReadOnlyProjectRejection();
+            }
+
             var entity = new UploadedCaseReport
             {
                 Id = Guid.NewGuid(),
@@ -87,7 +93,7 @@ public static class IngestEndpoints
             return Results.Created($"/api/reports/case/{entity.Id}", new { entity.Id, evidenceAccepted = accepted });
         });
 
-        group.MapPost("/flag-proof-report", async (HttpRequest http, IFlagProofReportRepository reports, IUsageCounterRepository usage, EvidenceIngestService evidenceIngest, ClaimsPrincipal user) =>
+        group.MapPost("/flag-proof-report", async (HttpRequest http, IFlagProofReportRepository reports, IUsageCounterRepository usage, EvidenceIngestService evidenceIngest, ProjectWritabilityService writability, ClaimsPrincipal user) =>
         {
             var (request, screenshots, bindError) = await ReadAsync<IngestFlagProofReportRequest>(http);
             if (bindError is not null)
@@ -113,6 +119,12 @@ public static class IngestEndpoints
 
             var projectId = GetProjectId(user);
             var organizationId = GetOrganizationId(user);
+
+            if (!await writability.IsWritableAsync(organizationId, projectId, http.HttpContext.RequestAborted))
+            {
+                return ReadOnlyProjectRejection();
+            }
+
             var entity = new UploadedFlagProofReport
             {
                 Id = Guid.NewGuid(),
@@ -139,6 +151,16 @@ public static class IngestEndpoints
             return Results.Created($"/api/reports/flag-proof/{entity.Id}", new { entity.Id, evidenceAccepted = accepted });
         });
     }
+
+    /// <summary>
+    /// plan-tier-gating / billing (D5): a project that is read-only because the org is over its
+    /// current tier's project limit rejects new evidence with the same <c>entitlement-required</c>
+    /// error code the other entitlement gates use — not a generic 4xx.
+    /// </summary>
+    private static IResult ReadOnlyProjectRejection() =>
+        Results.Json(
+            new { error = "entitlement-required", entitlement = "maxProjects" },
+            statusCode: StatusCodes.Status403Forbidden);
 
     private static async Task<(T? Request, IReadOnlyList<UploadedScreenshot> Screenshots, IResult? Error)> ReadAsync<T>(HttpRequest http)
         where T : class
