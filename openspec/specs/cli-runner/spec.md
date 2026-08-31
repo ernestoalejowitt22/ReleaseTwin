@@ -30,9 +30,19 @@ The CLI SHALL resolve each adapter's credentials (e.g. an Azure DevOps PAT, a La
 ### Requirement: All cases in a directory are executed and reported
 The CLI SHALL load every case file in a given directory, execute each with `CaseExecutor`, and print a per-case result (pass/fail, classification if failed) plus an overall summary.
 
+The CLI SHALL dispatch on a leading subcommand: `init` and `new` invoke case scaffolding (see the `case-scaffolding` capability); `run` executes cases and accepts an optional cases-directory path and an optional `--journey <journeyId>@<version>`. An invocation with no recognized subcommand SHALL behave as it did before subcommands existed — a leading `--journey <journeyId>@<version>` runs that pinned hosted journey, otherwise the first argument (or a documented default when absent) is the cases directory to execute. `--help` SHALL list the subcommands.
+
 #### Scenario: Mixed pass/fail run reports both
 - **WHEN** a directory contains one case that passes and one that fails
 - **THEN** the CLI's output shows both individual results and a summary indicating one passed and one failed
+
+#### Scenario: Legacy invocation without a subcommand still runs cases
+- **WHEN** the CLI is invoked with only a directory path, with no arguments, or with a leading `--journey <journeyId>@<version>`
+- **THEN** it executes cases (or the pinned journey) exactly as it did before subcommand dispatch was added
+
+#### Scenario: Unknown subcommand or --help lists the subcommands
+- **WHEN** the CLI is invoked with `--help`
+- **THEN** it prints usage listing at least `init`, `new`, and `run`
 
 ### Requirement: Exit code reflects overall pass/fail
 The CLI SHALL exit with a non-zero status code if any executed case fails, and a zero status code if every case passes, so it can gate a CI pipeline without additional parsing of its output.
@@ -48,9 +58,27 @@ The CLI SHALL exit with a non-zero status code if any executed case fails, and a
 ### Requirement: Multiple adapters compose in the CLI
 The CLI SHALL be able to install more than one adapter into the same composition, so a case can reference operations from any installed adapter. An adapter that requires no credentials (e.g. a generic HTTP adapter) SHALL install successfully without any credential environment variables being set.
 
+The set of adapters the CLI considers MAY be declared in an optional `releasetwin.yaml` file at the project root, via an `adapters:` list of adapter names. When the file is absent or has no `adapters:` key, the CLI SHALL consider every adapter it knows about and auto-load each one whose credentials fully resolve — the behavior that existed before this file. When an `adapters:` list is present it is authoritative: only listed adapters are considered, a credential-free adapter (HTTP) is available whether or not it is listed, an adapter configured in the environment but not listed SHALL NOT be installed, and a listed credentialed adapter whose credentials resolve from neither the environment nor a hosted fetch SHALL be reported as a clear startup error rather than silently skipped. The file names which adapters a project uses; it SHALL NOT contain credentials, which continue to resolve only from the environment or the hosted `adapter-credentials` capability. A `releasetwin.yaml` that is present but malformed SHALL be a startup error.
+
 #### Scenario: Cases from two different adapters run in the same invocation
 - **WHEN** the CLI is run with a cases directory containing one case using Azure DevOps operations and one case using generic HTTP operations
 - **THEN** both cases execute successfully in the same run, using their respective adapters
+
+#### Scenario: No config file preserves auto-detection
+- **WHEN** there is no `releasetwin.yaml` (or it has no `adapters:` key) and an adapter's full credential set is present in the environment
+- **THEN** the CLI installs that adapter exactly as it did before this file existed
+
+#### Scenario: A listed adapter with no credentials is a startup error
+- **WHEN** `releasetwin.yaml` lists a credentialed adapter and neither the environment nor a hosted fetch provides its credentials
+- **THEN** the CLI exits with a clear error naming that adapter, without executing any case
+
+#### Scenario: An unlisted but environment-configured adapter is not installed
+- **WHEN** `releasetwin.yaml` has an `adapters:` list that omits an adapter whose credential environment variables are nonetheless fully set
+- **THEN** the CLI does not install that adapter, and a case referencing its operations reports the missing-capability outcome
+
+#### Scenario: HTTP is always available
+- **WHEN** `releasetwin.yaml` has an `adapters:` list that does not include `http`
+- **THEN** the generic HTTP adapter is still installed and `http.*` operations still run
 
 ### Requirement: Results are optionally uploaded to the hosted platform
 If an API token is supplied via environment variable, the CLI SHALL upload each executed case's report to the ingest API after execution, mapped into the ingest contract. For a case run in flag-proof mode, the CLI SHALL upload its flag-proof result instead of a plain case report. If no token is supplied, the CLI SHALL run and report exactly as before, with no upload attempted and no error raised for its absence.
