@@ -13,15 +13,17 @@ the steps here — never hand-authored mock data (see
 
 ## Assets the landing page consumes
 
-| File (in `web/public/`) | Panel | Source |
+| File (in `web/public/demo/`) | Panel | Source |
 |---|---|---|
-| `demo/pr-gate-fail.png` | ① merge blocked | the NAHA demo PR with `DEMO-GATE-1` red, merge box showing "Required" |
-| `demo/pr-comment.png` | ② readable verdict | the `ReleaseTwin` PR comment rendered by `integrations/github-action/render.mjs` |
-| `demo/pr-gate-pass.png` | ② unblocked | same PR after the fix commit, check green |
-| `demo/dashboard-runs.png` | ③ dashboard | hosted dashboard run history |
-| `demo/dashboard-evidence.png` | ③ dashboard | evidence viewer, auth headers stripped |
-| `demo/dashboard-trends.png` | ③ dashboard | trend analytics |
-| `demo/dashboard-rollup.png` | ③ dashboard | release-readiness rollup |
+| `pr-check-failed.svg` | ① merge gate (failing) | generated from `demo-summaries/failed.json` by `web/scripts/capture-landing-demo.mjs` |
+| `pr-comment-failed.svg` | ② readable verdict | same generator; wording mirrors `integrations/github-action/render.mjs` `renderBody()` |
+| `pr-check-passed.svg` | ③ merge gate (green after the fix) | same generator, from `demo-summaries/passed.json` |
+| `dashboard-runs.png` | ④ dashboard — run history | `web/cypress/e2e/capture-landing-demo.cy.ts` → `web/scripts/capture-dashboard-demo.mjs` |
+| `dashboard-evidence.png` | ④ dashboard — evidence viewer (redacted header visible) | same capture spec |
+
+`pr-comment-passed.svg` is also generated but not currently placed on the page. Trend-analytics
+and release-rollup panels are deferred — they need seeded history / `release:` labels to look
+right.
 
 ## Prerequisites
 
@@ -67,9 +69,11 @@ Crop/normalize to a consistent width.
 
 ## Step 3 — wire into the landing page
 
-`web/src/app/(marketing)/page.tsx` — replace `DashboardPreview` with the four-panel demo
-section, each panel captioned with the claim it proves. Keep `demo-flag-proof.svg` as the
-"under the hood" strip. Use `next/image` with explicit dimensions; lazy-load below the fold.
+`web/src/app/(marketing)/page.tsx` — the CI-loop section (`CI_LOOP_PANELS` + `DASHBOARD_PANELS`)
+replaced `DashboardPreview`: 3 PR panels, a dashboard-pointer line, then 2 dashboard panels,
+each captioned with the claim it proves. `demo-flag-proof.svg` stays as the hero recording.
+Plain `<img>` (not `next/image`) with explicit `width`/`height` + `loading="lazy"`, matching
+the hero — `next/image`'s SVG gate would otherwise reject the panels.
 
 ## Review checklist — before committing any asset
 

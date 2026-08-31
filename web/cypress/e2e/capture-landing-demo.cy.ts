@@ -38,12 +38,9 @@ describe("landing demo — dashboard panels", () => {
     cy.contains("button", "Create project").click();
     cy.contains(projectName).should("be.visible");
 
-    cy.get("body").then(($body) => {
-      if ($body.find("button:contains('Upgrade')").length) {
-        cy.contains("button", "Upgrade").first().click();
-      }
-    });
-    cy.contains(/Team plan|Paid plan/).should("be.visible");
+    // billing-integration: the payment-free "click Upgrade" is gone — a `subscription.active`
+    // event (what Polar sends on checkout completion) is now the way to reach the Team tier.
+    cy.elevateToTeam();
 
     cy.get('[data-testid="evidence-settings"]').within(() => {
       cy.get('input[name="captureDefault"]').check();
@@ -85,24 +82,44 @@ describe("landing demo — dashboard panels", () => {
       cy.wrap(projectId).as("projectId");
     });
 
+    // These are marketing assets, so hide Next's dev-mode build indicator / route toast
+    // (`next dev` only — it never ships to production) before every screenshot.
+    const hideDevOverlay = () =>
+      cy.document().then((doc) => {
+        if (doc.getElementById("rt-hide-next-overlay")) return;
+        const style = doc.createElement("style");
+        style.id = "rt-hide-next-overlay";
+        style.textContent =
+          "nextjs-portal,[data-nextjs-toast],#__next-build-watcher,[data-next-badge-root]{display:none !important}";
+        doc.head.appendChild(style);
+      });
+
     const openDashboard = () =>
       cy.get<string>("@projectId").then((projectId) => {
         cy.visit(`/dashboard?projectId=${projectId}`);
         cy.contains("h1", "Dashboard").should("be.visible");
+        hideDevOverlay();
       });
 
-    // 1 — run history
+    // 1 — run history: frame the "Run history" card itself, not the top of the dashboard.
     openDashboard();
     cy.contains("tr", "HTTP-DEMO-1").should("be.visible");
     cy.contains("tr", "AUTH-CHAIN-DEMO-1").should("be.visible");
-    cy.screenshot("runs", { capture: "viewport" });
+    cy.contains('[data-slot="card"]', "Run history")
+      .scrollIntoView({ offset: { top: -24, left: 0 } })
+      .wait(300)
+      .screenshot("runs");
 
-    // 2 — evidence viewer, showing CLI-side redaction of the Authorization header
+    // 2 — evidence viewer: the title + the "Redacted by your CLI" note + the first steps,
+    // showing a real redacted header (Access-Control-Allow-Credentials / Authorization → «redacted»).
     openDashboard();
     cy.contains("tr", "AUTH-CHAIN-DEMO-1").contains("a", "View").click();
     cy.contains("h1", "Run evidence").should("be.visible");
     cy.contains("Redacted by your CLI before upload").should("be.visible");
     cy.get("details").each(($d) => cy.wrap($d).find("summary").click());
+    hideDevOverlay();
+    cy.contains("h1", "Run evidence").scrollIntoView({ offset: { top: -24, left: 0 } });
+    cy.wait(300);
     cy.screenshot("evidence", { capture: "viewport" });
   });
 });
