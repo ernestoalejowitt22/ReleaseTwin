@@ -3,15 +3,18 @@
 ## Purpose
 
 Defines the single declarative catalog of commercial tiers and their entitlements, the entitlement service every feature gate consults instead of comparing a tier value inline, the unauthenticated `GET /plans` that serves the catalog, and the operator-only endpoint for the one tier transition that is not self-serve.
-
 ## Requirements
-
 ### Requirement: A single plan catalog defines every tier and its entitlements
 The system SHALL define its commercial plans in one declarative catalog containing, for
-each tier, a stable id, a display name, price metadata (amount, unit, and whether the
-amount is a placeholder), a support description, and a complete set of entitlement values.
-The catalog SHALL be the only source of tier and entitlement data — no tier limit is
-compared or hardcoded anywhere else in the system.
+each tier, a stable id, a display name, price metadata, a support description, and a
+complete set of entitlement values. The catalog SHALL be the only source of tier and
+entitlement data — no tier limit is compared or hardcoded anywhere else in the system.
+
+Price metadata SHALL be a list of one or more cadence entries, each with a billing
+interval, an amount, a unit, and whether the amount is a placeholder. The billing interval
+SHALL be drawn from a fixed, validated vocabulary (at least `monthly` and `annual`); a
+cadence entry with an unrecognised interval SHALL fail catalog validation. A tier MAY offer
+a single cadence or several.
 
 The entitlement set for a tier SHALL include at minimum: a maximum project count
 (a number, or unlimited), whether the hosted evidence viewer is available, a maximum
@@ -24,13 +27,24 @@ available.
 #### Scenario: The catalog is loaded and validated at startup
 - **WHEN** the API starts
 - **THEN** it loads the catalog from its embedded definition and validates that every
-  tier has a complete entitlement set
+  tier has a complete entitlement set and at least one cadence entry with a recognised
+  interval
 - **AND** a malformed or incomplete catalog fails startup rather than yielding an empty or
   partial entitlement set
 
 #### Scenario: Three tiers are defined
 - **WHEN** the catalog is read
 - **THEN** it contains exactly the tiers `free`, `team`, and `enterprise`, in that order
+
+#### Scenario: A tier offers monthly and annual pricing
+- **WHEN** the catalog is read for the `team` tier
+- **THEN** its price metadata contains a `monthly` cadence and an `annual` cadence, each
+  with its own amount
+
+#### Scenario: An unknown billing interval fails validation
+- **WHEN** the catalog contains a cadence entry whose interval is not in the recognised
+  vocabulary
+- **THEN** catalog validation fails and the API does not start
 
 ### Requirement: The catalog is served unauthenticated at GET /plans
 The system SHALL expose the plan catalog at `GET /plans` with no authentication required,
@@ -74,3 +88,4 @@ required.
 #### Scenario: The admin surface is closed when no operators are configured
 - **WHEN** the operator allowlist is empty or unset
 - **THEN** no caller can set a tier through the endpoint
+

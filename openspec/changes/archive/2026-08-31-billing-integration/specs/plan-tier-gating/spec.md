@@ -1,23 +1,29 @@
+## RENAMED Requirements
+
+- FROM: `### Requirement: An organization can self-serve upgrade to Paid without payment`
+- TO: `### Requirement: An organization can self-serve upgrade to Paid`
+
 ## MODIFIED Requirements
 
 ### Requirement: An organization can self-serve upgrade to Paid
 A customer SHALL be able to move their own organization from `Free` to `Team` through
 self-service by paying through the Merchant of Record's hosted checkout (see the `billing`
-capability). Payment details SHALL be collected only on the Merchant of Record's surface.
-The tier SHALL change to `Team` as a result of processing a subscription notification, not
-as a direct action of the checkout or redirect-return code. Moving an organization to
-`Enterprise` SHALL NOT be self-serve; it is set by an operator.
+capability). Payment details SHALL be collected only on the Merchant of Record's surface,
+never by the hosted platform itself. The tier SHALL change to `Team` as a result of
+processing a subscription notification, not as a direct action of the checkout or
+redirect-return code. Moving an organization to `Enterprise` SHALL NOT be self-serve; it is
+set by an operator.
 
-#### Scenario: Paid subscription lifts the project limit
+#### Scenario: Upgrading lifts the project limit immediately
 - **WHEN** a `Free`-tier organization at its one-project limit completes checkout and its
   subscription notification is processed
 - **THEN** it is on `Team` and can immediately create additional projects, without any
   other action required
 
-#### Scenario: Upgrade collects payment only on the Merchant of Record
+#### Scenario: Upgrading requires no payment information
 - **WHEN** a customer upgrades their organization to `Team`
 - **THEN** no card, payment-method, or billing-address field is presented by the hosted
-  platform itself
+  platform itself — all payment data is collected on the Merchant of Record's surface
 
 #### Scenario: Enterprise is not reachable by self-service
 - **WHEN** a customer attempts to set their own organization's tier to `Enterprise`
