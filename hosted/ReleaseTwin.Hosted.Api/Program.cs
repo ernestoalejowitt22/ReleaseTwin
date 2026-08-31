@@ -104,6 +104,7 @@ builder.Services.AddScoped<IUserRepository, UserRepository>();
 builder.Services.AddScoped<IMembershipRepository, MembershipRepository>();
 builder.Services.AddScoped<IInvitationRepository, InvitationRepository>();
 builder.Services.AddScoped<INotificationTargetRepository, NotificationTargetRepository>();
+builder.Services.AddScoped<IShareLinkRepository, ShareLinkRepository>();
 builder.Services.AddScoped<IProjectRepository, ProjectRepository>();
 builder.Services.AddScoped<IApiTokenRepository, ApiTokenRepository>();
 builder.Services.AddScoped<IConnectionRepository, ConnectionRepository>();
@@ -157,6 +158,7 @@ builder.Services.AddScoped<IInvitationEmailSender, LoggingInvitationEmailSender>
 // (RELEASETWIN_LAMBDA_TASK=NotificationDispatch) drains it. The dispatch HttpClient follows no
 // redirects and times out fast so a hostile or slow target can't tie it up.
 builder.Services.AddScoped<NotificationDispatchService>();
+builder.Services.AddScoped<EvidenceSharingService>();
 builder.Services.AddHttpClient(NotificationDispatchService.HttpClientName, c => c.Timeout = TimeSpan.FromSeconds(5))
     .ConfigurePrimaryHttpMessageHandler(() => new HttpClientHandler { AllowAutoRedirect = false });
 // run-notifications: the SSRF check needs to resolve a customer-supplied host. Injected so tests are
@@ -454,6 +456,7 @@ app.MapIngestEndpoints();
 app.MapDashboardEndpoints();
 app.MapMembershipEndpoints();
 app.MapNotificationEndpoints();
+app.MapShareLinkEndpoints();
 ReleaseTwin.Hosted.Api.Billing.BillingEndpoints.MapBillingEndpoints(app);
 app.MapTrendEndpoints();
 app.MapReleaseEndpoints();

@@ -175,6 +175,22 @@ public interface IProjectSecretRepository
     Task DeleteAsync(Guid projectId, string name, CancellationToken cancellationToken = default);
 }
 
+/// <summary>evidence-sharing: per-run revocable read-only share links. Keyed by the token hash for O(1)
+/// resolution; the token carries the report id as its prefix so the item can be located from the
+/// token alone.</summary>
+public interface IShareLinkRepository
+{
+    Task PutAsync(ShareLink link, CancellationToken cancellationToken = default);
+    Task<ShareLink?> GetByTokenHashAsync(Guid reportId, string tokenHash, CancellationToken cancellationToken = default);
+    Task<IReadOnlyList<ShareLink>> ListByReportAsync(Guid reportId, CancellationToken cancellationToken = default);
+
+    /// <summary>Revokes one link (by its <see cref="ShareLink.Id"/>). No-op if it is not found under this report.</summary>
+    Task RevokeAsync(Guid reportId, Guid linkId, CancellationToken cancellationToken = default);
+
+    /// <summary>evidence-sharing: hard-delete every share link for a report — called by the evidence purge.</summary>
+    Task DeleteAllForReportAsync(Guid reportId, CancellationToken cancellationToken = default);
+}
+
 /// <summary>run-notifications: a project's outbound notification targets (Slack / generic webhook).</summary>
 public interface INotificationTargetRepository
 {

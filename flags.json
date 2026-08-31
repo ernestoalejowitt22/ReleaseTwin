@@ -16,6 +16,14 @@
       "description": "commercial-readiness-gaps: master switch for outbound run-failure notifications (Slack / webhook). Off by default — the ingest path skips enqueue and the dispatcher Lambda drops every message while this is false. Independent of the per-org Team entitlement, which still gates configuration and delivery.",
       "surfaces": ["hosted"],
       "owner": "platform"
+    },
+    {
+      "key": "evidence-sharing",
+      "type": "boolean",
+      "default": false,
+      "description": "commercial-readiness-gaps: master switch for shareable evidence links. Off by default — every share-link token resolves to 'unavailable' while this is false. Independent of the per-org Team entitlement, which gates link creation and (re-checked at resolve time) delivery.",
+      "surfaces": ["hosted"],
+      "owner": "platform"
     }
   ]
 }
