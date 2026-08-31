@@ -172,6 +172,49 @@ export interface GuidedSetupView {
   cliCommand: string;
 }
 
+/** org-membership: an organization the current user belongs to (GET /api/me/organizations). */
+export interface MyOrganization {
+  id: string;
+  name: string;
+  role: "Admin" | "Member" | "Viewer";
+  active: boolean;
+}
+
+export interface OrgMember {
+  userId: string;
+  role: "Admin" | "Member" | "Viewer";
+  displayName: string | null;
+  email: string | null;
+  joinedAt: string;
+}
+
+export interface OrgInvitation {
+  token: string;
+  email: string;
+  role: "Admin" | "Member" | "Viewer";
+  state: "Pending" | "Accepted" | "Revoked";
+  expiresAt: string;
+  acceptUrl: string;
+}
+
+/** run-notifications: a per-project outbound notification target. */
+export interface NotificationTarget {
+  id: string;
+  kind: "Slack" | "Webhook";
+  url: string;
+  enabled: boolean;
+  lastOutcome: string | null;
+  lastAttemptAt: string | null;
+}
+
+/** evidence-sharing: a share link for one run (management view — never the token). */
+export interface ShareLinkSummary {
+  id: string;
+  state: "Active" | "Revoked";
+  expiresAt: string;
+  createdAt: string;
+}
+
 /** trend-analytics: mirrors the C# `TrendBucket`. Rates are null (a gap) when their denominator is zero. */
 export interface TrendBucket {
   start: string;

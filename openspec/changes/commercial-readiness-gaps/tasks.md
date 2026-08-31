@@ -72,12 +72,12 @@
 
 ## 8. Web UI (spec: org-membership, all)
 
-- [ ] 8.1 Members & invitations settings page: list members + roles, invite form, revoke invite, change role, remove member (admin-only, hidden for members)
-- [ ] 8.2 Accept-invite page at `/invitations/[token]` — works for signed-in and fresh signup
-- [ ] 8.3 Active-org switcher in the app header; always shows the current org
-- [ ] 8.4 Notification-targets settings UI per project with last-delivery status
-- [ ] 8.5 Share-link controls on the run/evidence view: create, copy, list, revoke (Team-gated, shows upgrade prompt on Free)
-- [ ] 8.6 Gate Team-only UI affordances on `DashboardView.entitlements`
+- [x] 8.1 `web/src/app/dashboard/members/` — `MembersManager` client component: roster (name/email/role/joined), per-row role `<select>` + Remove (admin), invite form (email + role, returns the accept link to copy), pending-invitations list with copy-link + revoke. A non-admin sees a read-only roster + a "you are a member/viewer" note. New backend `GET /api/me/organizations` powers the "am I an admin of the active org" check.
+- [x] 8.2 `web/src/app/invitations/[token]/` — outside `/dashboard`; unauthenticated → redirect to `/sign-in?redirect_url=…`; signed-in → invite preview (org, role, acceptable) + `AcceptInviteButton`. Both the preview fetch and the accept action attach `X-Invite-Token` (direct `fetch`, not the `api` helper) so provisioning skips the throwaway org (design D1a). Accept sets the active-org cookie and lands on the dashboard.
+- [x] 8.3 `OrgSwitcher` in the dashboard header — a `<select>` (auto-submit) over `GET /api/me/organizations` when the user is in >1 org, plain text otherwise, + a "Team" link. `setActiveOrganization` server action writes the `rt_active_org` cookie; `web/src/lib/api.ts` forwards it as `X-Org-Id` on every API call (the API validates it against membership).
+- [x] 8.4 `NotificationTargetsSection` on the dashboard (admin + real project): targets table with kind / URL / **last-delivery badge + timestamp** / enable toggle / delete, and an add form (kind select + URL). `notification-actions.ts` maps the `invalid-url` 400 and the entitlement 403 to friendly copy.
+- [x] 8.5 `ShareLinkControls` on the evidence page — "Create share link" (shows the token URL once, copy button), active-links list with expiry + Revoke. `loadShareLinks` treats the entitlement 403 as "not entitled" → upgrade hint. Renders for metadata-only runs too.
+- [x] 8.6 Gating: `canManage` (Admin) gates notification targets, share-link creation, billing controls; `canUseProjects` (Admin/Member, not Viewer) gates create-project, issue-token, and the SetupSection / journeys / tokens block. Notification + sharing sections show the "Team plan" hint when the entitlement is absent. `web` build (22 routes) + eslint clean; hosted 333 tests (+1 for `/api/me/organizations`).
 
 ## 9. Docs
 
