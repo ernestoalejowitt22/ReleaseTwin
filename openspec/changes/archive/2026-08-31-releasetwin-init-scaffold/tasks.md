@@ -48,6 +48,6 @@
 
 ## 6. Sibling change (not here)
 
-- [ ] 6.1 Open `config-driven-adapter-selection` — `releasetwin.yaml` schema + adapter loading,
+- [x] 6.1 `config-driven-adapter-selection` — `releasetwin.yaml` schema + adapter loading,
       replacing the hardcoded env-var blocks in `CliRunner.cs`. This change only emits a valid
-      starter file; that one owns the semantics and the filename decision.
+      starter file; that one owns the semantics and the filename decision. DONE — merged in #37.
