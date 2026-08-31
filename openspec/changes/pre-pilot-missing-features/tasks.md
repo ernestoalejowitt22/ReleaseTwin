@@ -48,5 +48,5 @@
 - [x] 8.1 `dotnet build ReleaseTwin.sln` clean; engine tests all green (7 assemblies); hosted `dotnet test` **343 green** (+10: 4 guard-matrix rows, 4 `ExportArchiveBuilderTests`, 3 `ExportEndpointTests` cases).
 - [x] 8.2 `cd web && npm run build` — compiled clean, `/dashboard/export` route registered; `npx eslint src` exit 0.
 - [x] 8.3 `openspec validate pre-pilot-missing-features --strict` — valid.
-- [x] 8.4 To confirm on the branch PR.
+- [x] 8.4 PR #59 — CI green (`build-and-test` x2, `build-test-lint`, `gitleaks`, Vercel).
 - [ ] 8.5 **Needs the user to run this:** after deploy, request an export against a real org with evidence; open the ZIP; confirm the redacted evidence + screenshots are intact and the format matches `docs/data-export.md` (per the project's "the artifact IS the deliverable" rule).
