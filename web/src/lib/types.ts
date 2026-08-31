@@ -87,6 +87,23 @@ export interface EvidenceDetailView {
   uploadedAt: string;
 }
 
+/**
+ * evidence-sharing: the ONLY payload a share-link viewer receives (mirrors the C# `SharedEvidenceView`
+ * record). Carries the redacted evidence document + the run's result — nothing that identifies or
+ * links to the organization, project, or any other run.
+ */
+export interface SharedEvidenceView {
+  caseId: string;
+  reportKind: string;
+  result: string;
+  classification: string | null;
+  fixtureSha256: string;
+  hasEvidenceDocument: boolean;
+  evidenceUploadedAt: string | null;
+  document: EvidenceDocument | null;
+  screenshotIds: string[];
+}
+
 export interface EvidenceConfigView {
   captureDefault: boolean;
   retentionDays: number;

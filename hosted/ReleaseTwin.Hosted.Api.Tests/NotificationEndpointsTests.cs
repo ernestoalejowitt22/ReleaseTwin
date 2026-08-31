@@ -43,7 +43,7 @@ public class NotificationEndpointsTests
 
         var deleted = await admin.DeleteAsync($"{basePath}{target.Id}");
         Assert.Equal(HttpStatusCode.NoContent, deleted.StatusCode);
-        Assert.Empty(await admin.GetFromJsonAsync<List<TargetView>>(basePath));
+        Assert.Empty((await admin.GetFromJsonAsync<List<TargetView>>(basePath))!);
     }
 
     [Fact]

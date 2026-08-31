@@ -13,6 +13,7 @@ public enum OrgCapability
     ManageTokens,
     ManageMembers,
     ManageNotifications,
+    ManageSharing,
     UseProjects,
     ViewEvidence,
 }

@@ -72,5 +72,9 @@ internal static class Keys
     /// <summary>run-notifications: a project's outbound notification targets — <c>PK=PROJECT#&lt;projectId&gt;</c>, <c>SK=NOTIFYTARGET#&lt;targetId&gt;</c>.</summary>
     public static string NotificationTarget(Guid targetId) => $"NOTIFYTARGET#{targetId}";
 
+    /// <summary>evidence-sharing: a run's revocable read-only share links — <c>PK=RUN#&lt;reportId&gt;</c>, <c>SK=SHARE#&lt;tokenHash&gt;</c>.</summary>
+    public static string Run(Guid reportId) => $"RUN#{reportId}";
+    public static string ShareLink(string tokenHash) => $"SHARE#{tokenHash}";
+
     public static DateOnly CurrentUtcPeriod() => DateOnly.FromDateTime(DateTimeOffset.UtcNow.UtcDateTime);
 }

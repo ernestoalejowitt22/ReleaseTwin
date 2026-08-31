@@ -15,17 +15,21 @@ public sealed class EvidencePurgeService
     private readonly IEvidenceBlobStore _blobs;
     private readonly IProjectRepository _projects;
     private readonly ILogger<EvidencePurgeService> _logger;
+    private readonly IShareLinkRepository? _shareLinks;
 
     public EvidencePurgeService(
         IRunEvidenceRepository evidence,
         IEvidenceBlobStore blobs,
         IProjectRepository projects,
-        ILogger<EvidencePurgeService> logger)
+        ILogger<EvidencePurgeService> logger,
+        IShareLinkRepository? shareLinks = null)
     {
         _evidence = evidence;
         _blobs = blobs;
         _projects = projects;
         _logger = logger;
+        // evidence-sharing: optional so the pre-existing purge unit tests still construct this directly.
+        _shareLinks = shareLinks;
     }
 
     public async Task<int> RunAsync(CancellationToken cancellationToken = default)
@@ -53,6 +57,13 @@ public sealed class EvidencePurgeService
             }
 
             await _evidence.DeleteAsync(evidence.ProjectId, evidence.ReportId, cancellationToken);
+
+            // evidence-sharing: a purged run's share links must stop resolving.
+            if (_shareLinks is not null)
+            {
+                await _shareLinks.DeleteAllForReportAsync(evidence.ReportId, cancellationToken);
+            }
+
             purged++;
         }
 

@@ -50,14 +50,14 @@
 
 ## 6. Evidence share links (spec: evidence-sharing, design D7)
 
-- [ ] 6.1 `ShareLink` item: `PK=RUN#<runId>`, `SK=SHARE#<tokenHash>`, `{expiresAt, state, createdBy}`; token ≥128-bit, stored hashed only
-- [ ] 6.2 Endpoints (admin + `evidenceSharing` entitlement): `POST /api/runs/{runId}/share-links`, `GET /api/runs/{runId}/share-links`, `DELETE .../share-links/{id}`
-- [ ] 6.3 `SharedEvidenceView` DTO carrying ONLY the redacted evidence document + result/classification/hashes; add a unit test asserting the type exposes no org/project/navigation fields (reflection-based)
-- [ ] 6.4 `GET /shared-runs/{token}` (unauthenticated) — resolve token hash, check state + expiry, re-check the org's `evidenceSharing` entitlement (403 without deleting on downgrade), return `SharedEvidenceView`; handle "no evidence uploaded" → metadata-only view
-- [ ] 6.5 `web/` unauthenticated route `/share/[token]` outside the dashboard tree; BFF proxies to `/shared-runs/{token}`; renders the evidence view with no dashboard chrome or links
-- [ ] 6.6 Evidence retention / `EvidencePurgeService`: delete `SHARE#` items when their run is purged
-- [ ] 6.7 Feature-flag behind the OpenFeature seam
-- [ ] 6.8 Tests: create/resolve, token-does-not-generalize, revoke stops, expiry stops, purge invalidates, Free org blocked, downgrade disables-without-deleting, redacted-only projection
+- [x] 6.1 `ShareLink` entity + `ShareLinkRepository` — `PK=RUN#<reportId>`, `SK=SHARE#<tokenHash>`. Token = `<reportId>.<32 random bytes base64url>`, stored only as `ITokenService.Hash` (SHA-256). Report metadata a viewer may see (`caseId`/`result`/`classification`/`fixtureSha256`/`reportKind`) is denormalised onto the item at creation — resolving a link never reaches project/org-scoped data.
+- [x] 6.2 `ShareLinkEndpoints` — `/api/reports/{reportId}/share-links` POST/GET/DELETE (`?projectId=`). New `OrgCapability.ManageSharing` (Admin-only via the existing table) + project-in-org + `evidenceSharing` entitlement (403 `entitlement-required`). POST returns `{id, token, url: {webBase}/share/{token}, expiresAt}`; 14-day default lifetime.
+- [x] 6.3 `SharedEvidenceView` record (flat: caseId, reportKind, result, classification, fixtureSha256, hasEvidenceDocument, evidenceUploadedAt, document, screenshotIds). `EvidenceSharingViewShapeTests` — reflection asserts every property is in the whitelist, none is a `Guid`, and no name contains org/project/tenant/url.
+- [x] 6.4 `GET /api/shared-runs/{token}` (`.AllowAnonymous`) — flag check → parse reportId → hash lookup → state/expiry → org `evidenceSharing` re-check (`ShareEntitlementRevokedException` → **403, not deleted**) → `SharedEvidenceView`. No evidence doc → `hasEvidenceDocument:false`, metadata-only. `+ /screenshots/{id}` anonymous proxy, validated against the link's evidence.
+- [x] 6.5 `web/src/app/share/[token]/page.tsx` — outside `/dashboard`, not matched by the proxy's protected routes; server-fetches the hosted API's `/api/shared-runs/{token}` directly (no Clerk token); renders result + redacted legs + screenshots with no dashboard nav or links; `robots: noindex`. 404 → `notFound()`, 403 → "link no longer available". `screenshot/[id]/route.ts` anonymous proxy.
+- [x] 6.6 `EvidencePurgeService` gains `IShareLinkRepository` (optional) — deletes every `SHARE#` item for a report whose evidence it purges.
+- [x] 6.7 `evidence-sharing` flag in `flags.json` (boolean, **default false**, hosted) + `FLAG_KEYS`. Checked at resolve time; independent of the per-org entitlement.
+- [x] 6.8 Tests (+17, suite 324): `EvidenceSharingViewShapeTests` (1), `EvidenceSharingServiceTests` (9 — create→resolve, metadata-only, revoke, expiry, flag off, downgrade-not-deleted-then-restored, token-does-not-generalize, purge, unknown report), `ShareLinkEndpointsTests` (4 — full lifecycle + anon resolve, member 403, Free 403, downgrade 403-without-delete), guard matrix extended for `ManageSharing`.
 
 ## 7. Onboarding activation (spec: onboarding-activation, design D8)
 
