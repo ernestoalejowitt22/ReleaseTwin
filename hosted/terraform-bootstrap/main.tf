@@ -159,6 +159,30 @@ data "aws_iam_policy_document" "github_actions_deploy_permissions" {
     resources = ["arn:aws:lambda:${var.region}:846136340491:function:releasetwin-dev-*"]
   }
 
+  # commercial-readiness-gaps run-notifications: the SQS queue + DLQ the ingest path feeds and the
+  # notification-dispatcher Lambda drains. Same resource-prefix scoping as the other statements.
+  statement {
+    sid       = "Sqs"
+    actions   = ["sqs:*"]
+    resources = ["arn:aws:sqs:${var.region}:846136340491:releasetwin-dev-*"]
+  }
+
+  # Event source mappings are UUID-identified (no name to prefix-scope) and the provider List/Get
+  # calls don't accept a resource ARN, so these are on "*" — same treatment as the cloudwatch/logs
+  # Describe verbs above. The role can still only create Lambda functions matching releasetwin-dev-*,
+  # so a mapping it wires up necessarily targets one of those.
+  statement {
+    sid = "LambdaEventSourceMapping"
+    actions = [
+      "lambda:CreateEventSourceMapping",
+      "lambda:GetEventSourceMapping",
+      "lambda:UpdateEventSourceMapping",
+      "lambda:DeleteEventSourceMapping",
+      "lambda:ListEventSourceMappings",
+    ]
+    resources = ["*"]
+  }
+
   statement {
     sid = "LambdaExecutionRole"
     actions = [
