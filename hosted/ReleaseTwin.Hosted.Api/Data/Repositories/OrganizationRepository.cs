@@ -46,6 +46,16 @@ public sealed class OrganizationRepository : IOrganizationRepository
         return items.Select(ToOrganization).ToList();
     }
 
+    public Task DeleteAsync(Guid organizationId, CancellationToken cancellationToken = default) =>
+        _table.DeleteItemAsync(Keys.Org(organizationId), Keys.Org(organizationId), cancellationToken);
+
+    public Task CreateWithFounderAsync(Organization organization, Membership founder, CancellationToken cancellationToken = default) =>
+        _table.TransactWritePutAsync(
+        [
+            (ToItem(organization), "attribute_not_exists(PK)"),
+            (MembershipRepository.ToItem(founder), null),
+        ], cancellationToken);
+
     internal static Dictionary<string, Amazon.DynamoDBv2.Model.AttributeValue> ToItem(Organization org)
     {
         var item = new Dictionary<string, Amazon.DynamoDBv2.Model.AttributeValue>

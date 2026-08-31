@@ -20,6 +20,14 @@ public sealed class TestClerkAuthHandler : AuthenticationHandler<AuthenticationS
     public const string OrgHeader = "X-Test-Org";
     public const string UserHeader = "X-Test-User";
 
+    /// <summary>org-membership: the caller's role in the org. Defaults to <c>Admin</c> so existing tests
+    /// (which act as the org owner) keep passing; set to <c>Member</c> to exercise the role gate.</summary>
+    public const string RoleHeader = "X-Test-Role";
+
+    /// <summary>org-membership: the Clerk <c>sub</c>. Set this (without <see cref="OrgHeader"/>) for an
+    /// authenticated session that has no active organization yet — an invitee before they join.</summary>
+    public const string SubHeader = "X-Test-Sub";
+
     public TestClerkAuthHandler(IOptionsMonitor<AuthenticationSchemeOptions> options, ILoggerFactory logger, UrlEncoder encoder)
         : base(options, logger, encoder)
     {
@@ -27,7 +35,13 @@ public sealed class TestClerkAuthHandler : AuthenticationHandler<AuthenticationS
 
     protected override Task<AuthenticateResult> HandleAuthenticateAsync()
     {
-        if (!Request.Headers.TryGetValue(OrgHeader, out var orgValues) || !Guid.TryParse(orgValues.ToString(), out var orgId))
+        Guid orgId = default;
+        var hasOrg = Request.Headers.TryGetValue(OrgHeader, out var orgValues) && Guid.TryParse(orgValues.ToString(), out orgId);
+        var subHeader = Request.Headers.TryGetValue(SubHeader, out var subValues) && subValues.ToString() is { Length: > 0 } s ? s : null;
+
+        // org-membership: an authenticated session with NO active org (an invitee who has not joined
+        // an org yet) is expressible with X-Test-Sub alone.
+        if (!hasOrg && subHeader is null)
         {
             return Task.FromResult(AuthenticateResult.NoResult());
         }
@@ -36,14 +50,23 @@ public sealed class TestClerkAuthHandler : AuthenticationHandler<AuthenticationS
             ? parsed
             : Guid.NewGuid();
 
-        var identity = new ClaimsIdentity(
-            [
-                new Claim("sub", $"test-clerk-{orgId}"),
-                new Claim("org_id", orgId.ToString()),
-                new Claim("user_id", userId.ToString()),
-                new Claim("user_display_name", "Test User"),
-            ],
-            authenticationType: "ClerkJwt");
+        var role = Request.Headers.TryGetValue(RoleHeader, out var roleValues) && roleValues.ToString() is { Length: > 0 } r
+            ? r
+            : "Admin";
+
+        var claims = new List<Claim>
+        {
+            new("sub", subHeader ?? $"test-clerk-{(hasOrg ? orgId : userId)}"),
+            new("user_id", userId.ToString()),
+            new("user_display_name", "Test User"),
+        };
+        if (hasOrg)
+        {
+            claims.Add(new Claim("org_id", orgId.ToString()));
+            claims.Add(new Claim("org_role", role));
+        }
+
+        var identity = new ClaimsIdentity(claims, authenticationType: "ClerkJwt");
 
         var ticket = new AuthenticationTicket(new ClaimsPrincipal(identity), Scheme.Name);
         return Task.FromResult(AuthenticateResult.Success(ticket));

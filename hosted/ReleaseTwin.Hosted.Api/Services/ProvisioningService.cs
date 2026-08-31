@@ -21,8 +21,9 @@ public sealed class ProvisioningService
     private readonly IEntitlementService _entitlements;
     private readonly IPolarClient _polar;
     private readonly ILogger<ProvisioningService> _logger;
+    private readonly IInvitationRepository? _invitations;
 
-    public ProvisioningService(IUserRepository users, IOrganizationRepository organizations, IProjectRepository projects, IApiTokenRepository tokens, ITokenService tokenService, IEntitlementService entitlements, IPolarClient? polar = null, ILogger<ProvisioningService>? logger = null)
+    public ProvisioningService(IUserRepository users, IOrganizationRepository organizations, IProjectRepository projects, IApiTokenRepository tokens, ITokenService tokenService, IEntitlementService entitlements, IPolarClient? polar = null, ILogger<ProvisioningService>? logger = null, IInvitationRepository? invitations = null)
     {
         _users = users;
         _organizations = organizations;
@@ -34,15 +35,51 @@ public sealed class ProvisioningService
         // this service directly (and never touch a paid org) compiling without a Polar fake each.
         _polar = polar ?? NullPolarClient.Instance;
         _logger = logger ?? Microsoft.Extensions.Logging.Abstractions.NullLogger<ProvisioningService>.Instance;
+        // org-membership: optional so the pre-membership unit tests still construct this directly.
+        _invitations = invitations;
     }
 
-    /// <summary>First login auto-creates a personal organization so the account is immediately usable — no separate "create org" step required to satisfy the self-serve requirement.</summary>
-    public async Task<AppUser> GetOrCreateUserAsync(string clerkUserId, string displayName, string? email, CancellationToken cancellationToken = default)
+    /// <summary>
+    /// First login auto-creates a personal organization so the account is immediately usable — no
+    /// separate "create org" step required to satisfy the self-serve requirement.
+    ///
+    /// org-membership (design D1a): when <paramref name="pendingInviteToken"/> names an acceptable
+    /// invitation whose email matches (or when the caller carries no email), the user is created with
+    /// no organization — they are only signing up to join an existing one, and creating a throwaway
+    /// org for them would leave an empty shell. The reconcile path in
+    /// <see cref="OrganizationMembersService.AcceptAsync"/> covers the case where the token was not
+    /// forwarded.
+    /// </summary>
+    public async Task<AppUser> GetOrCreateUserAsync(string clerkUserId, string displayName, string? email, string? pendingInviteToken = null, CancellationToken cancellationToken = default)
     {
         var existing = await _users.GetByClerkUserIdAsync(clerkUserId, cancellationToken);
         if (existing is not null)
         {
             return existing;
+        }
+
+        if (await IsJoiningByInviteAsync(pendingInviteToken, email, cancellationToken))
+        {
+            var invitedUser = new AppUser
+            {
+                Id = Guid.NewGuid(),
+                ClerkUserId = clerkUserId,
+                DisplayName = displayName,
+                Email = email,
+                CreatedAt = DateTimeOffset.UtcNow,
+                OrganizationId = Guid.Empty,
+            };
+
+            try
+            {
+                await _users.CreateAsync(invitedUser, cancellationToken);
+                return invitedUser;
+            }
+            catch (ConditionalCheckFailedException)
+            {
+                return await _users.GetByClerkUserIdAsync(clerkUserId, cancellationToken)
+                    ?? throw new InvalidOperationException("Conditional create failed but no user was found on re-read.");
+            }
         }
 
         var organization = new Organization
@@ -63,9 +100,19 @@ public sealed class ProvisioningService
             OrganizationId = organization.Id,
         };
 
+        var founding = new Membership
+        {
+            OrganizationId = organization.Id,
+            UserId = user.Id,
+            Role = MembershipRole.Admin,
+            CreatedAt = user.CreatedAt,
+            DisplayName = displayName,
+            Email = email,
+        };
+
         try
         {
-            await _users.CreateWithOrganizationAsync(organization, user, cancellationToken);
+            await _users.CreateWithOrganizationAsync(organization, user, founding, cancellationToken);
             return user;
         }
         catch (ConditionalCheckFailedException)
@@ -76,6 +123,22 @@ public sealed class ProvisioningService
             return await _users.GetByClerkUserIdAsync(clerkUserId, cancellationToken)
                 ?? throw new InvalidOperationException("Conditional create failed but no user was found on re-read.");
         }
+    }
+
+    private async Task<bool> IsJoiningByInviteAsync(string? pendingInviteToken, string? email, CancellationToken cancellationToken)
+    {
+        if (string.IsNullOrEmpty(pendingInviteToken) || _invitations is null)
+        {
+            return false;
+        }
+
+        var invite = await _invitations.GetByTokenAsync(pendingInviteToken, cancellationToken);
+        if (invite is null || !invite.IsAcceptable(DateTimeOffset.UtcNow))
+        {
+            return false;
+        }
+
+        return email is null || string.Equals(email, invite.Email, StringComparison.OrdinalIgnoreCase);
     }
 
     /// <summary>

@@ -101,6 +101,8 @@ builder.Services.AddSingleton<AdminOperators>();
 
 builder.Services.AddScoped<IOrganizationRepository, OrganizationRepository>();
 builder.Services.AddScoped<IUserRepository, UserRepository>();
+builder.Services.AddScoped<IMembershipRepository, MembershipRepository>();
+builder.Services.AddScoped<IInvitationRepository, InvitationRepository>();
 builder.Services.AddScoped<IProjectRepository, ProjectRepository>();
 builder.Services.AddScoped<IApiTokenRepository, ApiTokenRepository>();
 builder.Services.AddScoped<IConnectionRepository, ConnectionRepository>();
@@ -145,6 +147,9 @@ builder.Services.AddScoped<EvidencePurgeService>();
 
 builder.Services.AddScoped<ITokenService, TokenService>();
 builder.Services.AddScoped<ProvisioningService>();
+builder.Services.AddScoped<MembershipService>();
+builder.Services.AddScoped<OrganizationMembersService>();
+builder.Services.AddScoped<IInvitationEmailSender, LoggingInvitationEmailSender>();
 builder.Services.AddScoped<ConnectionService>();
 builder.Services.AddScoped<DashboardService>();
 builder.Services.AddScoped<ProjectWritabilityService>();
@@ -172,6 +177,7 @@ builder.Services.AddSingleton<IConnectionStateService, ConnectionStateService>()
 builder.Services.AddHttpClient("GitHubConnection");
 builder.Services.AddHttpContextAccessor();
 builder.Services.AddScoped<CurrentOrganizationAccessor>();
+builder.Services.AddScoped<IOrganizationAccessGuard>(sp => sp.GetRequiredService<CurrentOrganizationAccessor>());
 
 // operator-alerting: the region here is the same one the API already runs in — no separate
 // configuration needed. The client is cheap to construct and only actually used by the scheduled
@@ -246,11 +252,38 @@ builder.Services
 
                 // account-provisioning: signup requires no human approval — the first validated
                 // request itself provisions the user and their organization, immediately usable.
-                var user = await provisioning.GetOrCreateUserAsync(clerkUserId, displayName, email);
+                // org-membership (design D1a): the /invitations/<token> page forwards the token so
+                // provisioning can skip minting a throwaway org for someone joining an existing one.
+                var pendingInvite = context.HttpContext.Request.Headers["X-Invite-Token"].ToString();
+                var user = await provisioning.GetOrCreateUserAsync(
+                    clerkUserId, displayName, email,
+                    string.IsNullOrEmpty(pendingInvite) ? null : pendingInvite);
                 var identity = (ClaimsIdentity)context.Principal!.Identity!;
-                identity.AddClaim(new Claim("org_id", user.OrganizationId.ToString()));
                 identity.AddClaim(new Claim("user_id", user.Id.ToString()));
                 identity.AddClaim(new Claim("user_display_name", displayName));
+
+                // org-membership: resolve the active organization + the caller's role in it, once per
+                // request. The BFF may name a chosen org via the X-Org-Id header; it is honoured only
+                // when the caller is actually a member of it, otherwise their default org is used.
+                var membershipService = context.HttpContext.RequestServices.GetRequiredService<MembershipService>();
+                var memberships = await membershipService.GetMembershipsAsync(user);
+                if (memberships.Count > 0)
+                {
+                    ReleaseTwin.Hosted.Api.Data.Entities.Membership? active = null;
+                    if (Guid.TryParse(context.HttpContext.Request.Headers[CurrentOrganizationAccessor.ActiveOrgHeader], out var requested))
+                    {
+                        active = memberships.FirstOrDefault(m => m.OrganizationId == requested);
+                    }
+                    active ??= memberships
+                        .OrderBy(m => m.CreatedAt)
+                        .ThenBy(m => m.OrganizationId)
+                        .First();
+
+                    identity.AddClaim(new Claim("org_id", active.OrganizationId.ToString()));
+                    identity.AddClaim(new Claim("org_role", active.Role.ToString()));
+                }
+                // No memberships and no legacy org (e.g. signed up via an invite that has not been
+                // accepted yet): no org_id claim — org-scoped endpoints return 403 until they join.
             },
         };
     })
@@ -321,7 +354,17 @@ if (!app.Environment.IsDevelopment())
 // against — see the "Program" category, left at the Information default.
 app.Use(async (context, next) =>
 {
-    await next();
+    try
+    {
+        await next();
+    }
+    catch (ReleaseTwin.Hosted.Api.Services.ForbiddenException ex) when (!context.Response.HasStarted)
+    {
+        // org-membership: the caller has no membership in the active organization, or their role does
+        // not permit the operation. One place, so no endpoint needs its own try/catch.
+        context.Response.StatusCode = StatusCodes.Status403Forbidden;
+        await context.Response.WriteAsJsonAsync(new { error = "forbidden", detail = ex.Message });
+    }
     app.Logger.LogInformation(
         "http_request_completed status={StatusCode} method={Method} path={Path}",
         context.Response.StatusCode,
@@ -342,6 +385,7 @@ app.MapPlansEndpoints();
 app.MapAdminEndpoints();
 app.MapIngestEndpoints();
 app.MapDashboardEndpoints();
+app.MapMembershipEndpoints();
 ReleaseTwin.Hosted.Api.Billing.BillingEndpoints.MapBillingEndpoints(app);
 app.MapTrendEndpoints();
 app.MapReleaseEndpoints();

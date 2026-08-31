@@ -38,6 +38,15 @@ public sealed class CustomWebApplicationFactory : WebApplicationFactory<Program>
         return client;
     }
 
+    /// <summary>org-membership: as <see cref="CreateClientForOrg(Guid)"/> but with an explicit role
+    /// (default sessions are Admin).</summary>
+    public HttpClient CreateClientForOrg(Guid organizationId, ReleaseTwin.Hosted.Api.Data.Entities.MembershipRole role)
+    {
+        var client = CreateClientForOrg(organizationId);
+        client.DefaultRequestHeaders.Add(TestClerkAuthHandler.RoleHeader, role.ToString());
+        return client;
+    }
+
     protected override void ConfigureWebHost(Microsoft.AspNetCore.Hosting.IWebHostBuilder builder)
     {
         builder.ConfigureServices(services =>
