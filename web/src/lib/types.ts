@@ -112,6 +112,8 @@ export interface Entitlements {
   trendAnalytics: boolean;
   releaseRollup: boolean;
   ciIntegration: boolean;
+  runNotifications: boolean;
+  evidenceSharing: boolean;
   sso: boolean;
   auditLog: boolean;
 }
