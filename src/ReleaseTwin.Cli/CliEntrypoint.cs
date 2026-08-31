@@ -56,7 +56,64 @@ public static class CliEntrypoint
 
         // `run` — same behaviour as no subcommand, just with the leading `run` stripped.
         var runArgs = head == "run" ? args.Skip(1).ToArray() : args;
-        return ExecuteAsync(runArgs, environment, output, runner);
+
+        // ci-pr-integration: `--summary-json <path>` (flag wins over RELEASETWIN_SUMMARY_JSON) is
+        // lifted out of the args here and threaded to the run loop as an environment value, so no
+        // run-path plumbing changes. design.md D-A / D-B.
+        var (cleanedArgs, summaryPath, summaryError) = ExtractSummaryJson(runArgs, environment);
+        if (summaryError is not null)
+        {
+            output.WriteLine(summaryError);
+            return Task.FromResult(1);
+        }
+
+        var effectiveEnvironment = summaryPath is null
+            ? environment
+            : new Dictionary<string, string?>(environment.ToDictionary(kv => kv.Key, kv => kv.Value))
+            {
+                ["RELEASETWIN_SUMMARY_JSON"] = summaryPath,
+            };
+
+        return ExecuteAsync(cleanedArgs, effectiveEnvironment, output, runner);
+    }
+
+    private static (string[] Args, string? SummaryPath, string? Error) ExtractSummaryJson(
+        string[] args, IReadOnlyDictionary<string, string?> environment)
+    {
+        string? path = null;
+        var cleaned = new List<string>(args.Length);
+        for (var i = 0; i < args.Length; i++)
+        {
+            if (args[i] == "--summary-json")
+            {
+                if (i + 1 >= args.Length || args[i + 1].StartsWith('-'))
+                {
+                    return (args, null, "--summary-json expects a file path, e.g. --summary-json summary.json");
+                }
+
+                path = args[++i];
+                continue;
+            }
+
+            if (args[i].StartsWith("--summary-json=", StringComparison.Ordinal))
+            {
+                path = args[i]["--summary-json=".Length..];
+                continue;
+            }
+
+            cleaned.Add(args[i]);
+        }
+
+        path ??= environment.TryGetValue("RELEASETWIN_SUMMARY_JSON", out var fromEnv) && !string.IsNullOrWhiteSpace(fromEnv)
+            ? fromEnv
+            : null;
+
+        if (path is not null && RunSummaryWriter.ValidateDestination(path) is { } error)
+        {
+            return (args, null, error);
+        }
+
+        return (cleaned.ToArray(), path, null);
     }
 
     private static Task<int> ExecuteAsync(
@@ -90,6 +147,10 @@ public static class CliEntrypoint
               releasetwin new <case-id>            add one more case + fixture to this project
               releasetwin run [dir]                run cases (default: ./cases)
               releasetwin run --journey <id>@<v>   run a pinned hosted journey
+
+            run options:
+              --summary-json <path>               also write a machine-readable JSON run summary
+                                                  (or set RELEASETWIN_SUMMARY_JSON)
 
             `releasetwin <dir>` and `releasetwin --journey <id>@<v>` still work without `run`.
             """);
