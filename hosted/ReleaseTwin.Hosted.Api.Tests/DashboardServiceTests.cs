@@ -26,8 +26,8 @@ public class DashboardServiceTests
         var usage = new UsageCounterRepository(table);
         var runEvidence = new RunEvidenceRepository(table);
 
-        var provisioning = new ProvisioningService(users, organizations, projects, tokens, new TokenService());
-        var dashboard = new DashboardService(organizations, projects, connections, tokens, caseReports, flagProofReports, usage, runEvidence);
+        var provisioning = new ProvisioningService(users, organizations, projects, tokens, new TokenService(), TestEntitlements.Service);
+        var dashboard = new DashboardService(organizations, projects, connections, tokens, caseReports, flagProofReports, usage, runEvidence, TestEntitlements.Service);
         return new Fixture(provisioning, dashboard, connections, caseReports);
     }
 

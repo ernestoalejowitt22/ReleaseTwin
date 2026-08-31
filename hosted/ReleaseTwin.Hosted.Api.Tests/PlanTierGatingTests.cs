@@ -14,7 +14,7 @@ public class PlanTierGatingTests
         var organizations = new OrganizationRepository(table);
         var projects = new ProjectRepository(table);
         var tokens = new ApiTokenRepository(table);
-        return (new ProvisioningService(users, organizations, projects, tokens, new TokenService()), organizations);
+        return (new ProvisioningService(users, organizations, projects, tokens, new TokenService(), TestEntitlements.Service), organizations);
     }
 
     // Scenario: New organizations start on Free
@@ -60,7 +60,7 @@ public class PlanTierGatingTests
     {
         var (service, _) = NewService();
         var user = await service.GetOrCreateUserAsync("clerk-1", "alice", null);
-        await service.UpgradeOrganizationAsync(user.OrganizationId);
+        await service.UpgradeToTeamAsync(user.OrganizationId);
 
         await service.CreateProjectAsync(user.OrganizationId, "1");
         await service.CreateProjectAsync(user.OrganizationId, "2");
@@ -77,9 +77,45 @@ public class PlanTierGatingTests
         var user = await service.GetOrCreateUserAsync("clerk-1", "alice", null);
         await service.CreateProjectAsync(user.OrganizationId, "First");
 
-        await service.UpgradeOrganizationAsync(user.OrganizationId);
+        await service.UpgradeToTeamAsync(user.OrganizationId);
         var second = await service.CreateProjectAsync(user.OrganizationId, "Second");
 
         Assert.Equal(user.OrganizationId, second.OrganizationId);
+    }
+
+    // Scenario: self-serve upgrade targets Team, never Enterprise
+    [Fact]
+    public async Task SelfServeUpgradeGoesToTeamNotEnterprise()
+    {
+        var (service, organizations) = NewService();
+        var user = await service.GetOrCreateUserAsync("clerk-1", "alice", null);
+
+        await service.UpgradeToTeamAsync(user.OrganizationId);
+
+        var org = await organizations.GetAsync(user.OrganizationId);
+        Assert.Equal(PlanTier.Team, org!.PlanTier);
+    }
+
+    // Scenario: an operator can set Enterprise out-of-band
+    [Fact]
+    public async Task OperatorCanSetEnterpriseTier()
+    {
+        var (service, organizations) = NewService();
+        var user = await service.GetOrCreateUserAsync("clerk-1", "alice", null);
+
+        await service.SetTierAsync(user.OrganizationId, PlanTier.Enterprise);
+
+        var org = await organizations.GetAsync(user.OrganizationId);
+        Assert.Equal(PlanTier.Enterprise, org!.PlanTier);
+    }
+
+    // Scenario: A previously "Paid" organization reads as Team
+    [Fact]
+    public void PreviouslyPaidTierReadsAsTeam()
+    {
+        Assert.Equal(PlanTier.Team, OrganizationRepository.ParsePlanTier("Paid"));
+        Assert.Equal(PlanTier.Free, OrganizationRepository.ParsePlanTier(null));
+        Assert.Equal(PlanTier.Enterprise, OrganizationRepository.ParsePlanTier("Enterprise"));
+        Assert.Equal(PlanTier.Free, OrganizationRepository.ParsePlanTier("something-unknown"));
     }
 }

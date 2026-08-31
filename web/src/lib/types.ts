@@ -92,7 +92,21 @@ export interface DashboardUsageSummary {
   periodStart: string;
 }
 
-export type PlanTier = "Free" | "Paid";
+export type PlanTier = "Free" | "Team" | "Enterprise";
+
+/** plan-catalog-and-entitlements: mirrors the C# `Entitlements` record — the resolved entitlement set for the org's tier. */
+export interface Entitlements {
+  maxProjects: number | null;
+  evidenceViewer: boolean;
+  maxEvidenceRetentionDays: number | null;
+  customRedactionRules: boolean;
+  projectSecrets: boolean;
+  trendAnalytics: boolean;
+  releaseRollup: boolean;
+  ciIntegration: boolean;
+  sso: boolean;
+  auditLog: boolean;
+}
 
 export interface DashboardView {
   projects: DashboardProjectSummary[];
@@ -103,6 +117,7 @@ export interface DashboardView {
   flagProofReports: DashboardFlagProofReportView[];
   usage: DashboardUsageSummary;
   planTier: PlanTier;
+  entitlements: Entitlements;
   isSelectedProjectStale: boolean;
 }
 

@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.DataProtection;
 using ReleaseTwin.Hosted.Api.Data.Entities;
 using ReleaseTwin.Hosted.Api.Data.Repositories;
+using ReleaseTwin.Hosted.Api.Plans;
 
 namespace ReleaseTwin.Hosted.Api.Services;
 
@@ -15,25 +16,27 @@ public sealed class ProjectSecretService
 {
     private readonly IProjectSecretRepository _repository;
     private readonly IOrganizationRepository _organizations;
+    private readonly IEntitlementService _entitlements;
     private readonly IDataProtector _protector;
 
-    public ProjectSecretService(IProjectSecretRepository repository, IOrganizationRepository organizations, IDataProtectionProvider dataProtectionProvider)
+    public ProjectSecretService(IProjectSecretRepository repository, IOrganizationRepository organizations, IEntitlementService entitlements, IDataProtectionProvider dataProtectionProvider)
     {
         _repository = repository;
         _organizations = organizations;
+        _entitlements = entitlements;
         _protector = dataProtectionProvider.CreateProtector("ReleaseTwin.ProjectSecrets.v1");
     }
 
-    /// <exception cref="PaidTierRequiredException">The owning organization is on the Free tier.</exception>
+    /// <exception cref="EntitlementRequiredException">The owning organization's tier lacks the <c>projectSecrets</c> entitlement.</exception>
     public async Task<ProjectSecret> SetAsync(
         Guid organizationId, Guid projectId, string name, string value, string userId, string displayName, CancellationToken cancellationToken = default)
     {
         var organization = await _organizations.GetAsync(organizationId, cancellationToken)
             ?? throw new InvalidOperationException($"Cannot set a project secret: organization {organizationId} not found.");
 
-        if (organization.PlanTier == PlanTier.Free)
+        if (!_entitlements.For(organization).ProjectSecrets)
         {
-            throw new PaidTierRequiredException("Storing project secrets requires the Paid tier. Upgrade to use this feature.");
+            throw new EntitlementRequiredException("projectSecrets", "Storing project secrets requires the Team tier. Upgrade to use this feature.");
         }
 
         var encrypted = _protector.Protect(value);

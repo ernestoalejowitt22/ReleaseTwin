@@ -3,6 +3,7 @@ using System.Text.Json;
 using ReleaseTwin.Hosted.Api.Data.Entities;
 using ReleaseTwin.Hosted.Api.Data.Repositories;
 using ReleaseTwin.Hosted.Api.Data.Store;
+using ReleaseTwin.Hosted.Api.Plans;
 
 namespace ReleaseTwin.Hosted.Api.Services;
 
@@ -22,12 +23,14 @@ public sealed class EvidenceIngestService
     private readonly IRunEvidenceRepository _evidence;
     private readonly IEvidenceBlobStore _blobs;
     private readonly IOrganizationRepository _organizations;
+    private readonly IEntitlementService _entitlements;
 
-    public EvidenceIngestService(IRunEvidenceRepository evidence, IEvidenceBlobStore blobs, IOrganizationRepository organizations)
+    public EvidenceIngestService(IRunEvidenceRepository evidence, IEvidenceBlobStore blobs, IOrganizationRepository organizations, IEntitlementService entitlements)
     {
         _evidence = evidence;
         _blobs = blobs;
         _organizations = organizations;
+        _entitlements = entitlements;
     }
 
     /// <summary>
@@ -64,13 +67,13 @@ public sealed class EvidenceIngestService
         return true;
     }
 
-    /// <summary>Stores the evidence for a just-stored report. Returns whether it was accepted (false ⇒ Free tier — report kept, evidence dropped).</summary>
+    /// <summary>Stores the evidence for a just-stored report. Returns whether it was accepted (false ⇒ the organization lacks the <c>evidenceViewer</c> entitlement — report kept, evidence dropped).</summary>
     public async Task<bool> StoreAsync(
         Guid organizationId, Guid projectId, Guid reportId, string reportKind,
         JsonElement evidence, IReadOnlyList<UploadedScreenshot> screenshots, CancellationToken cancellationToken)
     {
         var organization = await _organizations.GetAsync(organizationId, cancellationToken);
-        if (organization?.PlanTier != PlanTier.Paid)
+        if (!_entitlements.For(organization).EvidenceViewer)
         {
             return false;
         }

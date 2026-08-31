@@ -23,8 +23,8 @@ export async function setProjectSecret(
     if (err instanceof ApiError) {
       // plan-tier-gating convention: a distinct error code, same as createProject's own
       // free-tier-project-limit handling, so the UI can show the upgrade prompt specifically.
-      if (err.status === 403 && err.message.includes("paid-tier-required")) {
-        return { error: "Storing project secrets requires the Paid tier.", paidTierRequired: true };
+      if (err.status === 403 && err.message.includes("entitlement-required")) {
+        return { error: "Storing project secrets requires the Team tier.", paidTierRequired: true };
       }
       return { error: err.message || "Could not save the secret." };
     }

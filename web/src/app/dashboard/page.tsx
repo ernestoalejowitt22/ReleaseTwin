@@ -105,7 +105,7 @@ export default async function DashboardPage({
             </div>
           </div>
           <div className="flex items-center gap-3 border-t pt-4">
-            <Badge variant={view.planTier === "Paid" ? "default" : "secondary"}>
+            <Badge variant={view.planTier === "Free" ? "secondary" : "default"}>
               {view.planTier} plan
             </Badge>
             {view.planTier === "Free" && (
@@ -168,7 +168,7 @@ export default async function DashboardPage({
             connection={view.connection}
             adapterCredentials={adapterCredentials}
             projectSecrets={projectSecrets}
-            isPaidTier={view.planTier === "Paid"}
+            isPaidTier={view.entitlements.projectSecrets}
             disconnectConnection={disconnectConnection.bind(null, selectedProject.id)}
             startGitHubConnection={startGitHubConnection.bind(null, selectedProject.id)}
           />

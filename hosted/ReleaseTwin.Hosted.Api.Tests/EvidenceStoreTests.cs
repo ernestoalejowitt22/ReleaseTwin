@@ -78,7 +78,7 @@ public class EvidenceStoreTests
     public async Task IngestService_RejectsOversizeDocument()
     {
         var (repo, _, _) = NewStore();
-        var service = new EvidenceIngestService(repo, new InMemoryEvidenceBlobStore(), new OrganizationRepository(new InMemoryHostedTable()));
+        var service = new EvidenceIngestService(repo, new InMemoryEvidenceBlobStore(), new OrganizationRepository(new InMemoryHostedTable()), TestEntitlements.Service);
         var big = System.Text.Json.JsonSerializer.SerializeToElement(new { blob = new string('x', EvidenceIngestService.MaxDocumentBytes + 10) });
 
         Assert.False(service.IsWithinLimits(big, Array.Empty<UploadedScreenshot>(), out var reason));
@@ -92,9 +92,9 @@ public class EvidenceStoreTests
         var orgs = new OrganizationRepository(table);
         var users = new UserRepository(table);
         var projects = new ProjectRepository(table);
-        var provisioning = new ProvisioningService(users, orgs, projects, new ApiTokenRepository(table), new TokenService());
+        var provisioning = new ProvisioningService(users, orgs, projects, new ApiTokenRepository(table), new TokenService(), TestEntitlements.Service);
         var repo = new RunEvidenceRepository(table);
-        var service = new EvidenceIngestService(repo, new InMemoryEvidenceBlobStore(), orgs);
+        var service = new EvidenceIngestService(repo, new InMemoryEvidenceBlobStore(), orgs, TestEntitlements.Service);
 
         var user = await provisioning.GetOrCreateUserAsync("clerk-x", "x", null);
         var project = await provisioning.CreateProjectAsync(user.OrganizationId, "P");
@@ -105,7 +105,7 @@ public class EvidenceStoreTests
         Assert.False(freeAccepted);
         Assert.Null(await repo.GetByReportAsync(project.Id, reportId));
 
-        await provisioning.UpgradeOrganizationAsync(user.OrganizationId);
+        await provisioning.UpgradeToTeamAsync(user.OrganizationId);
         var paidAccepted = await service.StoreAsync(user.OrganizationId, project.Id, reportId, "case", doc, Array.Empty<UploadedScreenshot>(), default);
         Assert.True(paidAccepted);
         Assert.NotNull(await repo.GetByReportAsync(project.Id, reportId));

@@ -77,6 +77,14 @@ if (useRealDynamoDb)
         .PersistKeysToAWSSystemsManager($"/{tableName}/DataProtection/Keys");
 }
 
+// plan-catalog-and-entitlements: load + validate the plan catalog once at startup. A malformed or
+// incomplete plans.json throws here and fails the app rather than yielding an empty entitlement set.
+builder.Services.AddSingleton(ReleaseTwin.Hosted.Api.Plans.PlanCatalog.Load());
+builder.Services.AddSingleton<ReleaseTwin.Hosted.Api.Plans.IEntitlementService, ReleaseTwin.Hosted.Api.Plans.EntitlementService>();
+// plan-catalog-and-entitlements: operator allowlist for the admin tier endpoint. Empty/unset ⇒
+// nobody is an operator (admin surface closed by default).
+builder.Services.AddSingleton<AdminOperators>();
+
 builder.Services.AddScoped<IOrganizationRepository, OrganizationRepository>();
 builder.Services.AddScoped<IUserRepository, UserRepository>();
 builder.Services.AddScoped<IProjectRepository, ProjectRepository>();
@@ -286,6 +294,8 @@ app.UseAuthentication();
 app.UseAuthorization();
 
 app.MapRazorPages();
+app.MapPlansEndpoints();
+app.MapAdminEndpoints();
 app.MapIngestEndpoints();
 app.MapDashboardEndpoints();
 app.MapConnectionEndpoints();

@@ -47,7 +47,7 @@ public class UsageMeteringTests : IClassFixture<CustomWebApplicationFactory>
         var user = await provisioning.GetOrCreateUserAsync(Guid.NewGuid().ToString(), "tester", null);
         var projectA = await provisioning.CreateProjectAsync(user.OrganizationId, "A");
         // plan-tier-gating: Free is limited to one project.
-        await provisioning.UpgradeOrganizationAsync(user.OrganizationId);
+        await provisioning.UpgradeToTeamAsync(user.OrganizationId);
         var projectB = await provisioning.CreateProjectAsync(user.OrganizationId, "B");
         var (_, tokenA) = await provisioning.IssueTokenAsync(projectA.Id, user.OrganizationId);
         var (_, tokenB) = await provisioning.IssueTokenAsync(projectB.Id, user.OrganizationId);

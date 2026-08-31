@@ -88,6 +88,7 @@ jobs:
             -var="table_prefix=${{ inputs.table_prefix || 'releasetwin-dev-' }}" \
             -var="region=${{ inputs.region || 'us-east-1' }}" \
             -var="clerk_domain=${{ vars.CLERK_DOMAIN }}" \
+            -var="admin_operator_user_ids=${{ vars.ADMIN_OPERATOR_USER_IDS }}" \
             -var="github_client_id=${{ vars.GH_OAUTH_CLIENT_ID }}" \
             -var="github_client_secret=${{ secrets.GH_OAUTH_CLIENT_SECRET }}" \
             -var="github_callback_url=${{ vars.GH_OAUTH_CALLBACK_URL }}" \

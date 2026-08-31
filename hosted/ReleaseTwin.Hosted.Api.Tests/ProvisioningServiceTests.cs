@@ -13,7 +13,7 @@ public class ProvisioningServiceTests
         var organizations = new OrganizationRepository(table);
         var projects = new ProjectRepository(table);
         var tokens = new ApiTokenRepository(table);
-        return (new ProvisioningService(users, organizations, projects, tokens, new TokenService()), tokens);
+        return (new ProvisioningService(users, organizations, projects, tokens, new TokenService(), TestEntitlements.Service), tokens);
     }
 
     // Scenario: New signup is immediately usable
@@ -60,7 +60,7 @@ public class ProvisioningServiceTests
         var projectA = await service.CreateProjectAsync(user.OrganizationId, "A");
         // plan-tier-gating: Free is limited to one project — upgrade so a second project is allowed;
         // this test is about token scoping, not the tier limit.
-        await service.UpgradeOrganizationAsync(user.OrganizationId);
+        await service.UpgradeToTeamAsync(user.OrganizationId);
         var projectB = await service.CreateProjectAsync(user.OrganizationId, "B");
 
         var (token, raw) = await service.IssueTokenAsync(projectA.Id, projectA.OrganizationId);
