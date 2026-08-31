@@ -57,7 +57,10 @@ public static class DashboardEndpoints
             }
         });
 
-        group.MapPost("/upgrade", async (ProvisioningService provisioning, CurrentOrganizationAccessor currentOrg) =>
+        // billing (design.md D2): the upgrade endpoint creates a Merchant-of-Record checkout session
+        // and returns its URL. It does NOT change the tier — only the webhook does, once payment
+        // clears. Enterprise stays operator-set and unreachable here.
+        group.MapPost("/upgrade", async (UpgradeRequest? request, ReleaseTwin.Hosted.Api.Billing.IPolarClient polar, ReleaseTwin.Hosted.Api.Billing.PolarOptions polarOptions, CurrentOrganizationAccessor currentOrg) =>
         {
             var orgId = currentOrg.OrganizationId;
             if (orgId is null)
@@ -65,9 +68,67 @@ public static class DashboardEndpoints
                 return Results.Forbid();
             }
 
-            // plan-tier-gating: self-serve upgrade targets Team only — no payment collected.
-            // Enterprise is operator-set and deliberately unreachable from this customer-facing path.
-            await provisioning.UpgradeToTeamAsync(orgId.Value);
+            if (!polarOptions.IsUpgradeEnabled)
+            {
+                return Results.Json(new { error = "billing-not-configured" }, statusCode: StatusCodes.Status503ServiceUnavailable);
+            }
+
+            // design.md D7: monthly is the default cadence (small mid-cycle proration).
+            var cadence = Enum.TryParse<Data.Entities.BillingCadence>(request?.Cadence, ignoreCase: true, out var c)
+                ? c
+                : Data.Entities.BillingCadence.Monthly;
+
+            try
+            {
+                var session = await polar.CreateCheckoutSessionAsync(orgId.Value, Data.Entities.PlanTier.Team, cadence);
+                return Results.Ok(new { checkoutUrl = session.Url });
+            }
+            catch (ReleaseTwin.Hosted.Api.Billing.PolarException)
+            {
+                return Results.Json(new { error = "checkout-unavailable" }, statusCode: StatusCodes.Status502BadGateway);
+            }
+        });
+
+        // billing: redirect-to-portal. 400 when the org has never checked out (no customer id).
+        group.MapPost("/billing-portal", async (IOrganizationRepository organizations, ReleaseTwin.Hosted.Api.Billing.IPolarClient polar, ReleaseTwin.Hosted.Api.Billing.PolarOptions polarOptions, CurrentOrganizationAccessor currentOrg) =>
+        {
+            var orgId = currentOrg.OrganizationId;
+            if (orgId is null)
+            {
+                return Results.Forbid();
+            }
+
+            var org = await organizations.GetAsync(orgId.Value);
+            if (org?.PolarCustomerId is not { Length: > 0 } customerId)
+            {
+                return Results.Json(new { error = "no-billing-linkage" }, statusCode: StatusCodes.Status400BadRequest);
+            }
+
+            if (!polarOptions.IsUpgradeEnabled)
+            {
+                return Results.Json(new { error = "billing-not-configured" }, statusCode: StatusCodes.Status503ServiceUnavailable);
+            }
+
+            try
+            {
+                var session = await polar.CreatePortalSessionAsync(customerId);
+                return Results.Ok(new { portalUrl = session.Url });
+            }
+            catch (ReleaseTwin.Hosted.Api.Billing.PolarException)
+            {
+                return Results.Json(new { error = "portal-unavailable" }, statusCode: StatusCodes.Status502BadGateway);
+            }
+        });
+
+        group.MapDelete("/projects/{projectId:guid}", async (Guid projectId, ProvisioningService provisioning, CurrentOrganizationAccessor currentOrg, IProjectRepository projects) =>
+        {
+            var orgId = currentOrg.OrganizationId;
+            if (orgId is null || !await projects.ExistsInOrganizationAsync(orgId.Value, projectId))
+            {
+                return Results.Forbid();
+            }
+
+            await provisioning.DeleteProjectAsync(orgId.Value, projectId);
             return Results.NoContent();
         });
 
@@ -158,3 +219,5 @@ public static class DashboardEndpoints
 }
 
 public sealed record CreateProjectRequest(string Name);
+
+public sealed record UpgradeRequest(string? Cadence);

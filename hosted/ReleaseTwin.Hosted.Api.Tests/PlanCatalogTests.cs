@@ -27,8 +27,27 @@ public class PlanCatalogTests
             Assert.NotNull(tier.Entitlements);
             Assert.False(string.IsNullOrWhiteSpace(tier.Name));
             Assert.False(string.IsNullOrWhiteSpace(tier.Support));
-            Assert.NotNull(tier.Price);
+            Assert.NotEmpty(tier.Prices);
+            Assert.All(tier.Prices, p => Assert.False(string.IsNullOrWhiteSpace(p.Unit)));
         }
+    }
+
+    [Fact]
+    public void Team_offers_monthly_and_annual_cadences_with_annual_cheaper()
+    {
+        var team = Catalog.Find(PlanTier.Team)!;
+        var monthly = team.PriceFor(BillingInterval.Monthly);
+        var annual = team.PriceFor(BillingInterval.Annual);
+        Assert.NotNull(monthly);
+        Assert.NotNull(annual);
+        Assert.True(annual!.Amount < monthly!.Amount, "annual per-project price should be lower than monthly");
+        Assert.Equal(BillingInterval.Monthly, team.DefaultPrice.Interval);
+    }
+
+    [Fact]
+    public void Free_offers_a_single_cadence()
+    {
+        Assert.Single(Catalog.Find(PlanTier.Free)!.Prices);
     }
 
     [Fact]
@@ -68,8 +87,8 @@ public class PlanCatalogTests
     [Fact]
     public void Team_and_enterprise_prices_are_flagged_as_placeholders()
     {
-        Assert.False(Catalog.Find(PlanTier.Free)!.Price.Placeholder);
-        Assert.True(Catalog.Find(PlanTier.Team)!.Price.Placeholder);
-        Assert.True(Catalog.Find(PlanTier.Enterprise)!.Price.Placeholder);
+        Assert.All(Catalog.Find(PlanTier.Free)!.Prices, p => Assert.False(p.Placeholder));
+        Assert.All(Catalog.Find(PlanTier.Team)!.Prices, p => Assert.True(p.Placeholder));
+        Assert.All(Catalog.Find(PlanTier.Enterprise)!.Prices, p => Assert.True(p.Placeholder));
     }
 }

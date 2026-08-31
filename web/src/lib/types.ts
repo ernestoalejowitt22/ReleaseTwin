@@ -1,7 +1,15 @@
 export interface DashboardProjectSummary {
   id: string;
   name: string;
+  /** billing: true when the org is over its current tier's project limit and this project is one of the excess (read-only) ones — still listed with its evidence, but ingest is blocked. */
+  readOnly?: boolean;
 }
+
+/** billing: mirrors the C# `BillingStatus` enum — a second axis alongside the tier. */
+export type BillingStatus = "Active" | "PastDue" | "Canceled";
+
+/** billing: mirrors the C# `BillingCadence` enum. */
+export type BillingCadence = "Monthly" | "Annual";
 
 export interface DashboardConnectionView {
   provider: string;
@@ -119,6 +127,16 @@ export interface DashboardView {
   planTier: PlanTier;
   entitlements: Entitlements;
   isSelectedProjectStale: boolean;
+  /** billing: the org's billing status; degrades entitlements independently of the tier. */
+  billingStatus: BillingStatus;
+  /** billing: renewal cadence for a paying org; null when there is no paid subscription. */
+  billingCadence: BillingCadence | null;
+  /** billing: true once the org has a Merchant-of-Record subscription — show cadence + portal link instead of a catalog price. */
+  hasBillingLinkage: boolean;
+  /** billing: true when at least one project is read-only under the current tier. */
+  hasReadOnlyProjects: boolean;
+  /** billing: the customer-facing upgrade / portal actions are live (Polar configured AND switched on after a verified sandbox checkout). */
+  billingEnabled: boolean;
 }
 
 /** trend-analytics: mirrors the C# `TrendBucket`. Rates are null (a gap) when their denominator is zero. */

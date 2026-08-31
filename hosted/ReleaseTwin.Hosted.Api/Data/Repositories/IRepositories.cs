@@ -8,6 +8,12 @@ public interface IOrganizationRepository
 
     /// <summary>plan-tier-gating: read, mutate, re-put — same pattern as ApiTokenRepository.RevokeAsync.</summary>
     Task SetPlanTierAsync(Guid organizationId, PlanTier tier, CancellationToken cancellationToken = default);
+
+    /// <summary>billing: set the org's Merchant-of-Record linkage + status in a single write. All writes are "set to state X" so a redelivered webhook event replays safely.</summary>
+    Task SetBillingAsync(Guid organizationId, BillingStatus status, DateTimeOffset since, BillingCadence? cadence, string? customerId, string? subscriptionId, CancellationToken cancellationToken = default);
+
+    /// <summary>billing: every organization, for the nightly reconciliation job. Full-table Scan — never a per-request path.</summary>
+    Task<IReadOnlyList<Organization>> ListAllAsync(CancellationToken cancellationToken = default);
 }
 
 public interface IUserRepository
@@ -24,6 +30,9 @@ public interface IProjectRepository
     Task<Project?> GetAsync(Guid organizationId, Guid projectId, CancellationToken cancellationToken = default);
     Task<IReadOnlyList<Project>> ListByOrganizationAsync(Guid organizationId, CancellationToken cancellationToken = default);
     Task<bool> ExistsInOrganizationAsync(Guid organizationId, Guid projectId, CancellationToken cancellationToken = default);
+
+    /// <summary>billing: removes the project item. Evidence and reports under it are left in place (reachable only via the project key) — a downgrade never deletes evidence, and a hard project delete is rare.</summary>
+    Task DeleteAsync(Guid organizationId, Guid projectId, CancellationToken cancellationToken = default);
 
     /// <summary>operator-alerting design.md: every project across every organization, for the daily staleness digest — the one caller with no natural organization partition key to scope a Query to. Backed by a full-table Scan (see IHostedTable.ScanByEntityTypeAsync); not for use on any per-request path.</summary>
     Task<IReadOnlyList<Project>> ListAllAsync(CancellationToken cancellationToken = default);

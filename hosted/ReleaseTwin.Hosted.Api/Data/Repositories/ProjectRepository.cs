@@ -37,6 +37,9 @@ public sealed class ProjectRepository : IProjectRepository
     public async Task<bool> ExistsInOrganizationAsync(Guid organizationId, Guid projectId, CancellationToken cancellationToken = default) =>
         await GetAsync(organizationId, projectId, cancellationToken) is not null;
 
+    public Task DeleteAsync(Guid organizationId, Guid projectId, CancellationToken cancellationToken = default) =>
+        _table.DeleteItemAsync(Keys.Org(organizationId), Keys.Project(projectId), cancellationToken);
+
     public async Task SetEvidenceConfigAsync(Guid organizationId, Guid projectId, bool captureDefault, int retentionDays, CancellationToken cancellationToken = default)
     {
         var project = await GetAsync(organizationId, projectId, cancellationToken)

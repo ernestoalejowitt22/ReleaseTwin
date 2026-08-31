@@ -1,4 +1,6 @@
 using Amazon.DynamoDBv2.Model;
+using Microsoft.Extensions.Logging;
+using ReleaseTwin.Hosted.Api.Billing;
 using ReleaseTwin.Hosted.Api.Data.Entities;
 using ReleaseTwin.Hosted.Api.Data.Repositories;
 using ReleaseTwin.Hosted.Api.Plans;
@@ -17,8 +19,10 @@ public sealed class ProvisioningService
     private readonly IApiTokenRepository _tokens;
     private readonly ITokenService _tokenService;
     private readonly IEntitlementService _entitlements;
+    private readonly IPolarClient _polar;
+    private readonly ILogger<ProvisioningService> _logger;
 
-    public ProvisioningService(IUserRepository users, IOrganizationRepository organizations, IProjectRepository projects, IApiTokenRepository tokens, ITokenService tokenService, IEntitlementService entitlements)
+    public ProvisioningService(IUserRepository users, IOrganizationRepository organizations, IProjectRepository projects, IApiTokenRepository tokens, ITokenService tokenService, IEntitlementService entitlements, IPolarClient? polar = null, ILogger<ProvisioningService>? logger = null)
     {
         _users = users;
         _organizations = organizations;
@@ -26,6 +30,10 @@ public sealed class ProvisioningService
         _tokens = tokens;
         _tokenService = tokenService;
         _entitlements = entitlements;
+        // billing: DI always supplies these; the null fallbacks keep the many unit tests that construct
+        // this service directly (and never touch a paid org) compiling without a Polar fake each.
+        _polar = polar ?? NullPolarClient.Instance;
+        _logger = logger ?? Microsoft.Extensions.Logging.Abstractions.NullLogger<ProvisioningService>.Instance;
     }
 
     /// <summary>First login auto-creates a personal organization so the account is immediately usable — no separate "create org" step required to satisfy the self-serve requirement.</summary>
@@ -83,17 +91,65 @@ public sealed class ProvisioningService
             ?? throw new InvalidOperationException($"Cannot create a project: organization {organizationId} not found.");
 
         var maxProjects = _entitlements.For(organization).MaxProjects;
-        if (maxProjects is not null)
+        var hasSubscription = !string.IsNullOrEmpty(organization.PolarSubscriptionId);
+
+        int? currentCount = null;
+        if (maxProjects is not null || hasSubscription)
         {
-            var existingProjects = await _projects.ListByOrganizationAsync(organizationId, cancellationToken);
-            if (existingProjects.Count >= maxProjects.Value)
+            currentCount = (await _projects.ListByOrganizationAsync(organizationId, cancellationToken)).Count;
+        }
+
+        if (maxProjects is not null && currentCount >= maxProjects.Value)
+        {
+            throw new ProjectLimitExceededException(
+                $"The {organization.PlanTier} tier is limited to {maxProjects.Value} project(s). Upgrade to create more.");
+        }
+
+        // billing (design.md D6): for a paying org, raise the Merchant-of-Record quantity BEFORE
+        // creating. A rejection (declined proration charge, API error) fails the creation closed with
+        // a portal-pointing message — nothing is created.
+        if (hasSubscription)
+        {
+            try
             {
-                throw new ProjectLimitExceededException(
-                    $"The {organization.PlanTier} tier is limited to {maxProjects.Value} project(s). Upgrade to create more.");
+                await _polar.SetSubscriptionQuantityAsync(organization.PolarSubscriptionId!, currentCount!.Value + 1, cancellationToken);
+            }
+            catch (PolarException ex)
+            {
+                _logger.LogWarning(ex, "Polar rejected the quantity increase creating a project for org {OrgId}.", organizationId);
+                throw new EntitlementRequiredException(
+                    "billing",
+                    "Your payment provider rejected the charge for an additional project. Update your payment method in the billing portal, then try again.");
             }
         }
 
         return await _projects.CreateAsync(organizationId, name, cancellationToken);
+    }
+
+    /// <summary>
+    /// billing (design.md D6): deleting a project lowers the Merchant-of-Record quantity best-effort —
+    /// a failure is logged and swallowed, never blocking the delete; the nightly reconciliation job
+    /// closes any resulting drift.
+    /// </summary>
+    public async Task DeleteProjectAsync(Guid organizationId, Guid projectId, CancellationToken cancellationToken = default)
+    {
+        var organization = await _organizations.GetAsync(organizationId, cancellationToken)
+            ?? throw new InvalidOperationException($"Cannot delete a project: organization {organizationId} not found.");
+
+        await _projects.DeleteAsync(organizationId, projectId, cancellationToken);
+
+        if (!string.IsNullOrEmpty(organization.PolarSubscriptionId))
+        {
+            try
+            {
+                var remaining = (await _projects.ListByOrganizationAsync(organizationId, cancellationToken)).Count;
+                await _polar.SetSubscriptionQuantityAsync(organization.PolarSubscriptionId!, remaining, cancellationToken);
+            }
+            catch (PolarException ex)
+            {
+                _logger.LogWarning(ex, "Failed to lower Polar quantity after deleting project {ProjectId} for org {OrgId}; leaving for reconciliation.", projectId, organizationId);
+            }
+        }
     }
 
     /// <summary>

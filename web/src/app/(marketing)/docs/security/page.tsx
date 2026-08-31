@@ -225,6 +225,12 @@ export default function SecurityPage() {
             remaining term and the hosted source is published so a customer or third party can
             self-host it.
           </li>
+          <li>
+            Payments run through a Merchant of Record (Polar): card and billing-address data are
+            entered only on Polar&rsquo;s hosted checkout and portal, never seen or stored by us,
+            and Polar issues invoices and remits sales tax. A lapsed subscription degrades hosted
+            entitlements on a published grace schedule but never deletes your uploaded evidence.
+          </li>
         </UL>
         <P>
           This is a deliberate commitment, not just a side effect of open-sourcing the core —

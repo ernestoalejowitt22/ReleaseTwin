@@ -52,7 +52,13 @@ export interface Entitlements {
   auditLog: boolean;
 }
 
+/** billing-integration: closed vocabulary — keep in sync with the C# `BillingInterval` enum and `plans.json`. */
+export type BillingInterval = "monthly" | "annual";
+
+export const BILLING_INTERVALS: readonly BillingInterval[] = ["monthly", "annual"];
+
 export interface PlanPrice {
+  interval: BillingInterval;
   amount: number;
   unit: string;
   placeholder: boolean;
@@ -61,7 +67,8 @@ export interface PlanPrice {
 export interface PlanTier {
   id: "free" | "team" | "enterprise";
   name: string;
-  price: PlanPrice;
+  /** One entry per cadence the tier offers, in catalog order. Always non-empty. */
+  price: PlanPrice[];
   support: string;
   entitlements: Entitlements;
 }
@@ -85,9 +92,27 @@ function validateCatalog(input: unknown): PlanCatalog {
     if (typeof tier.name !== "string" || typeof tier.support !== "string") {
       throw new Error(`plans.json: tier '${String(tier.id)}' is missing name or support`);
     }
-    const price = tier.price as Record<string, unknown> | undefined;
-    if (!price || typeof price.amount !== "number" || typeof price.unit !== "string" || typeof price.placeholder !== "boolean") {
-      throw new Error(`plans.json: tier '${String(tier.id)}' has a malformed price`);
+    const prices = tier.price as unknown[] | undefined;
+    if (!Array.isArray(prices) || prices.length === 0) {
+      throw new Error(`plans.json: tier '${String(tier.id)}' must have a non-empty \`price\` array of cadence entries`);
+    }
+    const seenIntervals = new Set<string>();
+    for (const p of prices as Array<Record<string, unknown>>) {
+      if (
+        typeof p.amount !== "number" ||
+        typeof p.unit !== "string" ||
+        typeof p.placeholder !== "boolean" ||
+        typeof p.interval !== "string" ||
+        !BILLING_INTERVALS.includes(p.interval as BillingInterval)
+      ) {
+        throw new Error(
+          `plans.json: tier '${String(tier.id)}' has a malformed price entry (interval must be one of ${BILLING_INTERVALS.join(", ")})`,
+        );
+      }
+      if (seenIntervals.has(p.interval)) {
+        throw new Error(`plans.json: tier '${String(tier.id)}' defines the '${p.interval}' cadence more than once`);
+      }
+      seenIntervals.add(p.interval);
     }
     const ent = tier.entitlements as Record<string, unknown> | undefined;
     if (!ent) {
@@ -214,9 +239,27 @@ export function formatEntitlementValue(key: EntitlementKey, value: number | bool
   return Boolean(value);
 }
 
-/** Format a tier's price as a display string (`$0`, `~$49`), the `~` prefix meaning placeholder. */
+/** Format a single cadence price as a display string (`$0`, `~$49`), the `~` prefix meaning placeholder. */
 export function formatPrice(price: PlanPrice): string {
   return `${price.placeholder ? "~" : ""}$${price.amount}`;
+}
+
+/** The cadence a tier's price for `interval`, or undefined if not offered. */
+export function priceFor(tier: PlanTier, interval: BillingInterval): PlanPrice | undefined {
+  return tier.price.find((p) => p.interval === interval);
+}
+
+/** The cadence shown by default in pricing / upgrade UI — monthly when offered, else the first entry. */
+export function defaultPrice(tier: PlanTier): PlanPrice {
+  return priceFor(tier, "monthly") ?? tier.price[0];
+}
+
+/** Whole-percent saving of the annual cadence vs monthly, or null when the tier lacks either cadence. */
+export function annualSavingsPct(tier: PlanTier): number | null {
+  const monthly = priceFor(tier, "monthly");
+  const annual = priceFor(tier, "annual");
+  if (!monthly || !annual || monthly.amount <= 0) return null;
+  return Math.round((1 - annual.amount / monthly.amount) * 100);
 }
 
 function assertFeatureCopyComplete(): void {
