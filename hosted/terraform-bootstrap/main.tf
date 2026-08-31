@@ -172,15 +172,19 @@ data "aws_iam_policy_document" "github_actions_deploy_permissions" {
   # Describe verbs above. The role can still only create Lambda functions matching releasetwin-dev-*,
   # so a mapping it wires up necessarily targets one of those.
   statement {
-    sid = "LambdaEventSourceMapping"
-    actions = [
-      "lambda:CreateEventSourceMapping",
-      "lambda:GetEventSourceMapping",
-      "lambda:UpdateEventSourceMapping",
-      "lambda:DeleteEventSourceMapping",
-      "lambda:ListEventSourceMappings",
-    ]
+    sid = "LambdaEventSourceMappingCreateList"
+    # CreateEventSourceMapping / ListEventSourceMappings don't accept a mapping ARN as the resource.
+    actions   = ["lambda:CreateEventSourceMapping", "lambda:ListEventSourceMappings"]
     resources = ["*"]
+  }
+
+  statement {
+    sid = "LambdaEventSourceMappingManage"
+    # Everything else (Get/Update/Delete + the ListTags/TagResource read-backs the provider makes)
+    # is scoped to the mapping resource type — mappings are UUID-identified so there's no name prefix,
+    # but pinning the ARN type still bounds this to event source mappings only.
+    actions   = ["lambda:*"]
+    resources = ["arn:aws:lambda:${var.region}:846136340491:event-source-mapping:*"]
   }
 
   statement {
