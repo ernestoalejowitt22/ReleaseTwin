@@ -3,6 +3,7 @@ import { fileURLToPath } from "node:url";
 import path from "node:path";
 import { config as loadDotenv } from "dotenv";
 import { SecretsManagerClient, GetSecretValueCommand } from "@aws-sdk/client-secrets-manager";
+import { E2E_POLAR_ENV } from "./e2e-billing.mjs";
 
 // e2e-github-connection-flow design.md: the second, localhost-only GitHub OAuth App's Client
 // ID/Secret/CallbackUrl live in AWS Secrets Manager too, alongside the test account's own
@@ -43,6 +44,7 @@ const child = spawn(
       GitHubConnection__ClientId: clientId,
       GitHubConnection__ClientSecret: clientSecret,
       GitHubConnection__CallbackUrl: callbackUrl,
+      ...E2E_POLAR_ENV,
     },
   },
 );

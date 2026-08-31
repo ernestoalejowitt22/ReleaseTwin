@@ -2,6 +2,7 @@ import { spawn } from "node:child_process";
 import { fileURLToPath } from "node:url";
 import path from "node:path";
 import { config as loadDotenv } from "dotenv";
+import { E2E_POLAR_ENV } from "./e2e-billing.mjs";
 
 // Local e2e helper: starts ReleaseTwin.Hosted.Api for the Cypress specs. The Clerk Frontend API
 // domain (the JWT issuer the API validates against) is not hardcoded — it comes from CLERK_DOMAIN
@@ -26,7 +27,9 @@ const child = spawn(
   {
     cwd: hostedDir,
     stdio: "inherit",
-    env: { ...process.env, Clerk__Domain: clerkDomain },
+    // E2E_POLAR_ENV makes the billing surface live (signed webhook accepted, upgrade button shown)
+    // so billing.cy.ts and the paid-tier setup in other specs work without touching real Polar.
+    env: { ...process.env, Clerk__Domain: clerkDomain, ...E2E_POLAR_ENV },
   },
 );
 
