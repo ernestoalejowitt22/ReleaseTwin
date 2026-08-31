@@ -19,6 +19,8 @@ const ROUTES: Array<{
   { path: "/docs/case-files", priority: 0.6, changeFrequency: "monthly" },
   { path: "/docs/hosted-platform", priority: 0.6, changeFrequency: "monthly" },
   { path: "/docs/security", priority: 0.6, changeFrequency: "monthly" },
+  { path: "/terms", priority: 0.3, changeFrequency: "yearly" },
+  { path: "/privacy", priority: 0.3, changeFrequency: "yearly" },
 ];
 
 export default function sitemap(): MetadataRoute.Sitemap {
