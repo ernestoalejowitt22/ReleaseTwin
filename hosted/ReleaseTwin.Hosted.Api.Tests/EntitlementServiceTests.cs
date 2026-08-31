@@ -33,6 +33,31 @@ public class EntitlementServiceTests
     }
 
     [Fact]
+    public void RunNotifications_and_evidence_sharing_are_denied_on_free_granted_on_team()
+    {
+        var free = Service.For(new Organization { Name = "o", PlanTier = PlanTier.Free });
+        Assert.False(free.RunNotifications);
+        Assert.False(free.EvidenceSharing);
+
+        var team = Service.For(new Organization { Name = "o", PlanTier = PlanTier.Team });
+        Assert.True(team.RunNotifications);
+        Assert.True(team.EvidenceSharing);
+
+        var enterprise = Service.For(new Organization { Name = "o", PlanTier = PlanTier.Enterprise });
+        Assert.True(enterprise.RunNotifications);
+        Assert.True(enterprise.EvidenceSharing);
+    }
+
+    [Fact]
+    public void Losing_the_team_tier_revokes_run_notifications_and_evidence_sharing()
+    {
+        // A Team org that has been canceled degrades to Free entitlements immediately.
+        var canceled = Service.For(Team(BillingStatus.Canceled, DateTimeOffset.UtcNow.AddDays(-1)));
+        Assert.False(canceled.RunNotifications);
+        Assert.False(canceled.EvidenceSharing);
+    }
+
+    [Fact]
     public void An_unknown_stored_tier_degrades_to_free_rather_than_throwing()
     {
         var ent = Service.For((PlanTier)999);

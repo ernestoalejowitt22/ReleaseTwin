@@ -130,6 +130,8 @@ public sealed class PlanCatalog
         public bool? TrendAnalytics { get; set; }
         public bool? ReleaseRollup { get; set; }
         public bool? CiIntegration { get; set; }
+        public bool? RunNotifications { get; set; }
+        public bool? EvidenceSharing { get; set; }
         public bool? Sso { get; set; }
         public bool? AuditLog { get; set; }
 
@@ -145,6 +147,8 @@ public sealed class PlanCatalog
             if (TrendAnalytics is null) missing.Add("trendAnalytics");
             if (ReleaseRollup is null) missing.Add("releaseRollup");
             if (CiIntegration is null) missing.Add("ciIntegration");
+            if (RunNotifications is null) missing.Add("runNotifications");
+            if (EvidenceSharing is null) missing.Add("evidenceSharing");
             if (Sso is null) missing.Add("sso");
             if (AuditLog is null) missing.Add("auditLog");
             if (missing.Count > 0)
@@ -163,6 +167,8 @@ public sealed class PlanCatalog
             TrendAnalytics: TrendAnalytics!.Value,
             ReleaseRollup: ReleaseRollup!.Value,
             CiIntegration: CiIntegration!.Value,
+            RunNotifications: RunNotifications!.Value,
+            EvidenceSharing: EvidenceSharing!.Value,
             Sso: Sso!.Value,
             AuditLog: AuditLog!.Value);
     }
@@ -212,6 +218,8 @@ public sealed record Entitlements(
     bool TrendAnalytics,
     bool ReleaseRollup,
     bool CiIntegration,
+    bool RunNotifications,
+    bool EvidenceSharing,
     bool Sso,
     bool AuditLog)
 {

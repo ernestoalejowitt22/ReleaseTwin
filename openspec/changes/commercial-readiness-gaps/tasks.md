@@ -33,9 +33,9 @@
 
 ## 4. Entitlement keys (spec: plan-tier-gating, design D5)
 
-- [ ] 4.1 Add `runNotifications` and `evidenceSharing` boolean entitlements to `hosted/plans.json` (Free: false, Team/Enterprise: true) and to `web/src/lib/plans.ts` types
-- [ ] 4.2 Surface both on `EntitlementService`/`PlanCatalog` and on the `DashboardView.entitlements` payload
-- [ ] 4.3 Tests: Free denied both, Team granted both, downgrade revokes
+- [x] 4.1 `runNotifications` / `evidenceSharing` added to all three tiers in `hosted/plans.json` (Free false, Team/Enterprise true); `web/src/lib/plans.ts` (`EntitlementKey`, `ENTITLEMENT_KEYS`, `Entitlements`, `FEATURE_COPY`) + `web/src/lib/types.ts` `Entitlements` kept in sync — both shape-check validators (`EnsureComplete` C#, `validateCatalog` + `assertFeatureCopyComplete` TS) pass.
+- [x] 4.2 Added to `PlanCatalog.EntitlementsDto` + `Entitlements` record → flow through `EntitlementService.For(org)` (incl. the `tier ∧ billing-status` degrade) and out on `DashboardView.entitlements` (the record is serialized whole — no DTO change needed).
+- [x] 4.3 `EntitlementServiceTests`: Free denied both, Team + Enterprise granted both, a Canceled Team org degrades both to false. `web` build + eslint clean. Hosted suite 269 green.
 
 ## 5. Run notifications (spec: run-notifications, design D6)
 

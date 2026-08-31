@@ -17,6 +17,8 @@
         "trendAnalytics": false,
         "releaseRollup": false,
         "ciIntegration": true,
+        "runNotifications": false,
+        "evidenceSharing": false,
         "sso": false,
         "auditLog": false
       }
@@ -38,6 +40,8 @@
         "trendAnalytics": true,
         "releaseRollup": true,
         "ciIntegration": true,
+        "runNotifications": true,
+        "evidenceSharing": true,
         "sso": false,
         "auditLog": false
       }
@@ -59,6 +63,8 @@
         "trendAnalytics": true,
         "releaseRollup": true,
         "ciIntegration": true,
+        "runNotifications": true,
+        "evidenceSharing": true,
         "sso": true,
         "auditLog": true
       }
