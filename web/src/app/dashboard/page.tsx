@@ -27,9 +27,13 @@ import type {
   DashboardView,
   EvidenceConfigView,
   GuidedSetupView,
+  MyOrganization,
+  NotificationTarget,
   ProjectSecretSummary,
 } from "@/lib/types";
 import { FlagSeamSmoke } from "./flag-seam-smoke";
+import { OrgSwitcher } from "./org-switcher";
+import { NotificationTargetsSection } from "./notification-targets-section";
 import { IssueTokenButton } from "./issue-token-button";
 import { SetupSection } from "./setup-section";
 import { EvidenceSettingsSection } from "./evidence-settings-section";
@@ -61,6 +65,10 @@ export default async function DashboardPage({
   const view = await api.get<DashboardView>(
     `/api/dashboard${projectId ? `?projectId=${projectId}` : ""}`,
   );
+  const organizations = await api.get<MyOrganization[]>("/api/me/organizations");
+  const myRole = organizations.find((o) => o.active)?.role ?? "Admin";
+  const canManage = myRole === "Admin";
+  const canUseProjects = myRole !== "Viewer";
   const selectedProject = view.selectedProject;
   // onboarding-activation: the seeded sample project is read-only and has no real config/tokens —
   // skip the per-project fetches that would 403 for it.
@@ -75,6 +83,12 @@ export default async function DashboardPage({
   const evidenceConfig = realProject
     ? await api.get<EvidenceConfigView>(`/api/projects/${realProject.id}/evidence-config`)
     : null;
+  const notificationTargets =
+    realProject && canManage && view.entitlements.runNotifications
+      ? await api.get<NotificationTarget[]>(
+          `/api/projects/${realProject.id}/notification-targets/`,
+        )
+      : [];
 
   return (
     <main
@@ -88,6 +102,7 @@ export default async function DashboardPage({
           Dashboard
         </h1>
         <div className="flex items-center gap-2">
+          <OrgSwitcher organizations={organizations} />
           <Link
             href={`/dashboard/trends${selectedProject ? `?projectId=${selectedProject.id}` : ""}`}
           >
@@ -220,10 +235,12 @@ export default async function DashboardPage({
               </li>
             ))}
           </ul>
-          <form action={createProject} className="flex gap-2">
-            <Input type="text" name="name" placeholder="New project name" required />
-            <Button type="submit">Create project</Button>
-          </form>
+          {canUseProjects && (
+            <form action={createProject} className="flex gap-2">
+              <Input type="text" name="name" placeholder="New project name" required />
+              <Button type="submit">Create project</Button>
+            </form>
+          )}
         </CardContent>
       </Card>
 
@@ -249,7 +266,7 @@ export default async function DashboardPage({
             </div>
           )}
 
-          {!isExample && (
+          {!isExample && canUseProjects && (
             <SetupSection
               projectId={selectedProject.id}
               projectName={selectedProject.name}
@@ -262,11 +279,20 @@ export default async function DashboardPage({
             />
           )}
 
-          {!isExample && evidenceConfig && (
+          {!isExample && canUseProjects && evidenceConfig && (
             <EvidenceSettingsSection projectId={selectedProject.id} config={evidenceConfig} />
           )}
 
-          {!isExample && (
+          {!isExample && canManage && (
+            <NotificationTargetsSection
+              projectId={selectedProject.id}
+              entitled={view.entitlements.runNotifications}
+              canManage={canManage}
+              targets={notificationTargets}
+            />
+          )}
+
+          {!isExample && canUseProjects && (
           <div className="flex flex-col gap-3">
             <h2 className="flex items-center gap-1.5 text-sm font-semibold tracking-wide text-muted-foreground uppercase">
               <PlayCircle className="size-4" />
@@ -328,7 +354,7 @@ export default async function DashboardPage({
                     ))}
                   </TableBody>
                 </Table>
-                <IssueTokenButton projectId={selectedProject.id} />
+                {canUseProjects && <IssueTokenButton projectId={selectedProject.id} />}
               </CardContent>
             </Card>
           </div>
