@@ -69,5 +69,8 @@ internal static class Keys
 
     public static string ProjectSecret(string name) => $"SECRET#{name}";
 
+    /// <summary>run-notifications: a project's outbound notification targets — <c>PK=PROJECT#&lt;projectId&gt;</c>, <c>SK=NOTIFYTARGET#&lt;targetId&gt;</c>.</summary>
+    public static string NotificationTarget(Guid targetId) => $"NOTIFYTARGET#{targetId}";
+
     public static DateOnly CurrentUtcPeriod() => DateOnly.FromDateTime(DateTimeOffset.UtcNow.UtcDateTime);
 }

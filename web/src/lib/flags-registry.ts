@@ -109,7 +109,7 @@ const BY_KEY = new Map(FLAG_REGISTRY.map((f) => [f.key, f]));
  * module load) throws if it disagrees with `flags.json`. Referencing a key not in this union is a
  * TypeScript error at the call site.
  */
-export const FLAG_KEYS = ["flag-seam-smoke"] as const;
+export const FLAG_KEYS = ["flag-seam-smoke", "run-notifications"] as const;
 
 export type FlagKey = (typeof FLAG_KEYS)[number];
 

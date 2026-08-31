@@ -24,6 +24,9 @@
     <PackageReference Include="Amazon.AspNetCore.DataProtection.SSM" Version="4.0.3" />
     <!-- operator-alerting: the daily staleness digest publishes to SNS. -->
     <PackageReference Include="AWSSDK.SimpleNotificationService" Version="4.0.100" />
+    <!-- run-notifications: the ingest path enqueues a failure-notification message; a second Lambda
+         (RELEASETWIN_LAMBDA_TASK=NotificationDispatch) drains the queue. v4 line, matching AWSSDK.Core. -->
+    <PackageReference Include="AWSSDK.SQS" Version="4.0.0.13" />
     <!-- evidence-purge-and-blob-store: S3EvidenceBlobStore. v4 line, matching the AWSSDK.Core
          the DynamoDB/SNS packages already pull. -->
     <PackageReference Include="AWSSDK.S3" Version="4.0.6" />

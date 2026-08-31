@@ -39,14 +39,14 @@
 
 ## 5. Run notifications (spec: run-notifications, design D6)
 
-- [ ] 5.1 `NotificationTarget` entity + repository: per-project, `{kind: slack|webhook, url, enabled, lastOutcome, lastAttemptAt}`
-- [ ] 5.2 Endpoints (admin + `ManageNotifications` + `runNotifications` entitlement): add / list / update-enabled / delete target; on save validate HTTPS + reject private/loopback/link-local resolution
-- [ ] 5.3 SQS queue + DLQ in `hosted/terraform/`; IAM for the API to send and the consumer Lambda to receive
-- [ ] 5.4 On ingest: after the run is persisted, if overall result is failed OR flag-proof result is failed/ineligible, enqueue `NotificationRequested{projectId, runId, result, classification}` — never inside the ingest transaction, never blocking the response
-- [ ] 5.5 Consumer Lambda: resolve enabled targets, re-check `evidenceSharing`/`runNotifications` entitlement at send time, build the payload (project, run/case id, result, classification, dashboard link — no fixture content / bodies / secrets), POST with short timeout, no redirects, re-check IP ranges at send time
-- [ ] 5.6 Retry via SQS redrive → DLQ; write `lastOutcome`/`lastAttemptAt` back to the target
-- [ ] 5.7 Feature-flag the whole path behind the OpenFeature seam
-- [ ] 5.8 Tests: trigger conditions (fail / flag-proof fail / ineligible / passing-is-silent), payload has no sensitive fields, ingest unaffected when target is broken, disabled target skipped, Free org blocked from adding a target
+- [x] 5.1 `NotificationTarget` entity (`PK=PROJECT#…`, `SK=NOTIFYTARGET#…`) + `NotificationTargetRepository` (list / get / put / delete / `RecordOutcomeAsync`).
+- [x] 5.2 `NotificationEndpoints` — `/api/projects/{id}/notification-targets` GET/POST/PATCH(enabled)/DELETE. All `Require(ManageNotifications)` + project-in-org + `entitlements.For(org).RunNotifications` (403 `entitlement-required` `runNotifications`). `OutboundUrlValidator` on POST: https-only, rejects hosts resolving to loopback / RFC1918 / link-local / ULA / `169.254` / `0.0.0.0` / multicast — resolver injected (`Func<string,IPAddress[]>`) for offline tests.
+- [x] 5.3 `hosted/terraform/notifications.tf` — SQS queue + DLQ (`maxReceiveCount` 5), `hosted_api` IAM `sqs:SendMessage`, `notification_dispatcher` Lambda (shared artifact, `RELEASETWIN_LAMBDA_TASK=NotificationDispatch`) + its role (SQS consume, DynamoDB Get/Query/Put) + `aws_lambda_event_source_mapping` with `ReportBatchItemFailures`. `Notifications__QueueUrl` + `Web__BaseUrl` added to the API function env. `terraform validate` clean.
+- [x] 5.4 Ingest: after persist + usage increment, a failed case-report (`!Passed`) or a flag proof whose `Outcome != "Passed"` enqueues a `RunNotification` via `INotificationQueue`. `TryEnqueueAsync` gates on the `run-notifications` flag and swallows every error — ingest never blocks or fails.
+- [x] 5.5 `NotificationDispatchService.DispatchAsync` — flag re-check, org entitlement re-check, enabled targets only, send-time `OutboundUrlValidator` re-check, payload = `{project, caseId, result, classification, reportId, reportKind, url}` (Slack gets `{text}`) with a `{webBase}/dashboard?projectId=…` link and no fixture/body/secret content. `HttpClient` named `notifications`: 5s timeout, `AllowAutoRedirect = false`. Program.cs `NotificationDispatch` branch parses a minimal SQS batch shape (no `Amazon.Lambda.SQSEvents` dep).
+- [x] 5.6 `redrive_policy` → DLQ; the Lambda returns `batchItemFailures` so message-level failures (bad JSON, org load error) are retried by SQS → DLQ, while per-target HTTP failures are recorded (`RecordOutcomeAsync`) not thrown, so a retry never double-notifies a target that already succeeded.
+- [x] 5.7 `flags.json` gains `run-notifications` (boolean, **default false**, hosted); `FLAG_KEYS` in `web/src/lib/flags-registry.ts` synced. Both the enqueue and the dispatch sides check it.
+- [x] 5.8 Tests (+30, suite 307): `OutboundUrlValidatorTests` (7), `NotificationDispatchServiceTests` (7 — deliver+record, disabled skip, flag off, not-entitled, non-2xx, send-time SSRF re-check, Slack text), `NotificationEndpointsTests` (4 — CRUD, non-https/private rejected, member 403, Free entitlement 403), `NotificationTargetRepositoryTests` (1), `IngestNotificationEnqueueTests` (4 — failed enqueues, passing silent, flag-off silent, ineligible flag-proof). `CustomWebApplicationFactory` gained `ExtraConfiguration`, `NotificationQueueForTesting`, and an offline host resolver.
 
 ## 6. Evidence share links (spec: evidence-sharing, design D7)
 
