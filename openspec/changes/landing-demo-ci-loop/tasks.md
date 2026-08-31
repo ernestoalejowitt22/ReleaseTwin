@@ -44,19 +44,15 @@
   crisp + diff-reviewable. (Approach change from raw GitHub screenshots: the real PR page
   carries NAHA's Vercel comment + a colliding `ui-auto-dress / ReleaseTwin` check label,
   and the comment updates in place so only one state is ever live. Spec updated to match.)
-- [~] 3.3 Harness built: `web/cypress/e2e/capture-landing-demo.cy.ts` (sign in → Team
-  project → enable evidence → run the bundled cases with `RELEASETWIN_EVIDENCE=on` →
-  screenshot **run history** + **evidence viewer** with the Authorization header redacted).
-  npm `capture:dashboard` runs it behind the local hosted API (in-memory store, no
-  Docker/AWS) + web dev server. Fixed a missing `CLERK_DOMAIN` in `web/.env.local` and the
-  tier assertion (`Team plan`). **Not green yet** — the Clerk dev-instance sign-in flaked
-  across 4 attempts (chunk-load errors, one 15-min hang, likely rate-limited after
-  repeats). Same mechanism as `evidence-capture.cy.ts`; needs a clean re-run.
-  Trend + rollup panels dropped for now (need seeded history / `release:` labels to look
-  right) — spec relaxed to "at least run history + evidence viewer".
-- [ ] 3.4 After a green `capture:dashboard`, `capture-dashboard-demo.mjs` copies the two
-  shots to `web/public/demo/dashboard-{runs,evidence}.png`; then add them as a 4th panel
-  group in `page.tsx`.
+- [x] 3.3 Done — `web/cypress/e2e/capture-landing-demo.cy.ts` (sign in → Team project →
+  enable evidence → run the bundled cases with `RELEASETWIN_EVIDENCE=on` → screenshot
+  **run history** + **evidence viewer** with a credential-shaped header redacted). Ran
+  green via `npm run capture:dashboard` (local hosted API, in-memory store, no Docker/AWS).
+  Post-billing fix: replaced the removed free-`Upgrade` click with `cy.elevateToTeam()`;
+  tightened the screenshots (frame the "Run history" card; hide `next dev` overlay; anchor
+  the evidence shot on its title). Trend + rollup panels stay dropped.
+- [x] 3.4 Done — `capture-dashboard-demo.mjs` wrote `web/public/demo/dashboard-{runs,evidence}.png`;
+  added `DASHBOARD_PANELS` (a 2-panel group after the PR-loop panels) in `page.tsx`.
 - [x] 3.5 Done — `docs/landing-demo.md`: asset list, prerequisites, the demo-PR + dashboard
   capture procedure, credential sources (reuses `releasetwin/e2e/*` Secrets Manager path).
 - [x] 3.6 Done — review checklist in `docs/landing-demo.md` ("before committing any asset").
@@ -65,9 +61,9 @@
 
 - [x] 4.1 Done — `DashboardPreview` (+ its `Table`/`Badge`/`Card` imports) removed from
   `web/src/app/(marketing)/page.tsx`.
-- [~] 4.2 CI-loop section added: 3 panels (check ✗ / comment ✗ / check ✓) each with a
-  claim caption, + a line pointing to the dashboard/evidence. **Remaining:** the dashboard
-  screenshot panels (blocked on 3.3).
+- [x] 4.2 Done — CI-loop section: 3 PR panels (check ✗ / comment ✗ / check ✓) + a
+  dashboard-pointer line + 2 dashboard panels (run history, evidence viewer), each with a
+  claim caption.
 - [x] 4.3 Done — `loading="lazy"`, explicit `width`/`height` per panel, descriptive `alt`.
 - [x] 4.4 Terminal SVG kept in the hero; section intro copy makes the loop the headline.
 
@@ -83,8 +79,9 @@
 - [x] 6.1 `cd web && npm run build` + `npx eslint` — clean (with the CI-loop section +
   capture script in place).
 - [x] 6.2 `openspec validate landing-demo-ci-loop --strict` — passed.
-- [ ] 6.3 Visually verify the landing page in the browser preview once the dashboard
-  panels are in.
+- [x] 6.3 Done — `next dev` preview: all 5 demo images load (correct natural dimensions),
+  the CI-loop section renders in order (3 PR panels → dashboard line → 2 dashboard panels)
+  with every caption present. `npm run build` + `eslint` clean.
 - [x] 6.4 Assets reviewed: `web/public/demo/pr-comment-failed.svg` (GitHub-dark comment
   card, "ReleaseTwin — ❌ failed", 1 passed · 1 failed, table row `DEMO-GATE-1 / failed /
   product / — / releasetwin-gate`), `pr-comment-passed.svg` (✅ passed, 2 passed · 0
