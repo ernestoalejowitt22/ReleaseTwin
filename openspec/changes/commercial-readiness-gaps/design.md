@@ -35,9 +35,11 @@ Constraints that shape this design:
 
 **Non-Goals:**
 
-- Seat-based billing, usage caps per member, or per-project roles (org-level
-  roles only in Phase 1).
-- More than two roles. No custom permissions.
+- Seat-based billing or usage caps per member.
+- Project-scoped roles — Phase 1 roles are org-scoped only (D10 preserves the
+  seam to add project scoping later without reworking callers).
+- More than the fixed `admin` / `member` / `viewer` set (D9), or custom
+  (org-defined) permission bundles.
 - SSO/SAML, SCIM provisioning, audit log (deferred in the proposal).
 - Cross-org identity federation beyond "same Clerk user in multiple orgs".
 - Notification channels beyond Slack webhook + generic webhook (no email, no
@@ -138,7 +140,8 @@ One `IOrganizationAccessGuard.Require(orgId, user, Capability)` consulted by eve
 org-scoped endpoint, returning the resolved membership+role or throwing a
 `ForbiddenException`. `Capability` is a small enum
 (`ManageBilling`, `ManageTokens`, `ManageMembers`, `ManageNotifications`,
-`UseProjects`, `ViewEvidence`). Role→capability is a static table.
+`UseProjects`, `ViewEvidence`). Role→capability is a static table (three roles as
+of D9: `admin`, `member`, `viewer`).
 
 - **Why:** the current code scatters `AppUser.OrganizationId` equality implicitly.
   Introducing roles multiplies that surface. A single guard is testable in

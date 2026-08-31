@@ -1,12 +1,16 @@
 namespace ReleaseTwin.Hosted.Api.Data.Entities;
 
 /// <summary>
-/// org-membership: the role a <see cref="Membership"/> carries. Two roles only (spec) — <see cref="Admin"/>
-/// manages billing, plan tier, tokens, members, invitations, and notification targets; <see cref="Member"/>
-/// uses projects and views run history and evidence.
+/// org-membership (design D9): the role a <see cref="Membership"/> carries. Three roles —
+/// <see cref="Admin"/> manages billing, plan tier, tokens, members, invitations, and notification
+/// targets; <see cref="Member"/> triggers project work (creating projects, using API tokens) and
+/// views run history and evidence; <see cref="Viewer"/> is read-only — it sees the dashboard, run
+/// history, and evidence documents and can do nothing else.
 /// </summary>
 public enum MembershipRole
 {
+    /// <summary>Read-only. First value so <c>default(MembershipRole)</c> is the least-privileged role.</summary>
+    Viewer,
     Member,
     Admin,
 }

@@ -185,8 +185,9 @@ public sealed class OrganizationMembersService
             return;
         }
 
-        if (role == MembershipRole.Member)
+        if (role != MembershipRole.Admin)
         {
+            // Demoting to member or viewer — refuse if the target is the only admin.
             await _membershipService.EnsureNotLastAdminAsync(organizationId, targetUserId, cancellationToken);
         }
 

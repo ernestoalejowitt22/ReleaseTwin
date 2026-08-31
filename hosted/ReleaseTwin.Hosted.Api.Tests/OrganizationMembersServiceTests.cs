@@ -145,6 +145,30 @@ public class OrganizationMembersServiceTests
     }
 
     [Fact]
+    public async Task ViewerIsAnInvitableRole()
+    {
+        var h = new Harness();
+        var owner = await h.Provisioning.GetOrCreateUserAsync("clerk-owner", "Owner", "owner@example.com");
+        var invite = await h.Service.InviteAsync(owner.OrganizationId, owner.Id, "watcher@example.com", MembershipRole.Viewer);
+
+        var watcher = await h.Provisioning.GetOrCreateUserAsync("clerk-w", "Watcher", "watcher@example.com", invite.Token);
+        var result = await h.Service.AcceptAsync(watcher, invite.Token);
+
+        Assert.Equal(MembershipRole.Viewer, result.Role);
+        Assert.Equal(MembershipRole.Viewer, (await h.Memberships.GetAsync(owner.OrganizationId, watcher.Id))!.Role);
+    }
+
+    [Fact]
+    public async Task DemotingTheLastAdminToViewerIsRefused()
+    {
+        var h = new Harness();
+        var owner = await h.Provisioning.GetOrCreateUserAsync("clerk-owner", "Owner", "owner@example.com");
+
+        await Assert.ThrowsAsync<ForbiddenException>(
+            () => h.Service.ChangeRoleAsync(owner.OrganizationId, owner.Id, MembershipRole.Viewer));
+    }
+
+    [Fact]
     public async Task CreateAdditionalOrganizationMakesCreatorAdmin()
     {
         var h = new Harness();

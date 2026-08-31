@@ -17,14 +17,15 @@ public enum OrgCapability
     ViewEvidence,
 }
 
-/// <summary>org-membership: static role → capability table (design D4). Admin can do everything; Member
-/// is limited to using projects and viewing run history and evidence.</summary>
+/// <summary>org-membership: static role → capability table (design D4/D9). Admin can do everything;
+/// Member triggers project work and views evidence; Viewer views evidence only.</summary>
 public static class OrgCapabilities
 {
     public static bool Allows(MembershipRole role, OrgCapability capability) => role switch
     {
         MembershipRole.Admin => true,
         MembershipRole.Member => capability is OrgCapability.UseProjects or OrgCapability.ViewEvidence,
+        MembershipRole.Viewer => capability is OrgCapability.ViewEvidence,
         _ => false,
     };
 }

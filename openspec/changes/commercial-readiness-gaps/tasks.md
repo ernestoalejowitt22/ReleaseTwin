@@ -16,6 +16,7 @@
 - [x] 2.4 Admin-gated endpoints (`/dashboard/upgrade`, `/billing-portal`, token create/revoke) now call `currentOrg.Require(...)`. Member-accessible endpoints keep the existing `org_id is null → Forbid` guard, which already blocks non-members (the `org_id` claim is stamped only for members). Full per-endpoint capability conversion of the read/project-config routes deferred — no behaviour gap, only stylistic.
 - [x] 2.5 `MembershipService.EnsureNotLastAdminAsync` — no-op unless the target is an admin, throws `ForbiddenException` if they are the last one. Wired into the member remove / role-change endpoints in Group 3.
 - [x] 2.6 `OrganizationAccessGuardTests` (10): full capability matrix, `Require` permit/deny/no-org, last-admin protection, plus an HTTP test that a `Member` session gets 403 issuing a token while `Admin` gets 200. `TestClerkAuthHandler` + `CreateClientForOrg` gained a role override (defaults Admin, so existing tests are unchanged).
+- [x] 2.7 `MembershipRole.Viewer` (design D9) added as value 0 (least-privileged `default`); `OrgCapabilities.Allows` third arm — `Viewer` → `ViewEvidence` only. `OrganizationAccessGuardTests` capability matrix extended (viewer denied `UseProjects`/`ManageTokens`/`ManageMembers`/`ManageBilling`/`ManageNotifications`, allowed `ViewEvidence`). `ChangeRoleAsync` now runs the last-admin check on any demotion (member **or** viewer), not just to member.
 
 ## 3. Provisioning + invites (spec: org-membership, account-provisioning)
 
@@ -28,6 +29,7 @@
 - [x] 3.7 `POST /api/organizations` — creates org + founding `Admin` membership atomically (`CreateWithFounderAsync`); original org untouched
 - [x] 3.8 `IInvitationEmailSender` + `LoggingInvitationEmailSender` (structured log). No transactional-email path exists in this service — a real SES sender is a flagged follow-up; until then the invite endpoint returns the accept URL for the admin to share. Link carries only the token.
 - [x] 3.9 `OrganizationMembersServiceTests` (8): invite→accept→role, reconcile-away empty org, keep org-with-projects, expired/revoked reject, role fixed at issue, last-admin on change/remove, create-additional-org. `MembershipEndpointsHttpTests` (3): admin invite+list, member 403, wrong-org 403. `TestClerkAuthHandler` gained an orgless-session mode (`X-Test-Sub`).
+- [x] 3.10 `viewer` is accepted as an invitable role by `POST .../invitations` and by `PATCH .../members/{userId}` (both already `Enum.TryParse<MembershipRole>` — "viewer" parses; no endpoint change). Tests: invite→accept as `viewer`, and demoting the last admin to `viewer` is refused.
 
 ## 4. Entitlement keys (spec: plan-tier-gating, design D5)
 

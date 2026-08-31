@@ -24,6 +24,12 @@ public class OrganizationAccessGuardTests
     [InlineData(MembershipRole.Member, OrgCapability.ManageNotifications, false)]
     [InlineData(MembershipRole.Member, OrgCapability.UseProjects, true)]
     [InlineData(MembershipRole.Member, OrgCapability.ViewEvidence, true)]
+    [InlineData(MembershipRole.Viewer, OrgCapability.ManageBilling, false)]
+    [InlineData(MembershipRole.Viewer, OrgCapability.ManageTokens, false)]
+    [InlineData(MembershipRole.Viewer, OrgCapability.ManageMembers, false)]
+    [InlineData(MembershipRole.Viewer, OrgCapability.ManageNotifications, false)]
+    [InlineData(MembershipRole.Viewer, OrgCapability.UseProjects, false)]
+    [InlineData(MembershipRole.Viewer, OrgCapability.ViewEvidence, true)]
     public void CapabilityMatrix(MembershipRole role, OrgCapability capability, bool allowed)
     {
         Assert.Equal(allowed, OrgCapabilities.Allows(role, capability));
