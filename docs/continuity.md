@@ -25,6 +25,13 @@ reverse. Evidence documents are stored exactly as your CLI redacted them.
 history, and the evidence viewer. Losing it costs you the dashboard and the hosted history — not
 the ability to run ReleaseTwin or the evidence you have already pulled out.
 
+**Payments run through a Merchant of Record (Polar).** Polar is the seller of record: it
+collects payment, remits sales tax / VAT, and issues invoices. Card and billing-address data are
+entered only on Polar's hosted checkout and portal — the hosted platform never sees or stores
+them. Cancelling is self-serve from Polar's portal; a lapsed or cancelled subscription degrades
+hosted entitlements on a published grace schedule but never deletes your uploaded evidence, and
+never affects the CLI running in your own infra.
+
 ---
 
 ## What we commit to if the company winds down
