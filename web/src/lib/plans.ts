@@ -123,6 +123,116 @@ export function tierById(id: PlanTier["id"]): PlanTier {
   return tier;
 }
 
+/**
+ * marketing-site-dynamic-content: human-facing label + one-line description for every catalog
+ * entitlement key. The pricing comparison table, the /features hosted table, and the homepage
+ * feature section all render from this map, so they cannot disagree with each other or with the
+ * catalog. `assertFeatureCopyComplete()` runs at module load — a catalog key with no entry here
+ * (or an entry with no catalog key) throws, which fails `next build`.
+ */
+export const FEATURE_COPY: Record<EntitlementKey, { label: string; description: string; docHref?: string }> = {
+  maxProjects: {
+    label: "Projects",
+    description: "How many active projects can land run history on the dashboard at once.",
+  },
+  evidenceViewer: {
+    label: "Evidence viewer",
+    description:
+      "Per-step request/response summaries, assertion detail, and UI screenshots — redacted in your CLI before upload.",
+    docHref: "/docs/hosted-platform",
+  },
+  maxEvidenceRetentionDays: {
+    label: "Evidence retention",
+    description: "How long uploaded evidence is kept before the daily purge removes it. Metadata reports are kept regardless.",
+    docHref: "/docs/hosted-platform",
+  },
+  customRedactionRules: {
+    label: "Custom redaction rules",
+    description: "Your own allow/deny rules layered on top of the built-in credential redaction.",
+    docHref: "/docs/security",
+  },
+  projectSecrets: {
+    label: "Hosted project secrets",
+    description: "Store credentials once per project; the CLI fetches them wherever it runs, instead of per-runner env vars.",
+    docHref: "/docs/security",
+  },
+  trendAnalytics: {
+    label: "Trend analytics",
+    description: "Pass/fail and flake trends across a project's run history.",
+  },
+  releaseRollup: {
+    label: "Release roll-up",
+    description: "One view aggregating every case result for a release or build identity.",
+  },
+  ciIntegration: {
+    label: "CI integration",
+    description: "Run cases from GitHub Actions or any CI, with the uploaded run history wired in.",
+    docHref: "/docs/ci",
+  },
+  sso: {
+    label: "SSO",
+    description: "SAML / OIDC single sign-on for your organization.",
+  },
+  auditLog: {
+    label: "Audit log",
+    description: "A record of who did what in your account.",
+  },
+};
+
+/** Curated, ordered subset of entitlements shown in the homepage "hosted adds…" section. */
+export const HOMEPAGE_FEATURES: readonly EntitlementKey[] = [
+  "evidenceViewer",
+  "projectSecrets",
+  "trendAnalytics",
+  "customRedactionRules",
+];
+
+/** Every catalog entitlement key, in canonical order — the row set for the comparison / features tables. */
+export function entitlementKeys(): readonly EntitlementKey[] {
+  return ENTITLEMENT_KEYS;
+}
+
+/** The tiers to render as pricing cards / comparison columns, in catalog order. */
+export function tiersForDisplay(): PlanTier[] {
+  return PLAN_TIERS;
+}
+
+/**
+ * Render a single tier's value for an entitlement key: a string for numeric keys (with the
+ * `null = unlimited / custom` convention spelled out), a boolean for the rest.
+ */
+export function formatEntitlementValue(key: EntitlementKey, value: number | boolean | null): string | boolean {
+  if (key === "maxProjects") {
+    return value === null ? "Unlimited" : String(value);
+  }
+  if (key === "maxEvidenceRetentionDays") {
+    if (value === null) return "Custom";
+    const days = value as number;
+    if (days < 90) return `${days} days`;
+    return `${Math.round(days / 30)} months`;
+  }
+  return Boolean(value);
+}
+
+/** Format a tier's price as a display string (`$0`, `~$49`), the `~` prefix meaning placeholder. */
+export function formatPrice(price: PlanPrice): string {
+  return `${price.placeholder ? "~" : ""}$${price.amount}`;
+}
+
+function assertFeatureCopyComplete(): void {
+  const copyKeys = Object.keys(FEATURE_COPY);
+  const missing = ENTITLEMENT_KEYS.filter((k) => !(k in FEATURE_COPY));
+  const orphaned = copyKeys.filter((k) => !ENTITLEMENT_KEYS.includes(k as EntitlementKey));
+  if (missing.length || orphaned.length) {
+    throw new Error(
+      `FEATURE_COPY is out of sync with the plan catalog — ` +
+        `missing copy for [${missing.join(", ")}]; orphaned copy for [${orphaned.join(", ")}]`,
+    );
+  }
+}
+
+assertFeatureCopyComplete();
+
 /** The lowest-ordered tier whose entitlement set grants `key` (any truthy value for numeric keys). */
 export function lowestTierWith(key: EntitlementKey): PlanTier | undefined {
   return PLAN_TIERS.find((t) => {

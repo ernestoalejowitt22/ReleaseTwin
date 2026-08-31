@@ -1,3 +1,10 @@
+## Purpose
+
+The public marketing site's pricing and features surfaces render tier, price, and
+entitlement content from the shared plan catalog rather than page-local copy, so they
+cannot drift from what the hosted API enforces; every catalog entitlement has display
+copy, checked at build time.
+
 ## ADDED Requirements
 
 ### Requirement: The pricing page renders from the plan catalog

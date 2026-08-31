@@ -2,42 +2,12 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { auth } from "@clerk/nextjs/server";
 import { SITE_DESCRIPTION } from "@/lib/site";
-import {
-  GitBranch,
-  KeyRound,
-  Workflow,
-  FlaskConical,
-  ShieldCheck,
-  EyeOff,
-  ServerCog,
-} from "lucide-react";
+import { FlaskConical, ShieldCheck, EyeOff, ServerCog } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-
-const FEATURES = [
-  {
-    icon: Workflow,
-    title: "Compose journeys visually",
-    description: "Chain HTTP and UI steps into a real pipeline, then pin and run it from the CLI.",
-  },
-  {
-    icon: KeyRound,
-    title: "Hosted secrets, not env vars",
-    description: "Store credentials once per project — the CLI fetches them wherever it runs.",
-  },
-  {
-    icon: FlaskConical,
-    title: "Flag-proof",
-    description: "Prove a fix actually works by running the same case known-bad and known-good.",
-  },
-  {
-    icon: GitBranch,
-    title: "Self-serve, real CLI in minutes",
-    description: "Sign up, issue a token, run a zero-credential example case — no setup call.",
-  },
-];
+import { HOMEPAGE_FEATURES, FEATURE_COPY } from "@/lib/plans";
 
 const TRUST = [
   {
@@ -200,18 +170,31 @@ export default async function LandingPage() {
         </div>
       </section>
 
-      {/* Feature grid */}
+      {/* Feature grid — what the hosted dashboard adds, sourced from the plan catalog */}
       <section className="mx-auto w-full max-w-5xl px-6 py-16">
+        <div className="mb-8 flex flex-col gap-2 text-center">
+          <h2 className="text-2xl font-semibold tracking-tight">What the hosted dashboard adds</h2>
+          <p className="mx-auto max-w-2xl text-sm text-muted-foreground">
+            On top of the open-source engine. See the{" "}
+            <Link href="/features" className="underline underline-offset-4 hover:text-foreground">
+              full features list
+            </Link>{" "}
+            for every capability and its tier.
+          </p>
+        </div>
         <div className="grid grid-cols-1 gap-6 text-left sm:grid-cols-2">
-          {FEATURES.map((feature) => (
-            <div key={feature.title} className="flex gap-3">
-              <feature.icon className="mt-0.5 size-5 shrink-0 text-primary" />
-              <div>
-                <p className="text-sm font-semibold">{feature.title}</p>
-                <p className="text-sm text-muted-foreground">{feature.description}</p>
+          {HOMEPAGE_FEATURES.map((key) => {
+            const copy = FEATURE_COPY[key];
+            return (
+              <div key={key} className="flex gap-3">
+                <FlaskConical className="mt-0.5 size-5 shrink-0 text-primary" />
+                <div>
+                  <p className="text-sm font-semibold">{copy.label}</p>
+                  <p className="text-sm text-muted-foreground">{copy.description}</p>
+                </div>
               </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       </section>
 
