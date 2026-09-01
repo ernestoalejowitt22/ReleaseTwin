@@ -2,7 +2,7 @@
 
 Release-proof testing for integration-heavy, feature-flagged systems: evidence-linked cases, immutable fixtures, prerequisite ownership, deterministic evidence, and paired known-bad/known-good "flag proof" — the mechanic that actually distinguishes a broken build from a fixed one, not just "green in one environment."
 
-Working name; provisional brand is **Validuo**. See `docs/installation-model.md` for the target deployment model.
+See `docs/installation-model.md` for the target deployment model.
 
 **New here?** [docs/quickstart.md](docs/quickstart.md) — test your first API in 10 minutes with `docker run … init`, no account or clone.
 
@@ -263,7 +263,7 @@ The same assessment is explicit that this isn't enough on its own: *"Go if an un
 
 - **No design partners contacted yet.** Nothing about willingness to pay, which reports matter, or whether "release-proof" as a concept resonates has been tested with an actual outside user.
 - **No pricing validated.** The current pricing hypotheses are explicitly hypotheses, not offers anyone has seen.
-- **No legal/entity work started.** Naming (Validuo, provisional), trademark search, incorporation, IP ownership documentation — none of it done.
+- **No legal/entity work started.** Trademark search, incorporation, IP ownership documentation — none of it done. Tracked in the `company-and-domain-launch` change.
 - **Not actually offered to anyone yet.** Self-serve signup/dashboard code exists and is tested (`hosted-self-serve-platform`, `clerk-registration`, `hosted-react-frontend`), but no Clerk application has been registered — a real one-time setup step, not a code gap. Even once that's done, running the CLI itself still means cloning source and having the .NET SDK — no packaging exists.
 
 ### Realistic framing
