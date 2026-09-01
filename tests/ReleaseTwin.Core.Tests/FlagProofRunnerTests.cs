@@ -218,6 +218,75 @@ public class FlagProofRunnerTests
         Assert.Null(result.KnownGoodLeg);
     }
 
+    private sealed class UnverifiedFeatureStateController : IFeatureStateController
+    {
+        private readonly int _unverifiedOnCall;
+        private int _calls;
+
+        public UnverifiedFeatureStateController(int unverifiedOnCall) => _unverifiedOnCall = unverifiedOnCall;
+
+        public Task SetStateAsync(string featureKey, bool enabled, CancellationToken cancellationToken)
+        {
+            _calls++;
+            if (_calls == _unverifiedOnCall)
+            {
+                throw new FlagStateUnverifiedException(
+                    "GET https://flags.example/flags/claims-calc -> expected 'true' but got 'false' at path '$.enabled'");
+            }
+
+            return Task.CompletedTask;
+        }
+    }
+
+    [Fact]
+    public async Task ReadBackUnverifiedOnKnownGoodIsControlUnverified()
+    {
+        var catalog = new FakeCatalog()
+            .Operation("checkDeductible", new AlwaysPassOperation())
+            .Capability("flag-control:runtime");
+        var executor = new CaseExecutor(catalog, catalog, catalog, catalog);
+        var runner = new FlagProofRunner(executor, catalog, new UnverifiedFeatureStateController(unverifiedOnCall: 2));
+
+        var result = await runner.RunAsync(BuildCase(), "claims-calc", buildIdentity: "build-123");
+
+        Assert.Equal(FlagProofOutcome.ControlUnverified, result.Outcome);
+        Assert.NotEqual(FlagProofOutcome.WeakOracle, result.Outcome);
+        Assert.NotEqual(FlagProofOutcome.ControlFailed, result.Outcome);
+        Assert.Null(result.KnownBadLeg);
+        Assert.Null(result.KnownGoodLeg);
+        Assert.Contains("known-good", result.Message);
+    }
+
+    [Fact]
+    public async Task ReadBackUnverifiedOnKnownBadNamesTheKnownBadLeg()
+    {
+        var catalog = new FakeCatalog()
+            .Operation("checkDeductible", new AlwaysPassOperation())
+            .Capability("flag-control:runtime");
+        var executor = new CaseExecutor(catalog, catalog, catalog, catalog);
+        var runner = new FlagProofRunner(executor, catalog, new UnverifiedFeatureStateController(unverifiedOnCall: 1));
+
+        var result = await runner.RunAsync(BuildCase(), "claims-calc", buildIdentity: "build-123");
+
+        Assert.Equal(FlagProofOutcome.ControlUnverified, result.Outcome);
+        Assert.Contains("known-bad", result.Message);
+    }
+
+    [Fact]
+    public async Task VerifiedStateWithDiscriminatingLegsStillPasses()
+    {
+        var controller = new FakeFeatureStateController();
+        var catalog = new FakeCatalog()
+            .Operation("checkDeductible", new FeatureAwareOperation(controller, "claims-calc"))
+            .Capability("flag-control:runtime");
+        var executor = new CaseExecutor(catalog, catalog, catalog, catalog);
+        var runner = new FlagProofRunner(executor, catalog, controller);
+
+        var result = await runner.RunAsync(BuildCase(), "claims-calc", buildIdentity: "build-123");
+
+        Assert.Equal(FlagProofOutcome.Passed, result.Outcome);
+    }
+
     [Fact]
     public async Task MissingFeatureFlagControlDefersTheRun()
     {
