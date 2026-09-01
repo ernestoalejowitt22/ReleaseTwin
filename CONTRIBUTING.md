@@ -5,9 +5,10 @@ issue before a large PR saves everyone time.
 
 ## Ground rules
 
-- **Open an issue first** for anything beyond a small fix — a bug report, or a
-  short design note for a feature. Large unsolicited PRs may be declined purely
-  on scope.
+- **Open an issue first** for anything beyond a small fix — use the
+  [bug report or feature request form](https://github.com/ernestoalejowitt22/ReleaseTwin/issues/new/choose).
+  See [`SUPPORT.md`](SUPPORT.md) for where non-code requests go. Large
+  unsolicited PRs may be declined purely on scope.
 - **One logical change per PR.** Keep diffs reviewable.
 - **Match the surrounding code.** No reformatting-only churn, no dependency
   additions without discussion.

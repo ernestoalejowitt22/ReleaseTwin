@@ -91,4 +91,6 @@ which is itself blocked on the LLC. Do not flip before both.
 
 ## 5. Announcement readiness
 
+- [ ] `SUPPORT.md` + `.github/ISSUE_TEMPLATE/` forms live and verified — see the `support-intake` change. Confirm before the visibility flip (§3.2).
+
 Deferred (marketing act): Show HN / Product Hunt / marketplace listings, `/blog`.

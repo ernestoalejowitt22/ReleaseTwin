@@ -2,7 +2,12 @@ blank_issues_enabled: false
 contact_links:
   - name: Security vulnerability
     url: https://github.com/ernestoalejowitt22/ReleaseTwin/security/advisories/new
-    about: Report security issues privately — do not open a public issue. See SECURITY.md.
-  - name: Question / discussion
-    url: https://github.com/ernestoalejowitt22/ReleaseTwin/discussions
-    about: Usage questions, "is this the right tool", and open-ended ideas.
+    about: Report security issues privately — never a public issue. See SECURITY.md.
+  - name: Account, billing, or legal
+    # TODO(company-and-domain-launch): swap for support@releasetwin.com once the mailbox is live.
+    url: mailto:ernestoalejo22@gmail.com?subject=ReleaseTwin%20account
+    about: Anything tied to your account or org, an invoice, or a legal question — these go to email, not a public issue.
+  - name: Sales / design-partner enquiry
+    # TODO(company-and-domain-launch): swap for support@releasetwin.com once the mailbox is live.
+    url: mailto:ernestoalejo22@gmail.com?subject=ReleaseTwin%20pilot
+    about: Interested in a pilot or the hosted platform for your team.
