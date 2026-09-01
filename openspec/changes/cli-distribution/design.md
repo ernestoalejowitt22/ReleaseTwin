@@ -43,6 +43,17 @@ package id is best kept identical for discoverability
 id but reads as an internal assembly name. The id must be claimed on first push
 (the user does this once — manual step 1).
 
+### Package license expression is plain `AGPL-3.0-only`
+The proposal said the nupkg would carry
+`AGPL-3.0-only WITH LicenseRef-ReleaseTwin-Adapter-Exception`. NuGet's
+`PackageLicenseExpression` only accepts SPDX-listed ids and exceptions — a
+custom `LicenseRef-*` is rejected at pack time. The Adapter Linking Exception
+exists for third parties who *link the AdapterSdk* to write an adapter; the CLI
+executable itself is plain AGPL-3.0, so `PackageLicenseExpression=AGPL-3.0-only`
+is both valid and correct. The tool README links `LICENSE.EXCEPTIONS` for
+completeness. (`reuse` still sees the full expression via the file's SPDX
+header and `REUSE.toml`.)
+
 ### `dotnet pack` of the existing project, framework-dependent tool
 `PackAsTool=true` produces a framework-dependent tool (needs a .NET runtime on
 the host). That is the correct trade: someone running `dotnet tool install`

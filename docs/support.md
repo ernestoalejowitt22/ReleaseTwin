@@ -15,6 +15,13 @@ requests get handled.
 No helpdesk tool. If a weekly-ish sweep stops keeping up, that's the signal to
 reconsider — not before.
 
+**Trigger to evaluate a real tool:** when open support threads exceed ~10 at a
+sweep, *or* a second person starts handling support, *or* a customer contract
+requires a provable response SLA — evaluate Plain, Jira Service Management (free
+up to 3 agents), or Help Scout before Zendesk (Zendesk fits a support *team*
+with heavy routing, not a solo maintainer). Until one of those is true, GitHub
+Issues + email is the tool.
+
 ## Labels
 
 | Label | Meaning |
