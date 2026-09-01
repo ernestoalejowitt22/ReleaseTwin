@@ -11,8 +11,8 @@ billing to production) and does not block a first paid pilot.
 
 ## 2. History-cache expiry (prerequisite for any public flip)
 
-- [ ] 2.1 **Needs the user to run this** — email GitHub Support to expire cached pre-rewrite SHAs on `ReleaseTwin` and `NAHA`
-- [ ] 2.2 **Needs the user to run this** — receive written confirmation; fresh clone + `git rev-list --all | git grep -i` for prior-vendor terms returns zero
+- [x] 2.1 NOT PURSUED (decision 2026-09-01) — both repos private, 0 forks, no fork network, no pre-rewrite external clone. No cross-fork object sharing; residual risk accepted. See `docs/go-public-runbook.md` §2.
+- [ ] 2.2 Right before the flip: fresh clone of the about-to-be-public repo, `git rev-list --all | xargs -I{} git grep -i <prior-vendor-term> {}` returns zero on reachable history.
 - [ ] 2.3 Confirm `company-and-domain-launch` §6.7 (licensing legal review) is complete
 
 ## 3. Repo visibility
