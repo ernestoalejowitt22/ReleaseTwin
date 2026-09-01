@@ -33,4 +33,4 @@
 
 - [x] 6.1 `dotnet build ReleaseTwin.sln` + `dotnet test ReleaseTwin.sln` green; report the engine/hosted test counts.
 - [x] 6.2 `openspec validate flag-proof-control-readback --strict` passes.
-- [ ] 6.3 **Needs the user to run this:** point the example's `verify` block at a real flag toggle + read endpoint and confirm a real `ControlUnverified` (set a flag via a key the read endpoint doesn't reflect) and a real `Passed` with verification enabled.
+- [x] 6.3 Covered by `web/cypress/e2e/launchdarkly-http-flag-control.cy.ts` + `.github/workflows/ld-http-flag-control-e2e.yml` (change `flag-control-verify-ld-e2e`): a real `control` PATCH + `verify` GET round trip against LaunchDarkly's REST API asserting a real `FLAGPROOF … (Passed)`. The deterministic real-endpoint `ControlUnverified` leg was found not reliably reproducible and stays unit-covered (that change's proposal, Non-Goals).
