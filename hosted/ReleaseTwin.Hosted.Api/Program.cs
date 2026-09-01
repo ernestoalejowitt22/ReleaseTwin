@@ -158,7 +158,33 @@ builder.Services.AddScoped<ITokenService, TokenService>();
 builder.Services.AddScoped<ProvisioningService>();
 builder.Services.AddScoped<MembershipService>();
 builder.Services.AddScoped<OrganizationMembersService>();
-builder.Services.AddScoped<IInvitationEmailSender, LoggingInvitationEmailSender>();
+// company-and-domain-launch: real invite email via SES v2 when Notifications:FromAddress is set;
+// structured-log fallback otherwise (local dev, tests, any deploy not yet wired to SES). The accept
+// link is always in the invite endpoint's response, so the flow works either way.
+var notificationsFromAddress = builder.Configuration["Notifications:FromAddress"];
+if (!string.IsNullOrWhiteSpace(notificationsFromAddress))
+{
+    builder.Services.AddSingleton<Amazon.SimpleEmailV2.IAmazonSimpleEmailServiceV2>(_ =>
+    {
+        var config = new Amazon.SimpleEmailV2.AmazonSimpleEmailServiceV2Config();
+        if (!string.IsNullOrWhiteSpace(builder.Configuration["Aws:Region"]))
+        {
+            config.RegionEndpoint = Amazon.RegionEndpoint.GetBySystemName(builder.Configuration["Aws:Region"]);
+        }
+
+        // SDK default credential chain (env / shared config / IAM role) — never a hardcoded key,
+        // same rule as the DynamoDB, SNS, and S3 clients.
+        return new Amazon.SimpleEmailV2.AmazonSimpleEmailServiceV2Client(config);
+    });
+    builder.Services.AddScoped<IInvitationEmailSender>(sp => new SesInvitationEmailSender(
+        sp.GetRequiredService<Amazon.SimpleEmailV2.IAmazonSimpleEmailServiceV2>(),
+        notificationsFromAddress,
+        sp.GetRequiredService<ILogger<SesInvitationEmailSender>>()));
+}
+else
+{
+    builder.Services.AddScoped<IInvitationEmailSender, LoggingInvitationEmailSender>();
+}
 
 // run-notifications (design D6): outbound delivery is off the ingest path. Ingest enqueues onto SQS
 // (or a no-op when no queue is configured — tests, local); a second Lambda

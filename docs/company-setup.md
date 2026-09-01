@@ -1,0 +1,76 @@
+# Company setup
+
+Running record of what was registered where, for the `company-and-domain-launch`
+change. Fill each section in as the step completes.
+
+## Domain
+
+| Item | Value | Status |
+|---|---|---|
+| Domain | `releasetwin.com` | confirmed available 2026-08-31 — **not yet registered** |
+| Registrar | _TBD_ | |
+| DNS host | _TBD_ | |
+
+## Company email
+
+Provider: _TBD_ (Google Workspace or equivalent). Aliases `hello@`, `security@`,
+`billing@`, `legal@` forwarding to one inbox.
+
+| Record | Type | Value | Status |
+|---|---|---|---|
+| MX | | | |
+| SPF | TXT | | |
+| DKIM | CNAME/TXT | | |
+| DMARC | TXT | | |
+
+## Transactional email (SES)
+
+Used by `SesInvitationEmailSender` to deliver org invitations. The sender is
+already in the codebase; it is bound only when `Notifications:FromAddress` is
+set, otherwise `LoggingInvitationEmailSender` runs and the accept link is
+returned in the invite API response.
+
+Still to wire (blocked on the domain existing — tasks 3.1–3.6, 4.9):
+
+- `aws_ses_domain_identity` + `aws_ses_domain_dkim` for `releasetwin.com` in `hosted/terraform/` (new `ses.tf`).
+- DKIM CNAME + MAIL FROM records emitted as Terraform outputs, added at the registrar.
+- Scoped `ses:SendEmail` / `ses:SendRawEmail` statement on `aws_iam_role.hosted_api`, `Resource` = the identity ARN.
+- `notifications_from_address` Terraform variable (default `""`) → `Notifications__FromAddress` Lambda env var, same two-pass/empty-default pattern as `web_base_url` / `api_public_url`.
+- SES production-access request (out of sandbox) before invites go to arbitrary addresses.
+
+| Item | Value | Status |
+|---|---|---|
+| `Notifications:FromAddress` | e.g. `no-reply@releasetwin.com` | not set — logging fallback active |
+| SES region | (inherits `Aws:Region`) | |
+| SES sandbox | | |
+
+## Auth / hosting identity
+
+| Item | Current | Target | Status |
+|---|---|---|---|
+| Clerk domain | `classic-marlin-8065.clerk.accounts.dev` | `clerk.releasetwin.com` | |
+| `NEXT_PUBLIC_SITE_URL` (Vercel) | Vercel prod URL | `https://releasetwin.com` | |
+| `WEB_BASE_URL` repo var | | real domain | |
+| `Api__PublicUrl` | `terraform output function_url` (self-heals) | unchanged — verify post-deploy | |
+| Google Search Console | | domain submitted | |
+
+## Legal entity
+
+| Item | Value | Status |
+|---|---|---|
+| Entity type | US LLC | |
+| Formation | Stripe Atlas / registered agent | |
+| Registered name | _TBD_ → `LEGAL_ENTITY` in `web/src/lib/site.ts` | currently `"the ReleaseTwin project"` |
+| EIN | | |
+| Contact email | `legal@releasetwin.com` → `LEGAL_CONTACT_EMAIL` | currently `ernestoalejo22@gmail.com` |
+| IP assignment | codebase + brand assigned to the LLC | |
+| Licensing review | AGPL-3.0 + Adapter Linking Exception + BSL 1.1 | |
+
+## Billing (Polar)
+
+| Item | Value | Status |
+|---|---|---|
+| Polar mode | sandbox → `api.polar.sh` production | |
+| MoR payee | the LLC | |
+| Product / price IDs | | |
+| `POLAR_UPGRADE_ENABLED` | `false` | flip to `true` after the sandbox e2e passes |

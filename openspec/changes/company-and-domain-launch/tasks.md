@@ -7,8 +7,8 @@ them unchecked until the user confirms.
 
 - [ ] 1.1 **Needs the user to run this** — quick USPTO/EUIPO trademark glance for "ReleaseTwin"
 - [ ] 1.2 **Needs the user to run this** — register `releasetwin.com` at a registrar
-- [ ] 1.3 Drop the "provisional brand is Validuo" hedge from `README.md` line 5 and any other doc that repeats it (`git grep -i validuo`)
-- [ ] 1.4 Add `docs/company-setup.md` skeleton (domain, email, entity, DNS records — filled in as steps complete)
+- [x] 1.3 Drop the "provisional brand is Validuo" hedge from `README.md` line 5 and any other doc that repeats it (`git grep -i validuo`)
+- [x] 1.4 Add `docs/company-setup.md` skeleton (domain, email, entity, DNS records — filled in as steps complete)
 
 ## 2. Company email
 
@@ -28,14 +28,14 @@ them unchecked until the user confirms.
 
 ## 4. SesInvitationEmailSender (code)
 
-- [ ] 4.1 Add `SesInvitationEmailSender : IInvitationEmailSender` in `hosted/ReleaseTwin.Hosted.Api/Services/` — sends a plain-text + HTML invite email with the accept link via the AWS SES SDK
-- [ ] 4.2 Add `AWSSDK.SimpleEmail` (or `AWSSDK.SimpleEmailV2`) to `ReleaseTwin.Hosted.Api.csproj`
-- [ ] 4.3 Add a `Notifications:FromAddress` config key (and SES region if not inherited); document it in `docs/` alongside the other hosted config keys
-- [ ] 4.4 In `Program.cs`, bind `SesInvitationEmailSender` when `Notifications:FromAddress` is present, else keep `LoggingInvitationEmailSender`
-- [ ] 4.5 Ensure the send is attempted after the invitation row is written and a provider error is caught, logged, and non-fatal (spec: "Email provider failure does not invalidate the invitation")
-- [ ] 4.6 Unit tests: provider-configured path sends + returns link; no-provider path skips send + returns link; provider-throws path keeps invitation valid + returns link
-- [ ] 4.7 Update the `IInvitationEmailSender` / `LoggingInvitationEmailSender` XML doc comments (they currently point at "tasks.md 3.8" of a different change)
-- [ ] 4.8 `dotnet build ReleaseTwin.sln` + `dotnet test ReleaseTwin.sln` green; report the new test count
+- [x] 4.1 Add `SesInvitationEmailSender : IInvitationEmailSender` in `hosted/ReleaseTwin.Hosted.Api/Services/` — sends a plain-text + HTML invite email with the accept link via the AWS SES SDK
+- [x] 4.2 Add `AWSSDK.SimpleEmail` (or `AWSSDK.SimpleEmailV2`) to `ReleaseTwin.Hosted.Api.csproj`
+- [x] 4.3 Add a `Notifications:FromAddress` config key (and SES region if not inherited); document it in `docs/` alongside the other hosted config keys
+- [x] 4.4 In `Program.cs`, bind `SesInvitationEmailSender` when `Notifications:FromAddress` is present, else keep `LoggingInvitationEmailSender`
+- [x] 4.5 Ensure the send is attempted after the invitation row is written and a provider error is caught, logged, and non-fatal (spec: "Email provider failure does not invalidate the invitation")
+- [x] 4.6 Unit tests: provider-configured path sends + returns link; no-provider path skips send + returns link; provider-throws path keeps invitation valid + returns link
+- [x] 4.7 Update the `IInvitationEmailSender` / `LoggingInvitationEmailSender` XML doc comments (they currently point at "tasks.md 3.8" of a different change)
+- [x] 4.8 `dotnet build ReleaseTwin.sln` + `dotnet test ReleaseTwin.sln` green; report the new test count
 - [ ] 4.9 **Needs the user to run this** — set `Notifications:FromAddress` (repo var / terraform var) once SES identity 3.x is verified
 - [ ] 4.10 Post-deploy: issue a real invitation to an external address, confirm the email arrives and the link accepts (evidence-quality: note which inbox, paste the rendered email)
 - [ ] 4.11 Deliverability check (mail-tester or equivalent) — SPF/DKIM/DMARC all pass, not flagged as spam
