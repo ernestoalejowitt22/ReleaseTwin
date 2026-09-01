@@ -1,0 +1,41 @@
+# Testing an API gated by Entra ID / organization OAuth, from case data alone.
+#
+# Step 1 performs a standard OAuth2 client-credentials exchange against the org's
+# Entra v2 token endpoint and captures the access token. Step 2 calls the
+# protected API with it as a bearer token. No literal credential appears here —
+# every value is a ${ENV_VAR} resolved from the environment or hosted project
+# secrets at load time.
+#
+# Set before running:
+#   AZURE_TENANT_ID     your Entra tenant GUID
+#   API_CLIENT_ID       app registration (client) ID granted the API's app role
+#   API_CLIENT_SECRET   that app registration's client secret
+#   API_SCOPE           e.g. api://<api-app-id-uri>/.default
+#   API_BASE_URL        base URL of the protected API (reachable from the runner)
+#
+# Customer-side prerequisites (owned by the identity team): an app registration,
+# admin consent, and an app-role assignment. Some orgs prohibit non-interactive
+# service principals in lower environments, or wrap the token endpoint in
+# Conditional Access — qualify this before a pilot.
+id: ENTRA-API-AUTH-DEMO-1
+oracle:
+  locator: docs/enterprise-access.md
+fixture:
+  locator: example-entra-api-auth.json
+  sha256: e5ef22ce2c566199d1e8df472ca5f5c21dee08fb9e1d4cd65239389ce4215b7e
+pipeline:
+  - operation: http.oauth2ClientCredentials
+    with:
+      tokenUrl: https://login.microsoftonline.com/${AZURE_TENANT_ID}/oauth2/v2.0/token
+      clientId: ${API_CLIENT_ID}
+      clientSecret: ${API_CLIENT_SECRET}
+      scope: ${API_SCOPE}
+    capture:
+      - name: token
+        from: json:$.access_token
+  - operation: http.request
+    with:
+      method: GET
+      url: ${API_BASE_URL}/me
+      headers:
+        Authorization: Bearer {{token}}

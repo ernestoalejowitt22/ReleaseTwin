@@ -322,7 +322,42 @@ public sealed class CaseFileLoader
             headers,
             dto.Body is null ? null : Env(dto.Body),
             polarity,
-            ResolveFlagProofControlVerify(fileName, dto.Verify, Env));
+            ResolveFlagProofControlVerify(fileName, dto.Verify, Env),
+            ResolveFlagProofControlAuth(fileName, dto.Auth, Env));
+    }
+
+    private static FlagProofControlAuth? ResolveFlagProofControlAuth(
+        string fileName, FlagProofControlAuthDto? dto, Func<string, string> env)
+    {
+        if (dto is null)
+        {
+            return null;
+        }
+
+        var oauth = dto.Oauth2ClientCredentials
+            ?? throw new CaseFileException(fileName,
+                "flag_proof.control.auth must declare an 'oauth2_client_credentials' block");
+
+        if (string.IsNullOrWhiteSpace(oauth.TokenUrl))
+        {
+            throw new CaseFileException(fileName, "flag_proof.control.auth.oauth2_client_credentials is missing 'token_url'");
+        }
+
+        if (string.IsNullOrWhiteSpace(oauth.ClientId))
+        {
+            throw new CaseFileException(fileName, "flag_proof.control.auth.oauth2_client_credentials is missing 'client_id'");
+        }
+
+        if (string.IsNullOrWhiteSpace(oauth.ClientSecret))
+        {
+            throw new CaseFileException(fileName, "flag_proof.control.auth.oauth2_client_credentials is missing 'client_secret'");
+        }
+
+        return new FlagProofControlAuth(
+            env(oauth.TokenUrl),
+            env(oauth.ClientId),
+            env(oauth.ClientSecret),
+            string.IsNullOrWhiteSpace(oauth.Scope) ? null : env(oauth.Scope));
     }
 
     private static FlagProofControlVerify? ResolveFlagProofControlVerify(
