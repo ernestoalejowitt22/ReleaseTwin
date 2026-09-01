@@ -59,7 +59,7 @@ them unchecked until the user confirms.
 - [ ] 6.2 **Needs the user to run this** — obtain the EIN; record the registered legal name
 - [ ] 6.3 Set `LEGAL_ENTITY` and `LEGAL_CONTACT_EMAIL` in `web/src/lib/site.ts` to the LLC name and `legal@releasetwin.com`
 - [x] 6.4 Security + pricing pages now reference `SECURITY_CONTACT_EMAIL` / `CONTACT_EMAIL` from `web/src/lib/site.ts` instead of a hard-coded `mailto:` — values still the gmail until 6.3
-- [ ] 6.5 `git grep -i ernestoalejo22@gmail.com` in `web/` returns only `site.ts` (the single swap point); root `SECURITY.md` still to update when `security@releasetwin.com` works
+- [ ] 6.5 `git grep -i ernestoalejo22@gmail.com` returns only `site.ts` (the single `web/` swap point). Also swap when the domain addresses work: root `SECURITY.md`, `SUPPORT.md`, `docs/support.md`, and the `TODO(company-and-domain-launch)` `mailto:` links in `.github/ISSUE_TEMPLATE/config.yml` (all from the `support-intake` change)
 - [ ] 6.6 **Needs the user to run this** — IP ownership doc: assign the codebase/brand to the LLC
 - [ ] 6.7 **Needs the user to run this** — legal review of the AGPL-3.0 + Adapter Linking Exception + BSL 1.1 stack
 - [ ] 6.8 `next build` + `npx eslint` green after the `site.ts` / page edits
