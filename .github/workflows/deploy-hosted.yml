@@ -56,7 +56,7 @@ jobs:
       # No stored AWS access key anywhere — the role trusts this repo's OIDC token directly
       # (hosted/terraform-bootstrap). AWS_DEPLOY_ROLE_ARN is a plain repo variable (ARNs aren't
       # secret), set from that bootstrap's `github_actions_role_arn` output.
-      - uses: aws-actions/configure-aws-credentials@v4
+      - uses: aws-actions/configure-aws-credentials@v5
         with:
           role-to-assume: ${{ vars.AWS_DEPLOY_ROLE_ARN }}
           # inputs.* is empty on a push trigger — fall back to the same defaults workflow_dispatch uses.
