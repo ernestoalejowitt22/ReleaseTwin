@@ -1,5 +1,3 @@
-using Newtonsoft.Json;
-using Newtonsoft.Json.Linq;
 using ReleaseTwin.Core;
 
 namespace ReleaseTwin.Adapters.Http;
@@ -57,22 +55,17 @@ internal sealed class JsonPathAssertOperation : IOperation, IEvidenceEmittingOpe
             return Task.FromResult(OperationResult.Fail("no prior http.request response to assert against"));
         }
 
-        JToken? token;
-        try
-        {
-            token = JToken.Parse(body).SelectToken(path);
-        }
-        catch (JsonException ex)
+        var match = JsonPathMatch.Evaluate(body, path, expectedString);
+        if (match.Error is not null)
         {
             Stash(new AssertionDetail(path, expectedString, null));
-            return Task.FromResult(OperationResult.Fail($"response is not valid JSON: {ex.Message}"));
+            return Task.FromResult(OperationResult.Fail(match.Error));
         }
 
-        var actual = token?.ToString();
-        Stash(new AssertionDetail(path, expectedString, actual));
+        Stash(new AssertionDetail(path, expectedString, match.Actual));
 
-        return Task.FromResult(string.Equals(actual, expectedString, StringComparison.Ordinal)
+        return Task.FromResult(match.Matched
             ? OperationResult.Pass()
-            : OperationResult.Fail($"expected '{expectedString}' but got '{actual ?? "<missing>"}' at path '{path}'"));
+            : OperationResult.Fail($"expected '{expectedString}' but got '{match.Actual ?? "<missing>"}' at path '{path}'"));
     }
 }

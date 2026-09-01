@@ -9,6 +9,11 @@
 #   GET  ${FLAGS_API}/flags/checkout-v2   -> { "state": "enabled" | "disabled" }
 # and set ${FLAGS_TOKEN}. Credentials resolve only from the environment (or this
 # project's hosted secrets) — never inline them here.
+#
+# The optional `control.verify` block below reads the flag back after each toggle
+# and asserts it actually changed: a toggle that returns 2xx but doesn't take
+# then reports `ControlUnverified` instead of a misleading weak-oracle verdict.
+# Only enable it if your flag API is read-your-writes consistent.
 id: FLAGPROOF-HTTP-DEMO-1
 oracle:
   locator: tickets/FLAGPROOF-HTTP-DEMO-1
@@ -36,3 +41,8 @@ flag_proof:
       Authorization: "Bearer ${FLAGS_TOKEN}"
     body: '{ "state": "{{state}}" }'
     known_bad_when: disabled
+    verify:
+      method: GET
+      url: ${FLAGS_API}/flags/{{featureKey}}
+      json_path: $.state
+      expected: "{{state}}"
