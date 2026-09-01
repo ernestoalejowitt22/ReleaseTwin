@@ -83,5 +83,5 @@ license of the path they touch (AGPL-3.0 for the engine, Apache-2.0 for
 
 ## Trademarks
 
-"ReleaseTwin" (and the provisional "Validuo") are not licensed for use as your
-own product or service name by any license above.
+"ReleaseTwin" is not licensed for use as your own product or service name by any
+license above.
