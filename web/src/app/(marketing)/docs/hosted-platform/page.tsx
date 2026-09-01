@@ -19,8 +19,8 @@ export default function HostedPlatformPage() {
       <DocSection title="1. Create a project and token">
         <UL>
           <li>
-            <Link href="/sign-in" className="text-primary underline underline-offset-4">
-              Sign in
+            <Link href="/sign-up" className="text-primary underline underline-offset-4">
+              Sign up
             </Link>{" "}
             — self-serve, no approval step.
           </li>
