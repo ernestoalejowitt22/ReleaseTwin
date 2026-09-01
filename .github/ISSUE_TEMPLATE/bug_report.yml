@@ -1,0 +1,82 @@
+name: Bug report
+description: A defect in the engine, CLI, adapters, or hosted platform
+labels: ["bug", "triage"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        **Security issues do not go here.** If the bug could cause a case to
+        report a **wrong verdict**, or could **leak fixture content, a secret,
+        or un-redacted evidence**, stop and report it privately via the
+        [security advisory flow](https://github.com/ernestoalejowitt22/ReleaseTwin/security/advisories/new)
+        (see `SECURITY.md`).
+  - type: dropdown
+    id: surface
+    attributes:
+      label: Which surface
+      options:
+        - CLI
+        - Adapter (name it below)
+        - Engine (ReleaseTwin.Core / AdapterSdk)
+        - Hosted API
+        - Web app / dashboard
+        - Not sure
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: ReleaseTwin version / commit
+      placeholder: "e.g. v0.4.1, or the main commit SHA"
+    validations:
+      required: true
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened
+      description: The observed behavior, and what you expected instead. For a wrong verdict, name the verdict you got and the one you expected.
+    validations:
+      required: true
+  - type: textarea
+    id: repro
+    attributes:
+      label: Steps to reproduce
+      value: |
+        1.
+        2.
+        3.
+    validations:
+      required: true
+  - type: textarea
+    id: case
+    attributes:
+      label: Minimal case / config
+      description: The smallest case file or config that shows it. Redact secrets and real data.
+      render: yaml
+  - type: input
+    id: runtime
+    attributes:
+      label: OS and .NET SDK / Node version
+      placeholder: "e.g. macOS 15, .NET 10.0.100  —  or  Ubuntu 24.04, Node 22"
+  - type: dropdown
+    id: hosting
+    attributes:
+      label: Self-hosted engine only, or using the hosted platform
+      options:
+        - Engine / CLI only (no hosted account)
+        - Hosted platform (dashboard + evidence)
+    validations:
+      required: true
+  - type: textarea
+    id: logs
+    attributes:
+      label: Logs / output
+      description: CLI output, stack traces, or API error bodies. Redact tokens and secrets.
+      render: text
+  - type: checkboxes
+    id: not-security
+    attributes:
+      label: Confirmation
+      options:
+        - label: This is not a security issue — it does not cause a wrong verdict or leak a fixture, secret, or un-redacted evidence. (If it does, use the security advisory flow instead.)
+          required: true
