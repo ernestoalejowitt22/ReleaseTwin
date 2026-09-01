@@ -82,6 +82,37 @@ vendor dashboards / GitHub settings. There is no code path to set them; tasks.md
 lists each with the exact value and location. `Api__PublicUrl` already
 self-heals from `terraform output function_url`, so it needs only verification.
 
+### DNS records are Terraform-managed, not emitted as outputs
+The proposal assumed the domain would be at an arbitrary registrar, so the SES
+DKIM / MAIL FROM records would be Terraform *outputs* the user pastes into a
+registrar panel. Registering through Route 53 Domains changes that: the hosted
+zone is in the same AWS account Terraform already drives, so
+`hosted/terraform/dns-and-email.tf` looks the zone up with a
+`data "aws_route53_zone"` and manages the DKIM CNAMEs, `_amazonses`
+verification TXT, custom MAIL FROM (MX + SPF), and DMARC as `aws_route53_record`
+resources directly — the CLAUDE.md "code over standing manual config" rule.
+The zone itself is a data lookup, not a managed resource: Route 53 Domains
+auto-creates it at registration and a second `aws_route53_zone` for the same
+name would create a detached duplicate.
+
+### Deploy role needs new permissions — bootstrap change ships in the same PR
+The `releasetwin-github-actions-deploy` role is strictly resource-scoped and had
+no SES or Route 53 access. `hosted/terraform-bootstrap/main.tf` gains a
+`SesDomainIdentity` (`ses:*` on `*` — SES v1 identity APIs are account-global and
+take no resource constraint; the *send* permission on the function stays pinned
+to the one identity ARN) and a `Route53Records` statement. `bootstrap.yml` and
+`deploy-hosted.yml` both auto-apply on merge; a first-run race where deploy
+beats bootstrap is fixed by re-running deploy (incremental apply). This is the
+pattern `deploy-hosted.yml`'s own header comment already documents.
+
+### The whole SES/DNS block is gated on `domain_name`
+Empty `domain_name` ⇒ no zone lookup, no identity, no records, no IAM statement —
+and `notifications_from_address` empty ⇒ `LoggingInvitationEmailSender` stays
+bound. So merging is a guaranteed no-op; the user flips `DOMAIN_NAME` then
+`NOTIFICATIONS_FROM_ADDRESS` repo vars to activate it in two deliberate steps.
+An SES domain identity is an account+region singleton, so only one stack may set
+`domain_name` (today: the `releasetwin-dev-` auto-deploy stack).
+
 ## Risks / Trade-offs
 
 - **SES starts in sandbox mode (only verified recipients).** → Request

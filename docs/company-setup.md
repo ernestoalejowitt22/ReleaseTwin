@@ -7,9 +7,9 @@ change. Fill each section in as the step completes.
 
 | Item | Value | Status |
 |---|---|---|
-| Domain | `releasetwin.com` | confirmed available 2026-08-31 — **not yet registered** |
-| Registrar | _TBD_ | |
-| DNS host | _TBD_ | |
+| Domain | `releasetwin.com` | **registered 2026-09-01 via Route 53 Domains** |
+| Registrar | AWS Route 53 Domains (account `846136340491`) | |
+| DNS host | Route 53 hosted zone (auto-created at registration) | Terraform manages records via `data "aws_route53_zone"` in `hosted/terraform/dns-and-email.tf` |
 
 ## Company email
 
@@ -30,19 +30,31 @@ already in the codebase; it is bound only when `Notifications:FromAddress` is
 set, otherwise `LoggingInvitationEmailSender` runs and the accept link is
 returned in the invite API response.
 
-Still to wire (blocked on the domain existing — tasks 3.1–3.6, 4.9):
+Wired in Terraform (`hosted/terraform/dns-and-email.tf` + `lambda.tf` +
+`terraform-bootstrap/main.tf`), all gated on the `domain_name` var:
 
-- `aws_ses_domain_identity` + `aws_ses_domain_dkim` for `releasetwin.com` in `hosted/terraform/` (new `ses.tf`).
-- DKIM CNAME + MAIL FROM records emitted as Terraform outputs, added at the registrar.
-- Scoped `ses:SendEmail` / `ses:SendRawEmail` statement on `aws_iam_role.hosted_api`, `Resource` = the identity ARN.
-- `notifications_from_address` Terraform variable (default `""`) → `Notifications__FromAddress` Lambda env var, same two-pass/empty-default pattern as `web_base_url` / `api_public_url`.
-- SES production-access request (out of sandbox) before invites go to arbitrary addresses.
+- `aws_ses_domain_identity` + `aws_ses_domain_dkim` + `aws_ses_domain_mail_from` for the domain.
+- `aws_route53_record` for the 3 DKIM CNAMEs, `_amazonses` verification TXT, MAIL FROM MX + SPF, and a `p=none` DMARC record — managed directly, no manual DNS entry.
+- Scoped `ses:SendEmail` statement on `aws_iam_role.hosted_api`, `Resource` = the identity ARN.
+- `notifications_from_address` var → `Notifications__FromAddress` Lambda env var (empty-default pattern).
+- Deploy-role permissions (`SesDomainIdentity`, `Route53Records`) added to bootstrap.
+
+Remaining user steps:
+
+1. Set repo var `DOMAIN_NAME` = `releasetwin.com` → triggers `deploy-hosted.yml`, which creates the identity + DNS records. Confirm `bootstrap.yml` ran first (re-run deploy if it raced).
+2. Wait for SES to verify the identity (async, off the DNS records — minutes to a few hours).
+3. Request **SES production access** (out of sandbox) — until then, only verified recipient addresses receive mail.
+4. Set repo var `NOTIFICATIONS_FROM_ADDRESS` = `no-reply@releasetwin.com` → binds `SesInvitationEmailSender`.
+5. Issue a real invitation to an external address; run a deliverability check (task 4.10, 4.11).
 
 | Item | Value | Status |
 |---|---|---|
-| `Notifications:FromAddress` | e.g. `no-reply@releasetwin.com` | not set — logging fallback active |
-| SES region | (inherits `Aws:Region`) | |
-| SES sandbox | | |
+| `DOMAIN_NAME` repo var | `releasetwin.com` | not set — SES/DNS resources dormant |
+| `NOTIFICATIONS_FROM_ADDRESS` repo var | e.g. `no-reply@releasetwin.com` | not set — logging fallback active |
+| SES region | inherits `Aws:Region` (`us-east-1`) | |
+| SES identity verification | | pending `DOMAIN_NAME` |
+| SES sandbox | in sandbox | production-access request pending |
+| Custom MAIL FROM | `mail.releasetwin.com` | pending `DOMAIN_NAME` |
 
 ## Auth / hosting identity
 
