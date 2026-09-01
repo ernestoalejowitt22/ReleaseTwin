@@ -234,6 +234,12 @@ dotnet run --project src/ReleaseTwin.Cli -- examples/cases
 
 Uploads happen automatically after each case; a failed upload prints a warning but never changes the case's own pass/fail result or the CLI's exit code.
 
+## Support
+
+Bugs and feature ideas → [GitHub issues](https://github.com/ernestoalejowitt22/ReleaseTwin/issues/new/choose).
+Security → [private advisory](https://github.com/ernestoalejowitt22/ReleaseTwin/security/advisories/new).
+Account, billing, or a pilot → email. Full routing in [`SUPPORT.md`](SUPPORT.md).
+
 ## What's not built yet
 
 Deliberately deferred, not forgotten — each was a scoped decision, not an oversight:
