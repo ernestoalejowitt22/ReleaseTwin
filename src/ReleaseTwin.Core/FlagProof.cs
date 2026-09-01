@@ -22,6 +22,9 @@ public enum FlagProofOutcome
 
     /// <summary>The required feature-state control capability was unavailable; neither leg ran.</summary>
     Ineligible,
+
+    /// <summary>The feature-state control request failed; the run could not be performed.</summary>
+    ControlFailed,
 }
 
 public sealed record FlagProofResult(
@@ -30,7 +33,8 @@ public sealed record FlagProofResult(
     string BuildIdentity,
     FlagProofOutcome Outcome,
     CaseReport? KnownBadLeg,
-    CaseReport? KnownGoodLeg);
+    CaseReport? KnownGoodLeg,
+    string? Message = null);
 
 /// <summary>
 /// evidence-capture: a flag-proof result plus the per-leg run evidence, produced only when the
@@ -85,11 +89,23 @@ public sealed class FlagProofRunner
             return new FlagProofExecutionResult(ineligible, null, null);
         }
 
-        await _featureStateController.SetStateAsync(featureKey, enabled: false, cancellationToken);
-        var knownBad = await _executor.ExecuteAsync(testCase, options, cancellationToken);
+        CaseExecutionResult knownBad;
+        CaseExecutionResult knownGood;
+        try
+        {
+            await _featureStateController.SetStateAsync(featureKey, enabled: false, cancellationToken);
+            knownBad = await _executor.ExecuteAsync(testCase, options, cancellationToken);
 
-        await _featureStateController.SetStateAsync(featureKey, enabled: true, cancellationToken);
-        var knownGood = await _executor.ExecuteAsync(testCase, options, cancellationToken);
+            await _featureStateController.SetStateAsync(featureKey, enabled: true, cancellationToken);
+            knownGood = await _executor.ExecuteAsync(testCase, options, cancellationToken);
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            var controlFailed = new FlagProofResult(
+                testCase.CaseId, testCase.Oracle, buildIdentity, FlagProofOutcome.ControlFailed, null, null,
+                $"feature-state control failed: {ex.Message}");
+            return new FlagProofExecutionResult(controlFailed, null, null);
+        }
 
         var outcome = (knownBad.Report.Passed, knownGood.Report.Passed) switch
         {

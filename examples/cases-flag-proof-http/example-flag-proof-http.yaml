@@ -1,0 +1,38 @@
+# HTTP flag-control demo: flag proof against a flag system with no dedicated adapter.
+#
+# The always-present HTTP adapter flips the flag over REST (flag_proof.control), and the
+# pipeline reads that same flag back — so the known-good leg (flag on) passes the
+# assertion and the known-bad leg (flag off) fails it: a clean `Passed`.
+#
+# Placeholder endpoint. Point ${FLAGS_API} at a REST flag API that:
+#   PUT  ${FLAGS_API}/flags/checkout-v2   { "state": "enabled" | "disabled" }
+#   GET  ${FLAGS_API}/flags/checkout-v2   -> { "state": "enabled" | "disabled" }
+# and set ${FLAGS_TOKEN}. Credentials resolve only from the environment (or this
+# project's hosted secrets) — never inline them here.
+id: FLAGPROOF-HTTP-DEMO-1
+oracle:
+  locator: tickets/FLAGPROOF-HTTP-DEMO-1
+fixture:
+  locator: example-flag-proof-http.json
+  sha256: b31419d04e4f3ec53e22db6da0d7347af49d11bed8efc891754ace6c154d1d27
+requires:
+  - http:generic
+pipeline:
+  - operation: http.request
+    with:
+      method: GET
+      url: ${FLAGS_API}/flags/checkout-v2
+  - operation: http.assertJsonPath
+    with:
+      path: $.state
+      expected: enabled
+flag_proof:
+  feature_key: checkout-v2
+  build_identity: orders@demo-1
+  control:
+    method: PUT
+    url: ${FLAGS_API}/flags/{{featureKey}}
+    headers:
+      Authorization: "Bearer ${FLAGS_TOKEN}"
+    body: '{ "state": "{{state}}" }'
+    known_bad_when: disabled
