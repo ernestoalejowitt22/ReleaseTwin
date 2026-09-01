@@ -45,7 +45,8 @@ them unchecked until the user confirms.
 ## 5. Auth / hosting identity re-pointing
 
 - [x] 5.0 Terraform the Vercel apex A (`216.198.79.1`) + `www` CNAME records in `hosted/terraform/web-dns.tf`, gated on `domain_name` (values from Vercel's DNS-configuration panel 2026-09-01)
-- [ ] 5.1 **Needs the user to run this** — add Clerk custom domain `clerk.releasetwin.com` in the production Clerk instance (Configure → Domains); send the CNAME records back to Terraform. **May require the Clerk Pro plan** — defer if gated.
+- [x] 5.1 Clerk production instance custom domain: 5 CNAMEs (`clerk`, `accounts`, `clkmail`, `clk._domainkey`, `clk2._domainkey`) Terraformed in `hosted/terraform/clerk-dns.tf`, gated on `domain_name`. **User still needs to:** finish the Clerk prod instance setup, grab the `pk_live_`/`sk_live_` keys, click Verify once DNS resolves, then set the Vercel env keys + `CLERK_DOMAIN` repo var (5.1b)
+- [ ] 5.1b **Needs the user to run this** — production Clerk keys into Vercel env (`NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY` = `pk_live_…`, `CLERK_SECRET_KEY` = `sk_live_…`, Production scope) + set `CLERK_DOMAIN` repo var to `clerk.releasetwin.com`; redeploy web + hosted API. Re-create the operator's own login on the prod instance (fresh user pool).
 - [ ] 5.2 **Needs the user to run this** — after DNS resolves and the site loads on `releasetwin.com`, set `NEXT_PUBLIC_SITE_URL` = `https://releasetwin.com` in **Vercel** → Settings → Environment Variables (Production), then redeploy
 - [ ] 5.3 **Needs the user to run this** — set the `WEB_BASE_URL` repo var (Actions → Variables) to `https://releasetwin.com` once 5.2 is live — it builds the invite accept link + notification deep links, so it must point at a domain that serves
 - [ ] 5.4 Verify `Api__PublicUrl` self-heals from `terraform output function_url` (no manual set needed) — confirm the value post-deploy
