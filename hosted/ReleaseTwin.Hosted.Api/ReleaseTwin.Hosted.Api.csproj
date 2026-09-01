@@ -24,6 +24,9 @@
     <PackageReference Include="Amazon.AspNetCore.DataProtection.SSM" Version="4.0.3" />
     <!-- operator-alerting: the daily staleness digest publishes to SNS. -->
     <PackageReference Include="AWSSDK.SimpleNotificationService" Version="4.0.100" />
+    <!-- company-and-domain-launch: SesInvitationEmailSender delivers org invites via SES v2, bound
+         only when Notifications:FromAddress is set. Same AWSSDK.Core v4 line as the SNS/S3 clients. -->
+    <PackageReference Include="AWSSDK.SimpleEmailV2" Version="4.0.0.11" />
     <!-- run-notifications: the ingest path enqueues a failure-notification message; a second Lambda
          (RELEASETWIN_LAMBDA_TASK=NotificationDispatch) drains the queue. v4 line, matching AWSSDK.Core. -->
     <PackageReference Include="AWSSDK.SQS" Version="4.0.0.13" />
