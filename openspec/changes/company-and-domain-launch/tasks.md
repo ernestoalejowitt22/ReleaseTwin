@@ -44,20 +44,22 @@ them unchecked until the user confirms.
 
 ## 5. Auth / hosting identity re-pointing
 
-- [ ] 5.1 **Needs the user to run this** — add Clerk custom domain `clerk.releasetwin.com` to the production Clerk instance; add the CNAME at the registrar
-- [ ] 5.2 **Needs the user to run this** — set `NEXT_PUBLIC_SITE_URL` = `https://releasetwin.com` in Vercel (prod)
-- [ ] 5.3 **Needs the user to run this** — set `WEB_BASE_URL` repo var to the real domain
+- [x] 5.0 Terraform the Vercel apex A (`216.198.79.1`) + `www` CNAME records in `hosted/terraform/web-dns.tf`, gated on `domain_name` (values from Vercel's DNS-configuration panel 2026-09-01)
+- [x] 5.1 Clerk production instance custom domain: 5 CNAMEs (`clerk`, `accounts`, `clkmail`, `clk._domainkey`, `clk2._domainkey`) Terraformed in `hosted/terraform/clerk-dns.tf`, gated on `domain_name`. **User still needs to:** finish the Clerk prod instance setup, grab the `pk_live_`/`sk_live_` keys, click Verify once DNS resolves, then set the Vercel env keys + `CLERK_DOMAIN` repo var (5.1b)
+- [ ] 5.1b **Needs the user to run this** — production Clerk keys into Vercel env (`NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY` = `pk_live_…`, `CLERK_SECRET_KEY` = `sk_live_…`, Production scope) + set `CLERK_DOMAIN` repo var to `clerk.releasetwin.com`; redeploy web + hosted API. Re-create the operator's own login on the prod instance (fresh user pool).
+- [ ] 5.2 **Needs the user to run this** — after DNS resolves and the site loads on `releasetwin.com`, set `NEXT_PUBLIC_SITE_URL` = `https://releasetwin.com` in **Vercel** → Settings → Environment Variables (Production), then redeploy
+- [ ] 5.3 **Needs the user to run this** — set the `WEB_BASE_URL` repo var (Actions → Variables) to `https://releasetwin.com` once 5.2 is live — it builds the invite accept link + notification deep links, so it must point at a domain that serves
 - [ ] 5.4 Verify `Api__PublicUrl` self-heals from `terraform output function_url` (no manual set needed) — confirm the value post-deploy
 - [ ] 5.5 **Needs the user to run this** — submit `releasetwin.com` to Google Search Console
-- [ ] 5.6 Sweep `git grep` for any remaining `vercel.app` / `clerk.accounts.dev` / `classic-marlin` literals in `web/` and docs; replace with the constant or the real domain
+- [x] 5.6 Literal sweep: app code already reads `SITE_URL` / `CLERK_DOMAIN` from env — no hard-coded `vercel.app` / `clerk.accounts.dev` in `web/` app code. Contact emails routed through `web/src/lib/site.ts` constants. Remaining stale refs are `docs/billing-sandbox-runbook.md` + root `SECURITY.md` (both wait on the domain addresses existing)
 
 ## 6. Legal entity
 
 - [ ] 6.1 **Needs the user to run this** — form the US LLC (Stripe Atlas or registered agent)
 - [ ] 6.2 **Needs the user to run this** — obtain the EIN; record the registered legal name
 - [ ] 6.3 Set `LEGAL_ENTITY` and `LEGAL_CONTACT_EMAIL` in `web/src/lib/site.ts` to the LLC name and `legal@releasetwin.com`
-- [ ] 6.4 Migrate the hard-coded `mailto:ernestoalejo22@gmail.com` links on the security and pricing pages to reference `LEGAL_CONTACT_EMAIL` / `hello@` / `security@`
-- [ ] 6.5 `git grep -i ernestoalejo22@gmail.com` in `web/` and public docs returns nothing
+- [x] 6.4 Security + pricing pages now reference `SECURITY_CONTACT_EMAIL` / `CONTACT_EMAIL` from `web/src/lib/site.ts` instead of a hard-coded `mailto:` — values still the gmail until 6.3
+- [ ] 6.5 `git grep -i ernestoalejo22@gmail.com` in `web/` returns only `site.ts` (the single swap point); root `SECURITY.md` still to update when `security@releasetwin.com` works
 - [ ] 6.6 **Needs the user to run this** — IP ownership doc: assign the codebase/brand to the LLC
 - [ ] 6.7 **Needs the user to run this** — legal review of the AGPL-3.0 + Adapter Linking Exception + BSL 1.1 stack
 - [ ] 6.8 `next build` + `npx eslint` green after the `site.ts` / page edits
