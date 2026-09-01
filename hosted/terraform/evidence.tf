@@ -32,6 +32,27 @@ resource "aws_s3_bucket_server_side_encryption_configuration" "evidence_blobs" {
   }
 }
 
+# data-export: built export archives are PUT under exports/<orgId>/... and downloaded once via a
+# 1-hour presigned URL — they are transient, not storage. This rule expires ONLY that prefix; the
+# screenshot blobs (bare 32-hex keys, no prefix) are untouched, so the "the app owns deletion
+# timing" contract above still holds.
+resource "aws_s3_bucket_lifecycle_configuration" "evidence_blobs_exports" {
+  bucket = aws_s3_bucket.evidence_blobs.id
+
+  rule {
+    id     = "expire-data-exports"
+    status = "Enabled"
+
+    filter {
+      prefix = "exports/"
+    }
+
+    expiration {
+      days = 7
+    }
+  }
+}
+
 # --- Purge Lambda: a second deployable sharing the HTTP function's artifact --------------------------
 #
 # alerting.tf's staleness digest explains the pattern: AddAWSLambdaHosting marshals every invocation
