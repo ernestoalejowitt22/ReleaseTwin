@@ -1,0 +1,68 @@
+name: LD HTTP flag-control e2e
+
+# flag-control-verify-ld-e2e: the one real-endpoint proof of the vendor-neutral
+# `flag_proof.control` / `control.verify` path — drives the real CLI against a real LaunchDarkly
+# flag over LD's REST API (no `ld.*` adapter) and asserts a real `FLAGPROOF … (Passed)`.
+# Closes `flag-proof-control-readback` task 6.3.
+#
+# Nightly + on-demand only. NOT a branch-protection required check: a third-party API being down
+# should surface as a nightly failure to investigate, not a blocked PR (design.md D4).
+#
+# Required repo configuration (set once — see the change's tasks.md 4.3):
+#   vars.AWS_E2E_ROLE_ARN               ARN of `releasetwin-github-actions-e2e`
+#                                       (terraform-bootstrap output `github_actions_e2e_role_arn`),
+#                                       trusts this repo's OIDC, may GetSecretValue on
+#                                       releasetwin/e2e/*.
+#   secrets.E2E_CLERK_PUBLISHABLE_KEY   Clerk test instance (pk_test_…)
+#   secrets.E2E_CLERK_SECRET_KEY        Clerk test instance (sk_test_…)
+#   secrets.E2E_CLERK_DOMAIN            Clerk Frontend API domain (<slug>.clerk.accounts.dev)
+#   vars.E2E_TEST_USER_EMAIL            the +clerk_test@ address the suite signs in as
+#
+# The hosted API runs in-memory here (no Aws:Region / DynamoDb:ServiceUrl set), so the only AWS
+# access this job needs is reading the LaunchDarkly e2e secret via the scoped OIDC role.
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "0 7 * * *" # ~07:00 UTC nightly
+
+permissions:
+  id-token: write # OIDC token exchanged for AWS credentials
+  contents: read
+
+concurrency:
+  group: ld-http-flag-control-e2e
+  cancel-in-progress: false
+
+jobs:
+  ld-http-flag-control:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ vars.AWS_E2E_ROLE_ARN }}
+          aws-region: us-east-1
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "8.0.x"
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+
+      - name: Install web deps
+        working-directory: web
+        run: npm ci
+
+      - name: Run the LD HTTP flag-control e2e spec
+        working-directory: web
+        run: npm run e2e:ld-http
+        env:
+          NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY: ${{ secrets.E2E_CLERK_PUBLISHABLE_KEY }}
+          CLERK_SECRET_KEY: ${{ secrets.E2E_CLERK_SECRET_KEY }}
+          CLERK_DOMAIN: ${{ secrets.E2E_CLERK_DOMAIN }}
+          CYPRESS_E2E_TEST_USER_EMAIL: ${{ vars.E2E_TEST_USER_EMAIL }}

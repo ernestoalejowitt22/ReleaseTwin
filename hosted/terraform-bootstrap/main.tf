@@ -309,3 +309,31 @@ resource "aws_iam_role_policy" "github_actions_deploy" {
 output "github_actions_role_arn" {
   value = aws_iam_role.github_actions_deploy.arn
 }
+
+# flag-control-verify-ld-e2e design.md D3: a separate role for the nightly / on-demand e2e
+# workflow, trusting the same OIDC provider + repo `sub` conditions as the deploy role but with a
+# single read-only permission — GetSecretValue on the e2e test secrets only. Kept apart from the
+# deploy role so a leaked e2e-job token can't touch `releasetwin-dev-*` infra.
+resource "aws_iam_role" "github_actions_e2e" {
+  name               = "releasetwin-github-actions-e2e"
+  assume_role_policy = data.aws_iam_policy_document.github_actions_assume_role.json
+}
+
+data "aws_iam_policy_document" "github_actions_e2e_permissions" {
+  statement {
+    sid       = "ReadE2ETestSecrets"
+    effect    = "Allow"
+    actions   = ["secretsmanager:GetSecretValue"]
+    resources = ["arn:aws:secretsmanager:${var.region}:846136340491:secret:releasetwin/e2e/*"]
+  }
+}
+
+resource "aws_iam_role_policy" "github_actions_e2e" {
+  name   = "e2e-secret-reads"
+  role   = aws_iam_role.github_actions_e2e.id
+  policy = data.aws_iam_policy_document.github_actions_e2e_permissions.json
+}
+
+output "github_actions_e2e_role_arn" {
+  value = aws_iam_role.github_actions_e2e.arn
+}

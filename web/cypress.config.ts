@@ -213,6 +213,73 @@ export default defineConfig({
           return { casesDir };
         },
 
+        // flag-control-verify-ld-e2e 1.1: writes a throwaway flag-proof case whose `control` /
+        // `control.verify` blocks drive LaunchDarkly's REST API directly (no `ld.*` adapter) —
+        // toggling a real flag with a JSON Patch PATCH and reading it back. `${LD_API_TOKEN}` /
+        // `${LD_PROJECT_KEY}` resolve from hosted project secrets; the environment key is baked in
+        // literally, because JSONPath expressions (`json_path`, the Patch `path`) are not
+        // env-interpolated. The pipeline reads the same flag back and asserts it is `on`, so the
+        // known-bad leg (flag off) fails and the known-good leg (flag on) passes → deterministic
+        // `Passed` regardless of the flag's prior value.
+        async writeHttpFlagControlCase({
+          directory,
+          caseId,
+          flagKey,
+          environmentKey,
+        }: {
+          directory: string;
+          caseId: string;
+          flagKey: string;
+          environmentKey: string;
+        }) {
+          const fs = await import("node:fs/promises");
+          const casesDir = path.join(directory, "cases");
+          const fixturesDir = path.join(directory, "fixtures");
+          await fs.mkdir(casesDir, { recursive: true });
+          await fs.mkdir(fixturesDir, { recursive: true });
+
+          await fs.writeFile(path.join(fixturesDir, `${caseId}.json`), "{}\n");
+
+          const flagUrl = `https://app.launchdarkly.com/api/v2/flags/\${LD_PROJECT_KEY}/{{featureKey}}`;
+          const yaml = [
+            `id: ${caseId}`,
+            "oracle:",
+            `  locator: tickets/${caseId}`,
+            "fixture:",
+            `  locator: ${caseId}.json`,
+            "pipeline:",
+            "  - operation: http.request",
+            "    with:",
+            "      method: GET",
+            `      url: https://app.launchdarkly.com/api/v2/flags/\${LD_PROJECT_KEY}/${flagKey}`,
+            "      headers:",
+            "        Authorization: ${LD_API_TOKEN}",
+            "  - operation: http.assertJsonPath",
+            "    with:",
+            `      path: $.environments.${environmentKey}.on`,
+            "      expected: true",
+            "flag_proof:",
+            `  feature_key: ${flagKey}`,
+            `  build_identity: ${caseId}-build`,
+            "  control:",
+            "    method: PATCH",
+            `    url: ${flagUrl}`,
+            "    headers:",
+            "      Authorization: ${LD_API_TOKEN}",
+            "      Content-Type: application/json",
+            `    body: '[{"op":"replace","path":"/environments/${environmentKey}/on","value":{{enabled}}}]'`,
+            "    verify:",
+            "      method: GET",
+            `      url: ${flagUrl}`,
+            `      json_path: $.environments.${environmentKey}.on`,
+            `      expected: "{{enabled}}"`,
+            "",
+          ].join("\n");
+          await fs.writeFile(path.join(casesDir, `${caseId}.yaml`), yaml);
+
+          return { casesDir };
+        },
+
         // hosted-project-secrets 7.2: writes a throwaway case referencing `${varName}` in its URL,
         // with no matching local environment variable — the point is forcing CliRunner's hosted
         // project-secrets fetch to be the only thing that can resolve it.
