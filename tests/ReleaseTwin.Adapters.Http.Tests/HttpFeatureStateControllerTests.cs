@@ -187,4 +187,120 @@ public class HttpFeatureStateControllerTests
         await controller.SetStateAsync("checkout-v2", enabled: false, CancellationToken.None);
         Assert.Equal(2, handler.Calls.Count);
     }
+
+    /// <summary>Answers a token endpoint (POST to a URL containing "/token") with a scripted status +
+    /// body, and every other request with 200. Records each call's form fields or Authorization.</summary>
+    private sealed class AuthThenControlHandler : HttpMessageHandler
+    {
+        private readonly HttpStatusCode _tokenStatus;
+        private readonly string _tokenBody;
+        public List<(string Method, string Url, string? Auth, string? Body)> Calls { get; } = new();
+
+        public AuthThenControlHandler(HttpStatusCode tokenStatus, string tokenBody)
+        {
+            _tokenStatus = tokenStatus;
+            _tokenBody = tokenBody;
+        }
+
+        protected override async Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
+        {
+            var auth = request.Headers.TryGetValues("Authorization", out var values) ? string.Join(",", values) : null;
+            var body = request.Content is null ? null : await request.Content.ReadAsStringAsync(cancellationToken);
+            Calls.Add((request.Method.Method, request.RequestUri!.ToString(), auth, body));
+
+            var isToken = request.RequestUri!.AbsolutePath.Contains("/token");
+            return isToken
+                ? new HttpResponseMessage(_tokenStatus) { Content = new StringContent(_tokenBody, Encoding.UTF8, "application/json") }
+                : new HttpResponseMessage(HttpStatusCode.OK) { Content = new StringContent("{}", Encoding.UTF8, "application/json") };
+        }
+    }
+
+    private static HttpFeatureStateController BuildWithAuth(HttpClient client, string? scope = "api://flags/.default") => new(
+        client,
+        featureKey: "checkout-v2",
+        method: "PUT",
+        urlTemplate: "https://flags.example/flags/{{featureKey}}",
+        headerTemplates: new Dictionary<string, string> { ["Authorization"] = "Bearer {{token}}" },
+        bodyTemplate: "{ \"state\": \"{{state}}\" }",
+        knownBadWhenDisabled: true,
+        auth: new HttpFlagAuth(
+            "https://login.example/tenant/oauth2/v2.0/token",
+            "client-abc",
+            "s3cr3t",
+            scope));
+
+    [Fact]
+    public async Task AuthMintsTokenPerLegAndSubstitutesIntoControlRequest()
+    {
+        var handler = new AuthThenControlHandler(HttpStatusCode.OK, "{ \"access_token\": \"minted-xyz\" }");
+        using var client = new HttpClient(handler);
+        var controller = BuildWithAuth(client);
+
+        await controller.SetStateAsync("checkout-v2", enabled: false, CancellationToken.None);
+        await controller.SetStateAsync("checkout-v2", enabled: true, CancellationToken.None);
+
+        // token endpoint hit before each leg's control request: token, control, token, control
+        Assert.Equal(4, handler.Calls.Count);
+        Assert.Contains("/token", handler.Calls[0].Url);
+        Assert.Contains("grant_type=client_credentials", handler.Calls[0].Body);
+        Assert.Contains("client_id=client-abc", handler.Calls[0].Body);
+        Assert.Contains("scope=api", handler.Calls[0].Body);
+        Assert.Equal("PUT", handler.Calls[1].Method);
+        Assert.Equal("Bearer minted-xyz", handler.Calls[1].Auth);
+        Assert.Equal("Bearer minted-xyz", handler.Calls[3].Auth);
+    }
+
+    [Fact]
+    public async Task AuthOmitsScopeFromFormWhenNotDeclared()
+    {
+        var handler = new AuthThenControlHandler(HttpStatusCode.OK, "{ \"access_token\": \"minted-xyz\" }");
+        using var client = new HttpClient(handler);
+        var controller = BuildWithAuth(client, scope: null);
+
+        await controller.SetStateAsync("checkout-v2", enabled: false, CancellationToken.None);
+
+        Assert.DoesNotContain("scope=", handler.Calls[0].Body);
+    }
+
+    [Fact]
+    public async Task AuthTokenEndpointFailureThrowsFlagControlExceptionWithoutLeakingSecret()
+    {
+        var handler = new AuthThenControlHandler(HttpStatusCode.Unauthorized, "{ \"error\": \"invalid_client\", \"secret_echo\": \"s3cr3t\" }");
+        using var client = new HttpClient(handler);
+        var controller = BuildWithAuth(client);
+
+        var ex = await Assert.ThrowsAsync<FlagControlException>(
+            () => controller.SetStateAsync("checkout-v2", enabled: false, CancellationToken.None));
+
+        Assert.Contains("401", ex.Message);
+        Assert.DoesNotContain("s3cr3t", ex.Message);
+        Assert.Single(handler.Calls); // control request never sent
+    }
+
+    [Fact]
+    public async Task AuthResponseWithoutAccessTokenThrowsFlagControlException()
+    {
+        var handler = new AuthThenControlHandler(HttpStatusCode.OK, "{ \"token_type\": \"Bearer\" }");
+        using var client = new HttpClient(handler);
+        var controller = BuildWithAuth(client);
+
+        var ex = await Assert.ThrowsAsync<FlagControlException>(
+            () => controller.SetStateAsync("checkout-v2", enabled: false, CancellationToken.None));
+
+        Assert.Contains("access_token", ex.Message);
+        Assert.Single(handler.Calls);
+    }
+
+    [Fact]
+    public async Task NoAuthSectionSendsNoTokenRequest()
+    {
+        var handler = new AuthThenControlHandler(HttpStatusCode.OK, "{}");
+        using var client = new HttpClient(handler);
+        var controller = Build(client, knownBadWhenDisabled: true);
+
+        await controller.SetStateAsync("checkout-v2", enabled: false, CancellationToken.None);
+
+        Assert.Single(handler.Calls);
+        Assert.Equal("PUT", handler.Calls[0].Method);
+    }
 }

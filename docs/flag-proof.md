@@ -63,6 +63,32 @@ flag is **off** — so the known-bad leg drives it off and the known-good leg dr
 on. Set `known_bad_when: enabled` when the flag *is* the bug (a half-built feature
 behind it) and the safe state is off.
 
+### Flag APIs behind Entra ID / org OAuth (`control.auth`)
+
+When the toggle endpoint is gated by Microsoft Entra ID (or any OAuth2
+client-credentials flow), add an `auth` block. Before the control request for
+**each leg**, the HTTP adapter performs a client-credentials exchange against the
+token endpoint and substitutes the resulting token for `{{token}}`:
+
+```yaml
+    auth:
+      oauth2_client_credentials:
+        token_url: https://login.microsoftonline.com/${AZURE_TENANT_ID}/oauth2/v2.0/token
+        client_id: ${FLAGS_CLIENT_ID}
+        client_secret: ${FLAGS_CLIENT_SECRET}
+        scope: ${FLAGS_SCOPE}          # optional; e.g. api://<app>/.default
+    headers:
+      Authorization: "Bearer {{token}}"
+```
+
+`${VAR}` resolves at case-load time as everywhere else — the client secret is
+never in the file. A failed token exchange (non-2xx, unreachable, or a response
+with no `access_token`) ends the run as `ControlFailed`, the same as a rejected
+toggle; the leg does not run. See
+[`docs/enterprise-access.md`](enterprise-access.md) for the full enterprise
+(VPN + org SSO) picture and
+`examples/cases/enterprise/example-flag-proof-http-entra.yaml`.
+
 ### Reading the flag back (`control.verify`)
 
 A toggle endpoint that returns `200` but silently ignores the request — wrong key,

@@ -23,7 +23,20 @@ public sealed record FlagProofControl(
     IReadOnlyDictionary<string, string> Headers,
     string? Body,
     FlagProofPolarity Polarity,
-    FlagProofControlVerify? Verify = null);
+    FlagProofControlVerify? Verify = null,
+    FlagProofControlAuth? Auth = null);
+
+/// <summary>
+/// http-flag-control: an optional OAuth2 client-credentials exchange performed before the control
+/// request for each leg, so a flag API gated by Entra ID / org OAuth is reachable. The captured
+/// access token is substituted for <c>{{token}}</c> in the control request. <c>${ENV_VAR}</c> is
+/// already resolved (load time); the case file holds only references, never a literal secret.
+/// </summary>
+public sealed record FlagProofControlAuth(
+    string TokenUrl,
+    string ClientId,
+    string ClientSecret,
+    string? Scope);
 
 /// <summary>
 /// http-flag-control: an optional read-back performed after the control request and before the leg,
