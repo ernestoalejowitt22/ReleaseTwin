@@ -35,5 +35,5 @@
 
 - [x] 6.1 `dotnet build ReleaseTwin.sln` (0 errors) + `dotnet test ReleaseTwin.sln` green: 228 passed, 0 failed. Delta +9: Core +2 (`ControlFailed`), Http +3 (`HttpFeatureStateController`), Cli +4 (case-load + integration).
 - [x] 6.2 `openspec validate flag-proof-http-control --strict` — valid.
-- [ ] 6.3 CI green on the branch.
+- [x] 6.3 CI green on the branch — PR #61, all checks pass (build-and-test, release-proof, annotate, gitleaks, Vercel).
 - [ ] 6.4 **Needs the user to run this:** point `example-flag-proof-http.yaml` at a real flag toggle (a throwaway LaunchDarkly REST call, a Flagsmith/Unleash sandbox, or a tiny self-hosted endpoint) and confirm a real `Passed` and a real `ControlFailed`.
