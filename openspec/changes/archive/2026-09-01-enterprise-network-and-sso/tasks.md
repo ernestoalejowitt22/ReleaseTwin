@@ -31,7 +31,7 @@
 
 - [x] 5.1 `dotnet build ReleaseTwin.sln` clean; `dotnet test ReleaseTwin.sln` green — 253 passed, 0 failed (Core 49, Http 29, LaunchDarkly 5, AzureDevOps 12, AdapterSdk 10, Cli 135, Ui 13)
 - [x] 5.2 `openspec validate enterprise-network-and-sso --strict` passes
-- [ ] 5.3 After approval, sync `enterprise-access` (new main spec) and the `http-flag-control` delta into `openspec/specs/` — **do at archive time, not now**
+- [x] 5.3 Synced `enterprise-access` (new main spec) and the `http-flag-control` delta into `openspec/specs/` at archive time
 
 ## 6. Deferred (not this change — see design Open Questions)
 
