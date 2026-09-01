@@ -36,4 +36,4 @@
 
 - [x] 7.1 `web` build clean: `npm run build` + `npx eslint` in `web/` (the new spec + config task compile).
 - [x] 7.2 `openspec validate flag-control-verify-ld-e2e --strict` passes.
-- [ ] 7.3 **Needs the user to run this (needs AWS + LD):** locally, with an AWS session that can read `releasetwin/e2e/launchdarkly-account`, run `npm run e2e:ld-http` and confirm a real `FLAGPROOF … (Passed)`. Then trigger the workflow via `workflow_dispatch` once and confirm it's green.
+- [ ] 7.3 **Needs the user to run this (needs AWS + LD) — DEFERRED 2026-09-01:** create the boolean flag `e2e.http-flag-control` in the ReleaseTwin e2e LD project (the one in `releasetwin/e2e/launchdarkly-account`), then with an AWS session that can read that secret run `npm run e2e:ld-http` and confirm a real `FLAGPROOF … (Passed)`. Then set the `AWS_E2E_ROLE_ARN` repo variable (`arn:aws:iam::846136340491:role/releasetwin-github-actions-e2e` — role already applied by the bootstrap run on the #66 merge) and trigger the workflow via `workflow_dispatch` once. Deferred at the user's request; not blocking anything on `main`.
