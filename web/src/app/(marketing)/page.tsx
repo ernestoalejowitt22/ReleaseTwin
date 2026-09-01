@@ -99,7 +99,7 @@ export default async function LandingPage() {
       <section className="mx-auto flex w-full max-w-5xl flex-col items-center gap-6 px-6 py-20 text-center">
         <h1 className="text-4xl font-bold tracking-tight sm:text-5xl">ReleaseTwin</h1>
         <p className="max-w-xl text-lg text-muted-foreground">
-          Self-serve release-proof testing. Sign in to get an API token and see
+          Self-serve release-proof testing. Sign up to get an API token and see
           your uploaded run history.
         </p>
         <div className="flex flex-wrap items-center justify-center gap-3">
@@ -107,7 +107,7 @@ export default async function LandingPage() {
             {userId ? (
               <Link href="/dashboard">Go to dashboard</Link>
             ) : (
-              <Link href="/sign-in">Sign in to get started</Link>
+              <Link href="/sign-up">Get started free</Link>
             )}
           </Button>
           <Button asChild size="lg" variant="outline">

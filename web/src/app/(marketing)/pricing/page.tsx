@@ -35,7 +35,7 @@ const TIER_META: Record<
 > = {
   free: {
     blurb: "Run cases and land results on a dashboard.",
-    cta: { label: "Create an account", href: "/sign-in", variant: "default" },
+    cta: { label: "Create an account", href: "/sign-up", variant: "default" },
   },
   team: {
     blurb: "Unlimited projects and the full evidence trail.",
@@ -105,7 +105,7 @@ export default function PricingPage() {
                     {meta.cta.external ? (
                       <a href={meta.cta.href}>{meta.cta.label}</a>
                     ) : (
-                      <Link href={meta.cta.href as "/sign-in"}>{meta.cta.label}</Link>
+                      <Link href={meta.cta.href as "/sign-in" | "/sign-up"}>{meta.cta.label}</Link>
                     )}
                   </Button>
                   {price.placeholder ? (
