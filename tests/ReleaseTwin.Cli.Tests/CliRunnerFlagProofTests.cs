@@ -238,6 +238,81 @@ public class CliRunnerFlagProofTests
         Assert.NotEqual(0, exitCode);
     }
 
+    // Scenario: control accepted (2xx) but the read-back shows the flag never changed -> ControlUnverified.
+    [Fact]
+    public async Task FlagProofCaseWithUnreflectedToggleReportsControlUnverified()
+    {
+        var root = CreateWorkspace();
+        WriteHttpControlCaseWithVerify(root, "HFP-3");
+        var output = new StringWriter();
+
+        var exitCode = await new CliRunner().RunAsync(
+            Path.Combine(root, "cases"), new Dictionary<string, string?> { ["FLAGS_TOKEN"] = "s3cret" }, output,
+            httpAdapterHandlerForTesting: new ToggleIgnoringFlagHandler());
+
+        var text = output.ToString();
+        Assert.Contains("FLAGPROOF HFP-3 (ControlUnverified)", text);
+        Assert.DoesNotContain("WeakOracle", text);
+        Assert.NotEqual(0, exitCode);
+    }
+
+    private static void WriteHttpControlCaseWithVerify(string root, string caseId)
+    {
+        File.WriteAllText(Path.Combine(root, "fixtures", $"{caseId}.json"), "{}");
+        var yaml = """
+            id: __ID__
+            oracle:
+              locator: t/__ID__
+            fixture:
+              locator: __ID__.json
+            pipeline:
+              - operation: http.request
+                with:
+                  url: https://api.example/checkout
+              - operation: http.assertJsonPath
+                with:
+                  path: $.status
+                  expected: live
+            flag_proof:
+              feature_key: checkout-v2
+              build_identity: build-123
+              control:
+                method: PUT
+                url: https://flags.example/flags/{{featureKey}}
+                headers:
+                  Authorization: "Bearer ${FLAGS_TOKEN}"
+                body: '{"state":"{{state}}"}'
+                verify:
+                  url: https://flags.example/flags/{{featureKey}}
+                  json_path: $.enabled
+                  expected: "{{enabled}}"
+            """.Replace("__ID__", caseId);
+        File.WriteAllText(Path.Combine(root, "cases", $"{caseId}.yaml"), yaml);
+    }
+
+    /// <summary>Accepts every toggle with 200 but never actually flips the flag; the read-back
+    /// always reports it disabled, so the known-good leg's state can never be confirmed.</summary>
+    private sealed class ToggleIgnoringFlagHandler : HttpMessageHandler
+    {
+        protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
+        {
+            var uri = request.RequestUri!.ToString();
+            if (uri.Contains("flags.example"))
+            {
+                var payload = request.Method == HttpMethod.Get ? "{\"enabled\":false}" : "{}";
+                return Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK)
+                {
+                    Content = new StringContent(payload, System.Text.Encoding.UTF8, "application/json"),
+                });
+            }
+
+            return Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK)
+            {
+                Content = new StringContent("{\"status\":\"broken\"}", System.Text.Encoding.UTF8, "application/json"),
+            });
+        }
+    }
+
     private static void WriteHttpControlCase(string root, string caseId)
     {
         File.WriteAllText(Path.Combine(root, "fixtures", $"{caseId}.json"), "{}");

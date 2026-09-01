@@ -6,6 +6,19 @@ public interface IFeatureStateController
     Task SetStateAsync(string featureKey, bool enabled, CancellationToken cancellationToken);
 }
 
+/// <summary>
+/// Raised by a feature-state controller when a state change was accepted by the flag system but a
+/// post-change read-back showed the feature did not actually reach the intended state. Distinct
+/// from a failed control request: the toggle silently did nothing rather than erroring.
+/// </summary>
+public sealed class FlagStateUnverifiedException : Exception
+{
+    public FlagStateUnverifiedException(string message, Exception? inner = null)
+        : base(message, inner)
+    {
+    }
+}
+
 public enum FlagProofOutcome
 {
     /// <summary>Known-bad failed and known-good passed: the oracle correctly discriminates.</summary>
@@ -25,6 +38,12 @@ public enum FlagProofOutcome
 
     /// <summary>The feature-state control request failed; the run could not be performed.</summary>
     ControlFailed,
+
+    /// <summary>
+    /// The feature-state control request was accepted, but a post-toggle read-back showed the
+    /// feature did not reach the intended state; neither leg ran under a confirmed state.
+    /// </summary>
+    ControlUnverified,
 }
 
 public sealed record FlagProofResult(
@@ -91,13 +110,22 @@ public sealed class FlagProofRunner
 
         CaseExecutionResult knownBad;
         CaseExecutionResult knownGood;
+        var leg = "known-bad";
         try
         {
             await _featureStateController.SetStateAsync(featureKey, enabled: false, cancellationToken);
             knownBad = await _executor.ExecuteAsync(testCase, options, cancellationToken);
 
+            leg = "known-good";
             await _featureStateController.SetStateAsync(featureKey, enabled: true, cancellationToken);
             knownGood = await _executor.ExecuteAsync(testCase, options, cancellationToken);
+        }
+        catch (FlagStateUnverifiedException ex)
+        {
+            var unverified = new FlagProofResult(
+                testCase.CaseId, testCase.Oracle, buildIdentity, FlagProofOutcome.ControlUnverified, null, null,
+                $"feature-state control was accepted but the {leg} state could not be confirmed: {ex.Message}");
+            return new FlagProofExecutionResult(unverified, null, null);
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
         {

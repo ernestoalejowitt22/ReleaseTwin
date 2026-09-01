@@ -22,7 +22,23 @@ public sealed record FlagProofControl(
     string Url,
     IReadOnlyDictionary<string, string> Headers,
     string? Body,
-    FlagProofPolarity Polarity);
+    FlagProofPolarity Polarity,
+    FlagProofControlVerify? Verify = null);
+
+/// <summary>
+/// http-flag-control: an optional read-back performed after the control request and before the leg,
+/// confirming the flag actually reached the intended state. <c>${ENV_VAR}</c> is already resolved
+/// (load time); <c>{{featureKey}}</c> / <c>{{state}}</c> / <c>{{enabled}}</c> are substituted per
+/// leg by the controller, including inside <c>Expected</c>. A null <c>Headers</c> means "reuse the
+/// control block's headers".
+/// </summary>
+public sealed record FlagProofControlVerify(
+    string Method,
+    string Url,
+    IReadOnlyDictionary<string, string>? Headers,
+    string? Body,
+    string JsonPath,
+    string Expected);
 
 /// <summary>A feature key and build identity a case wants toggled for a flag-proof run, and optionally
 /// how to toggle it over HTTP when no adapter provides a feature-state controller.</summary>

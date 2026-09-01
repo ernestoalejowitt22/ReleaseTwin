@@ -321,7 +321,52 @@ public sealed class CaseFileLoader
             Env(dto.Url),
             headers,
             dto.Body is null ? null : Env(dto.Body),
-            polarity);
+            polarity,
+            ResolveFlagProofControlVerify(fileName, dto.Verify, Env));
+    }
+
+    private static FlagProofControlVerify? ResolveFlagProofControlVerify(
+        string fileName, FlagProofControlVerifyDto? dto, Func<string, string> env)
+    {
+        if (dto is null)
+        {
+            return null;
+        }
+
+        // method defaults to GET; when supplied it must be a known verb.
+        var method = string.IsNullOrWhiteSpace(dto.Method) ? "GET" : dto.Method.Trim();
+        if (!AllowedControlMethods.Contains(method))
+        {
+            throw new CaseFileException(fileName,
+                "flag_proof.control.verify 'method' must be one of GET, PUT, POST, PATCH, DELETE");
+        }
+
+        if (string.IsNullOrWhiteSpace(dto.Url))
+        {
+            throw new CaseFileException(fileName, "flag_proof.control.verify is missing 'url'");
+        }
+
+        if (string.IsNullOrWhiteSpace(dto.JsonPath))
+        {
+            throw new CaseFileException(fileName, "flag_proof.control.verify is missing 'json_path'");
+        }
+
+        if (string.IsNullOrWhiteSpace(dto.Expected))
+        {
+            throw new CaseFileException(fileName, "flag_proof.control.verify is missing 'expected'");
+        }
+
+        var headers = dto.Headers is null
+            ? null
+            : dto.Headers.ToDictionary(kv => kv.Key, kv => env(kv.Value));
+
+        return new FlagProofControlVerify(
+            method.ToUpperInvariant(),
+            env(dto.Url),
+            headers,
+            dto.Body is null ? null : env(dto.Body),
+            dto.JsonPath.Trim(),
+            env(dto.Expected));
     }
 
     private static Dictionary<string, object?>? ConvertParameters(object? node) => ConvertYamlNode(node) as Dictionary<string, object?>;
