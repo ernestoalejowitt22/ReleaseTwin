@@ -195,6 +195,96 @@ public class CaseFileLoaderTests
     }
 
     [Fact]
+    public void FlagProofControlBlockRoundTripsAndInterpolatesEnvButNotTemplateTokens()
+    {
+        var root = CreateTempWorkspace();
+        File.WriteAllText(Path.Combine(root, "fixtures", "claim.json"), "{}");
+        File.WriteAllText(Path.Combine(root, "cases", "case1.yaml"), """
+            id: CLM-1
+            oracle:
+              locator: t/1
+            fixture:
+              locator: claim.json
+            pipeline: []
+            flag_proof:
+              feature_key: checkout-v2
+              build_identity: build-123
+              control:
+                method: put
+                url: ${FLAGS_API}/flags/{{featureKey}}
+                headers:
+                  Authorization: "Bearer ${FLAGS_TOKEN}"
+                body: '{"state":"{{state}}","on":{{enabled}}}'
+                known_bad_when: enabled
+            """);
+
+        var loader = new CaseFileLoader(
+            Path.Combine(root, "cases"), Path.Combine(root, "fixtures"),
+            name => name switch { "FLAGS_API" => "https://flags.example", "FLAGS_TOKEN" => "s3cret", _ => null });
+        var control = loader.LoadAll().Single().FlagProof!.Control!;
+
+        Assert.Equal("PUT", control.Method);
+        Assert.Equal("https://flags.example/flags/{{featureKey}}", control.Url);
+        Assert.Equal("Bearer s3cret", control.Headers["Authorization"]);
+        Assert.Equal("{\"state\":\"{{state}}\",\"on\":{{enabled}}}", control.Body);
+        Assert.Equal(FlagProofPolarity.KnownBadWhenEnabled, control.Polarity);
+    }
+
+    [Fact]
+    public void FlagProofControlWithoutUrlIsRejected()
+    {
+        var ex = LoadControlCase("""
+              control:
+                method: PUT
+            """);
+        Assert.Contains("url", ex.Message);
+    }
+
+    [Fact]
+    public void FlagProofControlWithBadMethodIsRejected()
+    {
+        var ex = LoadControlCase("""
+              control:
+                method: FETCH
+                url: https://flags.example/f
+            """);
+        Assert.Contains("method", ex.Message);
+    }
+
+    [Fact]
+    public void FlagProofControlWithBadKnownBadWhenIsRejected()
+    {
+        var ex = LoadControlCase("""
+              control:
+                method: PUT
+                url: https://flags.example/f
+                known_bad_when: sometimes
+            """);
+        Assert.Contains("known_bad_when", ex.Message);
+    }
+
+    private CaseFileException LoadControlCase(string controlYaml)
+    {
+        var root = CreateTempWorkspace();
+        File.WriteAllText(Path.Combine(root, "fixtures", "claim.json"), "{}");
+        File.WriteAllText(Path.Combine(root, "cases", "case1.yaml"), $"""
+            id: CLM-1
+            oracle:
+              locator: t/1
+            fixture:
+              locator: claim.json
+            pipeline: []
+            flag_proof:
+              feature_key: checkout-v2
+              build_identity: build-123
+            {controlYaml}
+            """);
+
+        var loader = new CaseFileLoader(Path.Combine(root, "cases"), Path.Combine(root, "fixtures"));
+        return Assert.Throws<CaseFileException>(() => loader.LoadAll());
+    }
+
+    [Fact]
     public void InvalidYamlIsRejectedWithFileNamed()
     {
         var root = CreateTempWorkspace();

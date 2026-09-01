@@ -434,15 +434,28 @@ public sealed class CliRunner
 
                 if (loadedCase.FlagProof is { } flagProof)
                 {
-                    if (featureStateController is null)
+                    // http-flag-control: a per-case `flag_proof.control` block wins over any
+                    // adapter-vended controller — it toggles a flag system nothing installed knows.
+                    var controller = flagProof.Control is { } control
+                        ? new HttpFeatureStateController(
+                            httpAdapter.HttpClient,
+                            flagProof.FeatureKey,
+                            control.Method,
+                            control.Url,
+                            control.Headers,
+                            control.Body,
+                            knownBadWhenDisabled: control.Polarity == FlagProofPolarity.KnownBadWhenDisabled)
+                        : featureStateController;
+
+                    if (controller is null)
                     {
                         failed++;
                         summary?.AddCase(testCase.CaseId, passed: false, classification: null, flagProofOutcome: "Ineligible", release: testCase.Release);
-                        output.WriteLine($"FLAGPROOF {testCase.CaseId} (Ineligible): no installed adapter exposes feature-state control");
+                        output.WriteLine($"FLAGPROOF {testCase.CaseId} (Ineligible): no installed adapter exposes feature-state control and the case declares no flag_proof.control");
                         continue;
                     }
 
-                    var flagProofRunner = new FlagProofRunner(executor, catalog, featureStateController);
+                    var flagProofRunner = new FlagProofRunner(executor, catalog, controller);
                     var flagProofExecution = await flagProofRunner.RunAsync(testCase, flagProof.FeatureKey, flagProof.BuildIdentity, executionOptions, cancellationToken: cancellationToken);
                     var result = flagProofExecution.Result;
 
@@ -456,7 +469,9 @@ public sealed class CliRunner
                     }
 
                     summary?.AddCase(result.CaseId, result.Outcome == FlagProofOutcome.Passed, classification: null, flagProofOutcome: result.Outcome.ToString(), release: testCase.Release);
-                    output.WriteLine($"FLAGPROOF {result.CaseId} ({result.Outcome})");
+                    output.WriteLine(result.Message is { Length: > 0 } flagProofMessage
+                        ? $"FLAGPROOF {result.CaseId} ({result.Outcome}): {flagProofMessage}"
+                        : $"FLAGPROOF {result.CaseId} ({result.Outcome})");
 
                     if (ingestClient is not null)
                     {

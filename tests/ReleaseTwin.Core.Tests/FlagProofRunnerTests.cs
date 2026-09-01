@@ -164,6 +164,60 @@ public class FlagProofRunnerTests
         Assert.NotEqual(FlagProofOutcome.WeakOracle, result.Outcome);
     }
 
+    private sealed class ThrowingFeatureStateController : IFeatureStateController
+    {
+        private readonly int _throwOnCall;
+        private int _calls;
+
+        public ThrowingFeatureStateController(int throwOnCall) => _throwOnCall = throwOnCall;
+
+        public Task SetStateAsync(string featureKey, bool enabled, CancellationToken cancellationToken)
+        {
+            _calls++;
+            if (_calls >= _throwOnCall)
+            {
+                throw new InvalidOperationException("PUT https://flags.example/flags/claims-calc -> 500");
+            }
+
+            return Task.CompletedTask;
+        }
+    }
+
+    [Fact]
+    public async Task ThrowingControllerIsControlFailedNotIneligible()
+    {
+        var catalog = new FakeCatalog()
+            .Operation("checkDeductible", new AlwaysPassOperation())
+            .Capability("flag-control:runtime");
+        var executor = new CaseExecutor(catalog, catalog, catalog, catalog);
+        var runner = new FlagProofRunner(executor, catalog, new ThrowingFeatureStateController(throwOnCall: 1));
+
+        var result = await runner.RunAsync(BuildCase(), "claims-calc", buildIdentity: "build-123");
+
+        Assert.Equal(FlagProofOutcome.ControlFailed, result.Outcome);
+        Assert.NotEqual(FlagProofOutcome.Ineligible, result.Outcome);
+        Assert.NotEqual(FlagProofOutcome.WeakOracle, result.Outcome);
+        Assert.Null(result.KnownBadLeg);
+        Assert.Null(result.KnownGoodLeg);
+        Assert.Contains("500", result.Message);
+    }
+
+    [Fact]
+    public async Task KnownGoodControlFailingAfterCleanKnownBadIsStillControlFailed()
+    {
+        var catalog = new FakeCatalog()
+            .Operation("checkDeductible", new AlwaysFailOperation())
+            .Capability("flag-control:runtime");
+        var executor = new CaseExecutor(catalog, catalog, catalog, catalog);
+        var runner = new FlagProofRunner(executor, catalog, new ThrowingFeatureStateController(throwOnCall: 2));
+
+        var result = await runner.RunAsync(BuildCase(), "claims-calc", buildIdentity: "build-123");
+
+        Assert.Equal(FlagProofOutcome.ControlFailed, result.Outcome);
+        Assert.Null(result.KnownBadLeg);
+        Assert.Null(result.KnownGoodLeg);
+    }
+
     [Fact]
     public async Task MissingFeatureFlagControlDefersTheRun()
     {
