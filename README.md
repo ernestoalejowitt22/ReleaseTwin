@@ -244,7 +244,7 @@ Account, billing, or a pilot → email. Full routing in [`SUPPORT.md`](SUPPORT.m
 
 Deliberately deferred, not forgotten — each was a scoped decision, not an oversight:
 
-- **Packaging/distribution** — a Docker image is now published (`cli-packaging`, see "Or run it via Docker" above), tag-triggered via a GitHub Actions release workflow. `dotnet tool`/NuGet and a GitHub Action wrapper are still deferred.
+- **Packaging/distribution** — the CLI ships as a Docker image (`cli-packaging`), a `dotnet tool` on nuget.org (`dotnet tool install -g releasetwin`, `cli-distribution`), and a PR-annotations GitHub Action (`ci-pr-integration`); all tag-triggered from the release workflow. See [`docs/install.md`](docs/install.md). A Homebrew tap and a self-contained single-file binary are still deferred.
 - **Azure DevOps operation parameters** — its operations are still fixed-shape; only the HTTP adapter is data-driven from case files.
 - **A non-REST adapter** — the HTTP adapter covers anything with a REST surface; a message queue, database, or vendor SDK without one still needs bespoke adapter code.
 - **Flag proof against a non-REST flag store** — a case drives the toggle through an adapter controller (Azure DevOps, LaunchDarkly) or a `flag_proof.control` HTTP request; a flag system with neither a controller adapter nor a REST toggle (an SDK-only or streaming provider) still needs a new `IFeatureStateController`. A project-level `control` template (rather than per-case) and a post-toggle read-back assertion are also still deferred.

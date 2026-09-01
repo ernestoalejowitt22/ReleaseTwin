@@ -26,4 +26,37 @@
     <Nullable>enable</Nullable>
   </PropertyGroup>
 
+  <!-- cli-distribution: also ship the CLI as a .NET global tool on nuget.org
+       (`dotnet tool install -g releasetwin`) for users who have the .NET runtime
+       but don't want a container or a source checkout. `dotnet pack` bundles the
+       adapter project references and NuGet dependencies into the nupkg. Framework-
+       dependent by design — the no-runtime case is what the Docker image is for. -->
+  <PropertyGroup>
+    <PackAsTool>true</PackAsTool>
+    <ToolCommandName>releasetwin</ToolCommandName>
+    <PackageId>releasetwin</PackageId>
+    <Title>ReleaseTwin CLI</Title>
+    <Authors>Ernesto Alejo and the ReleaseTwin contributors</Authors>
+    <Description>Release-proof testing for integration-heavy, feature-flagged systems: evidence-linked cases, immutable fixtures, and paired known-bad/known-good "flag proof". Runs entirely in your own infrastructure; exits non-zero on any case failure so it drops into CI as a required check. UI-journey cases additionally need `playwright install`.</Description>
+    <PackageProjectUrl>https://github.com/ernestoalejowitt22/ReleaseTwin</PackageProjectUrl>
+    <RepositoryUrl>https://github.com/ernestoalejowitt22/ReleaseTwin</RepositoryUrl>
+    <RepositoryType>git</RepositoryType>
+    <!-- NuGet's PackageLicenseExpression only accepts SPDX-listed ids, so it can't carry the
+         `WITH LicenseRef-ReleaseTwin-Adapter-Exception` clause. That exception exists for
+         third parties who *link* the AdapterSdk to write an adapter — the CLI executable
+         itself is plain AGPL-3.0, so this is the correct expression for this package. -->
+    <PackageLicenseExpression>AGPL-3.0-only</PackageLicenseExpression>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
+    <PackageTags>testing;integration-testing;feature-flags;ci;release;flag-proof</PackageTags>
+    <PackageRequireLicenseAcceptance>false</PackageRequireLicenseAcceptance>
+    <!-- NU5111: the Ui adapter bundles Playwright's browser-install .ps1 helpers as content.
+         They are legitimately not NuGet install/uninstall lifecycle scripts, so the warning
+         is noise — suppress just this code, not the security advisories on ImageSharp. -->
+    <NoWarn>$(NoWarn);NU5111</NoWarn>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <None Include="README.md" Pack="true" PackagePath="\" />
+  </ItemGroup>
+
 </Project>
