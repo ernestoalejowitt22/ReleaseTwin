@@ -9,7 +9,10 @@ jobs:
   build-test-publish:
     runs-on: ubuntu-latest
     permissions:
-      contents: read
+      # contents: write — only for the floating v<major> / v<major>.<minor> tag push at the
+      # end (cli-distribution). Scoped to this job; the checkout is already the verified
+      # release commit, and the push targets only those two derived tags.
+      contents: write
       packages: write
     steps:
       - uses: actions/checkout@v7
@@ -35,6 +38,24 @@ jobs:
       - name: Derive release version
         id: version
         run: echo "version=${GITHUB_REF_NAME#v}" >> "$GITHUB_OUTPUT"
+
+      # cli-distribution: the CLI as a .NET global tool on nuget.org. Same build+test gate as
+      # the container below. NUGET_API_KEY is a required secret once the account exists — the
+      # step fails loudly (not skips) if it's missing, so a misconfigured release is obvious.
+      - name: Guard NUGET_API_KEY
+        env:
+          NUGET_API_KEY: ${{ secrets.NUGET_API_KEY }}
+        run: |
+          if [ -z "$NUGET_API_KEY" ]; then
+            echo "::error::NUGET_API_KEY secret is not set — the CLI tool cannot be published. Add it (Settings → Secrets and variables → Actions) or remove the pack/push steps."
+            exit 1
+          fi
+
+      - name: Pack the CLI tool
+        run: dotnet pack src/ReleaseTwin.Cli/ReleaseTwin.Cli.csproj --no-build --configuration Release -p:Version=${{ steps.version.outputs.version }} -o ./artifacts
+
+      - name: Push to nuget.org
+        run: dotnet nuget push ./artifacts/*.nupkg --api-key ${{ secrets.NUGET_API_KEY }} --source https://api.nuget.org/v3/index.json --skip-duplicate
 
       - name: Derive lowercase image name
         id: image
@@ -63,3 +84,21 @@ jobs:
           tags: |
             ${{ steps.image.outputs.name }}:${{ steps.version.outputs.version }}
             ${{ steps.image.outputs.name }}:latest
+
+      # cli-distribution: move the floating major / minor tags so `uses: <repo>/integrations/
+      # github-action@v0` (and @v0.N) resolves and tracks patches — the standard GitHub Action
+      # distribution pattern. Only reached if every step above (build, test, tool push, image
+      # push) succeeded, so these tags never point at an unverified commit. Force-push is
+      # limited to exactly these two derived refs.
+      - name: Update floating version tags
+        run: |
+          version="${{ steps.version.outputs.version }}"
+          major="v${version%%.*}"
+          minor="v${version%.*}"
+          git config user.name  "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          for t in "$major" "$minor"; do
+            git tag -f "$t" "$GITHUB_SHA"
+            git push -f origin "refs/tags/$t"
+            echo "moved $t -> $GITHUB_SHA"
+          done
