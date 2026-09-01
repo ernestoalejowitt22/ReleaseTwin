@@ -116,6 +116,11 @@ Only enable `verify` when your flag service is **read-your-writes consistent**; 
 service that takes a moment to propagate a change can report a false
 `ControlUnverified`. A single read is performed — there is no retry or poll.
 
+The `control` + `verify` path is exercised end-to-end against a real
+feature-flag REST API (LaunchDarkly's) by
+`web/cypress/e2e/launchdarkly-http-flag-control.cy.ts`, run on demand and
+nightly by `.github/workflows/ld-http-flag-control-e2e.yml`.
+
 ### Failures
 
 A non-2xx response — or a request that can't be sent — ends the run as
