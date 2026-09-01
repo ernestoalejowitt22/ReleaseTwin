@@ -7,7 +7,7 @@
       "price": [
         { "interval": "monthly", "amount": 0, "unit": "forever", "placeholder": false }
       ],
-      "support": "Community / GitHub",
+      "support": "Community · GitHub issues",
       "entitlements": {
         "maxProjects": 1,
         "evidenceViewer": false,
@@ -30,7 +30,7 @@
         { "interval": "monthly", "amount": 59, "unit": "project/month", "placeholder": true },
         { "interval": "annual", "amount": 49, "unit": "project/month", "placeholder": true }
       ],
-      "support": "Email",
+      "support": "Email · best-effort, ~3 business days",
       "entitlements": {
         "maxProjects": null,
         "evidenceViewer": true,
@@ -53,7 +53,7 @@
         { "interval": "monthly", "amount": 119, "unit": "project/month", "placeholder": true },
         { "interval": "annual", "amount": 99, "unit": "project/month", "placeholder": true }
       ],
-      "support": "SLA + shared Slack",
+      "support": "Priority email",
       "entitlements": {
         "maxProjects": null,
         "evidenceViewer": true,

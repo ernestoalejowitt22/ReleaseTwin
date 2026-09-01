@@ -1,0 +1,47 @@
+name: Feature request / design note
+description: Propose a change before opening a PR
+labels: ["enhancement", "triage"]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem
+      description: The concrete situation this doesn't handle today. Not a solution yet.
+    validations:
+      required: true
+  - type: textarea
+    id: who
+    attributes:
+      label: Who has this problem
+      description: Your context — what you're testing, which adapter, engine-only or hosted.
+    validations:
+      required: true
+  - type: textarea
+    id: shape
+    attributes:
+      label: Rough shape of a solution
+      description: Optional. If it touches the engine or an adapter, note which capability.
+  - type: dropdown
+    id: surface
+    attributes:
+      label: Which surface
+      options:
+        - CLI
+        - A new or existing adapter
+        - Engine (ReleaseTwin.Core / AdapterSdk)
+        - Hosted API
+        - Web app / dashboard
+    validations:
+      required: true
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives / workarounds you've tried
+  - type: checkboxes
+    id: scope
+    attributes:
+      label: Scope check
+      options:
+        - label: This is one logical change, not a bundle
+        - label: I've read `LICENSING.md` and know which license the affected paths use
+        - label: I'm willing to iterate on a spec under `openspec/changes/` if it's non-trivial
