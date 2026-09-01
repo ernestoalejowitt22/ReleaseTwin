@@ -37,6 +37,16 @@ internal sealed class FlagProofDto
 {
     public string? FeatureKey { get; set; }
     public string? BuildIdentity { get; set; }
+    public FlagProofControlDto? Control { get; set; }
+}
+
+internal sealed class FlagProofControlDto
+{
+    public string? Method { get; set; }
+    public string? Url { get; set; }
+    public Dictionary<string, string>? Headers { get; set; }
+    public string? Body { get; set; }
+    public string? KnownBadWhen { get; set; }
 }
 
 internal sealed class OracleDto

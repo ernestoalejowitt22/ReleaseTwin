@@ -264,7 +264,10 @@ public sealed class CaseFileLoader
         return new EvidenceRules(allow, redact);
     }
 
-    private static FlagProofDeclaration? ResolveFlagProof(string fileName, FlagProofDto? dto)
+    private static readonly HashSet<string> AllowedControlMethods =
+        new(new[] { "GET", "PUT", "POST", "PATCH", "DELETE" }, StringComparer.OrdinalIgnoreCase);
+
+    private FlagProofDeclaration? ResolveFlagProof(string fileName, FlagProofDto? dto)
     {
         if (dto is null)
         {
@@ -281,7 +284,44 @@ public sealed class CaseFileLoader
             throw new CaseFileException(fileName, "flag_proof is missing 'build_identity'");
         }
 
-        return new FlagProofDeclaration(dto.FeatureKey, dto.BuildIdentity);
+        return new FlagProofDeclaration(dto.FeatureKey, dto.BuildIdentity, ResolveFlagProofControl(fileName, dto.Control));
+    }
+
+    private FlagProofControl? ResolveFlagProofControl(string fileName, FlagProofControlDto? dto)
+    {
+        if (dto is null)
+        {
+            return null;
+        }
+
+        if (string.IsNullOrWhiteSpace(dto.Method) || !AllowedControlMethods.Contains(dto.Method))
+        {
+            throw new CaseFileException(fileName, "flag_proof.control 'method' must be one of GET, PUT, POST, PATCH, DELETE");
+        }
+
+        if (string.IsNullOrWhiteSpace(dto.Url))
+        {
+            throw new CaseFileException(fileName, "flag_proof.control is missing 'url'");
+        }
+
+        var polarity = dto.KnownBadWhen?.Trim().ToLowerInvariant() switch
+        {
+            null or "" or "disabled" => FlagProofPolarity.KnownBadWhenDisabled,
+            "enabled" => FlagProofPolarity.KnownBadWhenEnabled,
+            _ => throw new CaseFileException(fileName, "flag_proof.control 'known_bad_when' must be 'disabled' or 'enabled'"),
+        };
+
+        string Env(string value) => (string)InterpolateEnvVars(fileName, value)!;
+
+        var headers = (dto.Headers ?? new Dictionary<string, string>())
+            .ToDictionary(kv => kv.Key, kv => Env(kv.Value));
+
+        return new FlagProofControl(
+            dto.Method.ToUpperInvariant(),
+            Env(dto.Url),
+            headers,
+            dto.Body is null ? null : Env(dto.Body),
+            polarity);
     }
 
     private static Dictionary<string, object?>? ConvertParameters(object? node) => ConvertYamlNode(node) as Dictionary<string, object?>;
