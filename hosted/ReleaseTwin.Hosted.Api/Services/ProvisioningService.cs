@@ -138,7 +138,12 @@ public sealed class ProvisioningService
             return false;
         }
 
-        return email is null || string.Equals(email, invite.Email, StringComparison.OrdinalIgnoreCase);
+        // security-hardening-pre-pilot D2: the accepting user's provider-verified email must match the
+        // invited address — same rule OrganizationMembersService.AcceptAsync enforces. A missing email
+        // is a non-match (not a bypass): the user is provisioned with a throwaway org, and the
+        // reconcile path in AcceptAsync removes it once they accept with a matching verified email.
+        return !string.IsNullOrWhiteSpace(email)
+            && string.Equals(email.Trim(), invite.Email.Trim(), StringComparison.OrdinalIgnoreCase);
     }
 
     /// <summary>

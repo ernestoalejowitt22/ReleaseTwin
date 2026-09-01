@@ -9,21 +9,22 @@ public class ConnectionStateServiceTests
         new(new EphemeralDataProtectionProvider(), lifetime);
 
     [Fact]
-    public void MintedStateValidatesBackToTheSameProjectId()
+    public void MintedStateValidatesBackToTheSameProjectAndUser()
     {
         var service = NewService();
         var projectId = Guid.NewGuid();
+        var userId = Guid.NewGuid();
 
-        var state = service.Mint(projectId);
+        var state = service.Mint(projectId, userId);
 
-        Assert.Equal(projectId, service.Validate(state));
+        Assert.Equal((projectId, userId), service.Validate(state));
     }
 
     [Fact]
     public void TamperedStateIsRejected()
     {
         var service = NewService();
-        var state = service.Mint(Guid.NewGuid());
+        var state = service.Mint(Guid.NewGuid(), Guid.NewGuid());
         var tampered = state[..^1] + (state[^1] == 'A' ? 'B' : 'A');
 
         Assert.Null(service.Validate(tampered));
@@ -33,7 +34,7 @@ public class ConnectionStateServiceTests
     public void ExpiredStateIsRejected()
     {
         var service = NewService(TimeSpan.FromMilliseconds(1));
-        var state = service.Mint(Guid.NewGuid());
+        var state = service.Mint(Guid.NewGuid(), Guid.NewGuid());
         Thread.Sleep(50);
 
         Assert.Null(service.Validate(state));

@@ -1,5 +1,6 @@
 using System.Net;
 using System.Net.Http.Json;
+using System.Net.Sockets;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 using ReleaseTwin.Hosted.Api.Data.Entities;
@@ -21,6 +22,37 @@ public sealed class NotificationDispatchService
 {
     /// <summary>The name of the <see cref="HttpClient"/> configured with no auto-redirect and a short timeout.</summary>
     public const string HttpClientName = "notifications";
+
+    /// <summary>
+    /// security-hardening-pre-pilot D5: set on the outbound request so the client's
+    /// <see cref="System.Net.Http.SocketsHttpHandler.ConnectCallback"/> dials this exact address — the
+    /// one <see cref="OutboundUrlValidator"/> already approved — instead of doing its own DNS lookup
+    /// that could have changed. See the ConnectCallback wired up in Program.cs.
+    /// </summary>
+    public static readonly HttpRequestOptionsKey<IPAddress> PinnedAddressOption = new("ReleaseTwin.Notifications.PinnedAddress");
+
+    /// <summary>The <see cref="System.Net.Http.SocketsHttpHandler.ConnectCallback"/> for the notifications client:
+    /// connects only to <see cref="PinnedAddressOption"/>, never a re-resolved host.</summary>
+    public static async ValueTask<Stream> ConnectToPinnedAddressAsync(SocketsHttpConnectionContext context, CancellationToken cancellationToken)
+    {
+        if (!context.InitialRequestMessage.Options.TryGetValue(PinnedAddressOption, out var pinned))
+        {
+            // Defence in depth: this client is only ever used by DeliverAsync, which always pins.
+            throw new InvalidOperationException("notification dispatch attempted without a pre-validated address");
+        }
+
+        var socket = new Socket(SocketType.Stream, ProtocolType.Tcp) { NoDelay = true };
+        try
+        {
+            await socket.ConnectAsync(new IPEndPoint(pinned, context.DnsEndPoint.Port), cancellationToken);
+            return new NetworkStream(socket, ownsSocket: true);
+        }
+        catch
+        {
+            socket.Dispose();
+            throw;
+        }
+    }
 
     private readonly IOrganizationRepository _organizations;
     private readonly IProjectRepository _projects;
@@ -89,8 +121,10 @@ public sealed class NotificationDispatchService
 
     private async Task<string> DeliverAsync(HttpClient client, NotificationTarget target, RunNotification n, string projectName, string dashboardUrl, CancellationToken cancellationToken)
     {
-        // design D6: re-check the address at send time — DNS may have changed since the target was saved.
-        if (!OutboundUrlValidator.IsAllowed(target.Url, out var reason, _resolveHost))
+        // design D6 / security-hardening-pre-pilot D5: re-check the address at send time — DNS may have
+        // changed since the target was saved — and pin the connection to the address this check
+        // approved so a rebind between here and the socket connect can't reach a private address.
+        if (!OutboundUrlValidator.IsAllowed(target.Url, out var reason, out var approvedAddresses, _resolveHost))
         {
             _logger.LogWarning("run_notification_target_blocked target={TargetId} reason={Reason}", target.Id, reason);
             return $"failed: {reason}";
@@ -111,7 +145,12 @@ public sealed class NotificationDispatchService
 
         try
         {
-            using var response = await client.PostAsJsonAsync(target.Url, body, cancellationToken);
+            using var request = new HttpRequestMessage(HttpMethod.Post, target.Url)
+            {
+                Content = JsonContent.Create(body),
+            };
+            request.Options.Set(PinnedAddressOption, approvedAddresses[0]);
+            using var response = await client.SendAsync(request, cancellationToken);
             return response.IsSuccessStatusCode ? "success" : $"failed: HTTP {(int)response.StatusCode}";
         }
         catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException or InvalidOperationException)

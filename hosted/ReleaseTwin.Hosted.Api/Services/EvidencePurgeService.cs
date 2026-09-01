@@ -53,7 +53,7 @@ public sealed class EvidencePurgeService
 
             foreach (var screenshotId in evidence.ScreenshotIds)
             {
-                await _blobs.DeleteAsync(screenshotId, cancellationToken);
+                await _blobs.DeleteAsync(evidence.ProjectId, screenshotId, cancellationToken);
             }
 
             await _evidence.DeleteAsync(evidence.ProjectId, evidence.ReportId, cancellationToken);

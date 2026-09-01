@@ -46,7 +46,7 @@ public class EvidenceStoreTests
 
         var oldReport = Guid.NewGuid();
         var freshReport = Guid.NewGuid();
-        await blobs.PutAsync("shot-1", new byte[] { 1 });
+        await blobs.PutAsync(project.Id, "shot-1", new byte[] { 1 });
         await repo.AddAsync(Doc(project.Id, oldReport, DateTimeOffset.UtcNow.AddDays(-40), "shot-1"));
         await repo.AddAsync(Doc(project.Id, freshReport, DateTimeOffset.UtcNow.AddDays(-1)));
 
@@ -56,7 +56,7 @@ public class EvidenceStoreTests
         Assert.Equal(1, purged);
         Assert.Null(await repo.GetByReportAsync(project.Id, oldReport));
         Assert.NotNull(await repo.GetByReportAsync(project.Id, freshReport));
-        Assert.Null(await blobs.GetAsync("shot-1"));
+        Assert.Null(await blobs.GetAsync(project.Id, "shot-1"));
     }
 
     [Fact]

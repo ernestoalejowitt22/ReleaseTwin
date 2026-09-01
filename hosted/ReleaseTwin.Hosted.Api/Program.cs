@@ -5,6 +5,7 @@ using Amazon.S3;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.IdentityModel.Tokens;
+using ReleaseTwin.Hosted.Api;
 using ReleaseTwin.Hosted.Api.Analytics;
 using ReleaseTwin.Hosted.Api.Auth;
 using ReleaseTwin.Hosted.Api.Data.Repositories;
@@ -193,7 +194,14 @@ else
 builder.Services.AddScoped<NotificationDispatchService>();
 builder.Services.AddScoped<EvidenceSharingService>();
 builder.Services.AddHttpClient(NotificationDispatchService.HttpClientName, c => c.Timeout = TimeSpan.FromSeconds(5))
-    .ConfigurePrimaryHttpMessageHandler(() => new HttpClientHandler { AllowAutoRedirect = false });
+    // security-hardening-pre-pilot D5: SocketsHttpHandler so ConnectCallback can pin the connection to
+    // the exact IP OutboundUrlValidator approved (no independent re-resolution). TLS SNI/cert
+    // validation still uses the request's original hostname.
+    .ConfigurePrimaryHttpMessageHandler(() => new SocketsHttpHandler
+    {
+        AllowAutoRedirect = false,
+        ConnectCallback = NotificationDispatchService.ConnectToPinnedAddressAsync,
+    });
 // run-notifications: the SSRF check needs to resolve a customer-supplied host. Injected so tests are
 // deterministic and offline.
 builder.Services.AddSingleton<Func<string, System.Net.IPAddress[]>>(_ => System.Net.Dns.GetHostAddresses);
@@ -272,6 +280,14 @@ builder.Services.AddScoped<StalenessDigestService>();
 // Clerk's own `sub` claim — it has no idea about our own rows).
 var clerkDomain = builder.Configuration["Clerk:Domain"] is { Length: > 0 } domain ? domain : "not-configured.accounts.dev";
 
+// security-hardening-pre-pilot D1: Clerk's default session token carries no API-specific `aud`.
+// Audience validation stays OFF until a Clerk JWT template that sets an `aud` for this API exists
+// and its value is supplied here (CLERK_AUDIENCE repo var → Clerk__Audience). Presence of the config
+// value — not a feature flag — is the switch, because this is a deploy-ordering concern (template
+// before enforcement) that disappears once the template is live.
+var clerkAudience = builder.Configuration["Clerk:Audience"];
+var validateClerkAudience = !string.IsNullOrWhiteSpace(clerkAudience);
+
 const string ClerkJwtScheme = "ClerkJwt";
 
 builder.Services
@@ -297,10 +313,11 @@ builder.Services
         {
             ValidIssuer = $"https://{clerkDomain}",
             ValidateIssuer = true,
-            // Clerk's default session token (no custom JWT template configured) does not set an
-            // audience aimed at this API specifically — verify at tasks.md 7.1 and tighten this if a
-            // JWT template gets configured later.
-            ValidateAudience = false,
+            // security-hardening-pre-pilot D1: on only when Clerk:Audience is configured (a Clerk JWT
+            // template that sets this API's `aud` must exist first). Unset ⇒ back-compat: issuer +
+            // signature + expiry only, as before.
+            ValidateAudience = validateClerkAudience,
+            ValidAudience = clerkAudience,
             NameClaimType = "sub",
         };
 
@@ -317,6 +334,10 @@ builder.Services
                 // template to include name/email) — fall back to the Clerk user id, same pattern
                 // ProvisioningService already used for a GitHub login with no display name.
                 var displayName = context.Principal?.FindFirst("name")?.Value ?? clerkUserId;
+                // security-hardening-pre-pilot D1/D2: when the Clerk JWT template supplies `email` it
+                // is the account's primary, provider-verified address; downstream email-match checks
+                // (invitation acceptance) rely on that. Absent claim ⇒ null (never ""), and a null
+                // email is treated as a non-match by those checks, never as a wildcard.
                 var email = context.Principal?.FindFirst("email")?.Value;
 
                 // account-provisioning: signup requires no human approval — the first validated
@@ -360,7 +381,19 @@ builder.Services
 
 builder.Services.AddAuthorization();
 
+// security-hardening-pre-pilot D7: per-caller ceilings on the ingest / share-link / billing-webhook
+// surface. See RateLimiting.cs for the policies, sizing, and the RateLimiting:Enabled kill-switch.
+builder.Services.AddReleaseTwinRateLimiting(builder.Configuration);
+
 var app = builder.Build();
+
+// security-hardening-pre-pilot D1: make the audience-validation mode visible in the logs so a
+// misconfigured Clerk template (or a not-yet-created one) is obvious rather than silent.
+app.Logger.LogInformation(
+    validateClerkAudience
+        ? "clerk_jwt_audience_validation enabled audience={Audience}"
+        : "clerk_jwt_audience_validation disabled (Clerk:Audience not set)",
+    clerkAudience);
 
 // operator-alerting design.md: two Lambda *function* resources share this one deployment artifact
 // (see hosted/terraform/alerting.tf) — the HTTP-serving function (unchanged, this env var unset)
@@ -481,6 +514,10 @@ app.UseRouting();
 
 app.UseAuthentication();
 app.UseAuthorization();
+
+// security-hardening-pre-pilot D7: after auth so the ingest policy can partition by the token-hash
+// claim; before endpoints so a rejected billing-webhook request never reaches signature verification.
+app.UseRateLimiter();
 
 app.MapRazorPages();
 app.MapPlansEndpoints();

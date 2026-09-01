@@ -5,9 +5,12 @@ namespace ReleaseTwin.Hosted.Api.Data.Store;
 
 /// <summary>
 /// evidence-purge-and-blob-store: the production <see cref="IEvidenceBlobStore"/> — one private S3
-/// bucket, one object per redacted screenshot keyed by its id. Selected at composition when
-/// <c>Evidence:BlobBucket</c> is configured; the filesystem store stays the default for local dev.
-/// Screenshot ids are already 32 hex chars (see the ingest path), so no key sanitizing is needed.
+/// bucket, one object per redacted screenshot. Selected at composition when <c>Evidence:BlobBucket</c>
+/// is configured; the filesystem store stays the default for local dev.
+///
+/// security-hardening-pre-pilot D3: keys are <c>screenshots/{projectId}/{screenshotId}</c>. Screenshot
+/// ids are validated to 32 hex at ingest, and the project prefix means one project's upload can never
+/// overwrite another's blob or collide with the <c>exports/</c> prefix in the same bucket.
 /// </summary>
 public sealed class S3EvidenceBlobStore : IEvidenceBlobStore
 {
@@ -20,23 +23,34 @@ public sealed class S3EvidenceBlobStore : IEvidenceBlobStore
         _bucket = bucket;
     }
 
-    public async Task PutAsync(string id, byte[] png, CancellationToken cancellationToken = default)
+    private static string NamespacedKey(Guid projectId, string id) => $"screenshots/{projectId:N}/{id}";
+
+    public async Task PutAsync(Guid projectId, string id, byte[] png, CancellationToken cancellationToken = default)
     {
         using var stream = new MemoryStream(png, writable: false);
         await _s3.PutObjectAsync(new PutObjectRequest
         {
             BucketName = _bucket,
-            Key = id,
+            Key = NamespacedKey(projectId, id),
             InputStream = stream,
             ContentType = "image/png",
         }, cancellationToken);
     }
 
-    public async Task<byte[]?> GetAsync(string id, CancellationToken cancellationToken = default)
+    public async Task<byte[]?> GetAsync(Guid projectId, string id, CancellationToken cancellationToken = default)
+    {
+        return await GetKeyAsync(NamespacedKey(projectId, id), cancellationToken)
+            // security-hardening-pre-pilot D3: legacy flat key for evidence stored before
+            // project-namespacing. Removable once no flat-key blobs remain (evidence is
+            // retention-windowed).
+            ?? await GetKeyAsync(id, cancellationToken);
+    }
+
+    private async Task<byte[]?> GetKeyAsync(string key, CancellationToken cancellationToken)
     {
         try
         {
-            using var response = await _s3.GetObjectAsync(_bucket, id, cancellationToken);
+            using var response = await _s3.GetObjectAsync(_bucket, key, cancellationToken);
             using var buffer = new MemoryStream();
             await response.ResponseStream.CopyToAsync(buffer, cancellationToken);
             return buffer.ToArray();
@@ -47,9 +61,11 @@ public sealed class S3EvidenceBlobStore : IEvidenceBlobStore
         }
     }
 
-    public async Task DeleteAsync(string id, CancellationToken cancellationToken = default)
+    public async Task DeleteAsync(Guid projectId, string id, CancellationToken cancellationToken = default)
     {
-        // DeleteObject is idempotent — deleting a missing key returns 204, not an error.
+        // DeleteObject is idempotent — deleting a missing key returns 204, not an error. Clear both the
+        // namespaced key and any legacy flat key for the same id.
+        await _s3.DeleteObjectAsync(_bucket, NamespacedKey(projectId, id), cancellationToken);
         await _s3.DeleteObjectAsync(_bucket, id, cancellationToken);
     }
 }

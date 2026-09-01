@@ -210,7 +210,7 @@ public static class DashboardEndpoints
                 return Results.NotFound();
             }
 
-            var bytes = await blobs.GetAsync(screenshotId);
+            var bytes = await blobs.GetAsync(projectId, screenshotId);
             return bytes is null ? Results.NotFound() : Results.File(bytes, "image/png");
         });
 

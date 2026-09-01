@@ -14,6 +14,27 @@ public class OutboundUrlValidatorTests
             "https://hooks.slack.com/services/T000/B000/xxx", out _, _ => ResolveTo("13.107.42.14")));
     }
 
+    // security-hardening-pre-pilot D5: the overload yields the approved addresses for the caller to pin.
+    [Fact]
+    public void AllowedUrlYieldsItsApprovedAddresses()
+    {
+        var ok = OutboundUrlValidator.IsAllowed(
+            "https://hooks.example.com/x", out _, out var approved, _ => ResolveTo("93.184.216.34", "93.184.216.35"));
+
+        Assert.True(ok);
+        Assert.Equal(new[] { IPAddress.Parse("93.184.216.34"), IPAddress.Parse("93.184.216.35") }, approved);
+    }
+
+    [Fact]
+    public void RejectedUrlYieldsNoApprovedAddresses()
+    {
+        var ok = OutboundUrlValidator.IsAllowed(
+            "https://evil.example.com/x", out _, out var approved, _ => ResolveTo("10.0.0.1"));
+
+        Assert.False(ok);
+        Assert.Empty(approved);
+    }
+
     [Theory]
     [InlineData("http://hooks.slack.com/x")]          // not https
     [InlineData("ftp://example.com/x")]                // not https

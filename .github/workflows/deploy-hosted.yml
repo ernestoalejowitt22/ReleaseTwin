@@ -98,6 +98,7 @@ jobs:
             -var="table_prefix=${{ inputs.table_prefix || 'releasetwin-dev-' }}" \
             -var="region=${{ inputs.region || 'us-east-1' }}" \
             -var="clerk_domain=${{ vars.CLERK_DOMAIN }}" \
+            -var="clerk_audience=${{ vars.CLERK_AUDIENCE }}" \
             -var="admin_operator_user_ids=${{ vars.ADMIN_OPERATOR_USER_IDS }}" \
             -var="web_base_url=${{ vars.WEB_BASE_URL }}" \
             -var="api_public_url=${{ steps.api_url.outputs.value }}" \

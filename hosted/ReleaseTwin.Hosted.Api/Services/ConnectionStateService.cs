@@ -5,8 +5,8 @@ namespace ReleaseTwin.Hosted.Api.Services;
 
 public interface IConnectionStateService
 {
-    string Mint(Guid projectId);
-    Guid? Validate(string state);
+    string Mint(Guid projectId, Guid userId);
+    (Guid ProjectId, Guid UserId)? Validate(string state);
 }
 
 /// <summary>
@@ -15,6 +15,10 @@ public interface IConnectionStateService
 /// built-in CSRF protection for free. This mints a signed, time-limited `state` value (via ASP.NET
 /// Core's own DataProtection, not a hand-rolled secret/HMAC config entry) so a callback can't be
 /// replayed, tampered with, or aimed at a different project than the one that started the flow.
+///
+/// security-hardening-pre-pilot D6: the payload also carries the id of the user who started the flow,
+/// so the callback can reject a `state` minted for someone else — a link forwarded to another
+/// signed-in user cannot complete the flow against the initiator's project.
 /// </summary>
 public sealed class ConnectionStateService : IConnectionStateService
 {
@@ -29,14 +33,16 @@ public sealed class ConnectionStateService : IConnectionStateService
         _lifetime = lifetime ?? DefaultLifetime;
     }
 
-    public string Mint(Guid projectId) => _protector.Protect(projectId.ToString(), _lifetime);
+    public string Mint(Guid projectId, Guid userId) => _protector.Protect($"{projectId}:{userId}", _lifetime);
 
-    public Guid? Validate(string state)
+    public (Guid ProjectId, Guid UserId)? Validate(string state)
     {
         try
         {
-            var payload = _protector.Unprotect(state);
-            return Guid.TryParse(payload, out var projectId) ? projectId : null;
+            var parts = _protector.Unprotect(state).Split(':', 2);
+            return parts.Length == 2 && Guid.TryParse(parts[0], out var projectId) && Guid.TryParse(parts[1], out var userId)
+                ? (projectId, userId)
+                : null;
         }
         catch (CryptographicException)
         {
