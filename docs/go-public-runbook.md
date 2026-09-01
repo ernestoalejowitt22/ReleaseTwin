@@ -55,14 +55,20 @@ resource. To move to a `releasetwin-prod-` (or unprefixed) stack:
 Enable PITR on the prod table (`point_in_time_recovery { enabled = true }` in
 `main.tf`) as part of this cut.
 
-## 2. Repo history-cache expiry (prerequisite for any public flip)
+## 2. Repo history-cache expiry — NOT PURSUED (decision 2026-09-01)
 
-- [ ] Email GitHub Support to expire cached pre-history-rewrite SHAs on
-  `ReleaseTwin` and `NAHA` (history was `filter-repo` + force-pushed 2026-08-30).
-- [ ] Get written confirmation; then a fresh clone +
-  `git rev-list --all | xargs -I{} git grep -i <prior-vendor-term> {}` returns zero.
+History was `filter-repo` + force-pushed on both repos 2026-08-30. The residual
+concern was GitHub keeping pre-rewrite commit SHAs reachable by direct URL until
+its GC runs. **Decided not to chase a GitHub Support ticket:** both repos are
+private with **0 forks and no fork network** (`gh api …/repos/… → forks_count 0,
+network_count 0`), so there is no cross-fork object sharing and no external
+clone/fork taken before the rewrite. A dangling unreferenced object is only
+reachable by someone who already recorded the exact old 40-char SHA — which
+requires having seen the private repo pre-rewrite. Residual risk accepted.
 
-Blocked on: user action + written reply from GitHub.
+Sanity check still worth doing right before the flip: fresh clone of the
+about-to-be-public repo, `git rev-list --all | xargs -I{} git grep -i
+<prior-vendor-term> {}` returns zero on the reachable history.
 
 ## 3. Repo visibility
 
