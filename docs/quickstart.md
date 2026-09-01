@@ -99,3 +99,5 @@ mistake, not a silent skip. Credentials themselves never go in this file.
 - The bundled example cases and the [README](../README.md) cover flag proof (the paired
   known-bad / known-good run that tells a broken build from a fixed one) and the hosted
   dashboard.
+- [Enterprise access](enterprise-access.md) — running against a VPN-isolated target and
+  authenticating to an API or flag system gated by Microsoft Entra ID / organization OAuth.

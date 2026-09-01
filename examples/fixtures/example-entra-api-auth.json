@@ -1,0 +1,3 @@
+{
+  "note": "Entra-gated API demo fixture. The pipeline performs an OAuth2 client-credentials exchange against the org's Entra token endpoint, then calls a protected API with the captured bearer token. No fixture content is consumed."
+}

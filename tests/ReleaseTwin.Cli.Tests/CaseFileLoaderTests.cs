@@ -383,6 +383,80 @@ public class CaseFileLoaderTests
     }
 
     [Fact]
+    public void FlagProofControlAuthBlockRoundTripsAndInterpolatesEnvButNotTemplateTokens()
+    {
+        var root = CreateTempWorkspace();
+        File.WriteAllText(Path.Combine(root, "fixtures", "claim.json"), "{}");
+        File.WriteAllText(Path.Combine(root, "cases", "case1.yaml"), """
+            id: CLM-1
+            oracle:
+              locator: t/1
+            fixture:
+              locator: claim.json
+            pipeline: []
+            flag_proof:
+              feature_key: checkout-v2
+              build_identity: build-123
+              control:
+                method: put
+                url: ${FLAGS_API}/flags/{{featureKey}}
+                headers:
+                  Authorization: "Bearer {{token}}"
+                auth:
+                  oauth2_client_credentials:
+                    token_url: ${TENANT}/oauth2/v2.0/token
+                    client_id: ${FLAGS_CLIENT_ID}
+                    client_secret: ${FLAGS_CLIENT_SECRET}
+                    scope: api://flags/.default
+            """);
+
+        var loader = new CaseFileLoader(
+            Path.Combine(root, "cases"), Path.Combine(root, "fixtures"),
+            name => name switch
+            {
+                "FLAGS_API" => "https://flags.example",
+                "TENANT" => "https://login.example/t1",
+                "FLAGS_CLIENT_ID" => "client-abc",
+                "FLAGS_CLIENT_SECRET" => "s3cr3t",
+                _ => null,
+            });
+        var auth = loader.LoadAll().Single().FlagProof!.Control!.Auth!;
+
+        Assert.Equal("https://login.example/t1/oauth2/v2.0/token", auth.TokenUrl);
+        Assert.Equal("client-abc", auth.ClientId);
+        Assert.Equal("s3cr3t", auth.ClientSecret);
+        Assert.Equal("api://flags/.default", auth.Scope);
+    }
+
+    [Fact]
+    public void FlagProofControlAuthWithoutClientSecretIsRejected()
+    {
+        var ex = LoadControlCase("""
+              control:
+                method: PUT
+                url: https://flags.example/f
+                auth:
+                  oauth2_client_credentials:
+                    token_url: https://login.example/token
+                    client_id: client-abc
+            """);
+        Assert.Contains("client_secret", ex.Message);
+    }
+
+    [Fact]
+    public void FlagProofControlAuthWithoutOauth2BlockIsRejected()
+    {
+        var ex = LoadControlCase("""
+              control:
+                method: PUT
+                url: https://flags.example/f
+                auth:
+                  something_else: true
+            """);
+        Assert.Contains("oauth2_client_credentials", ex.Message);
+    }
+
+    [Fact]
     public void InvalidYamlIsRejectedWithFileNamed()
     {
         var root = CreateTempWorkspace();

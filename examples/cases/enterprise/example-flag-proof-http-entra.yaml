@@ -1,0 +1,56 @@
+# Flag proof against a feature-flag API gated by Entra ID / organization OAuth.
+#
+# The `control` block declares one HTTP request that sets the flag's state; its
+# `auth` block mints an OAuth2 client-credentials token against the org's Entra
+# token endpoint before each leg and substitutes it for {{token}}. Nothing here
+# is a literal secret — every credential is a ${ENV_VAR} resolved from the
+# environment or hosted project secrets at load time.
+#
+# Set before running:
+#   AZURE_TENANT_ID          your Entra tenant GUID
+#   FLAGS_CLIENT_ID          app registration (client) ID with rights to toggle the flag
+#   FLAGS_CLIENT_SECRET      that app registration's client secret
+#   FLAGS_SCOPE              e.g. api://<flag-service-app-id>/.default
+#   FLAGS_API                base URL of your flag service (reachable from the runner)
+id: FLAGPROOF-ENTRA-DEMO-1
+oracle:
+  locator: tickets/FLAGPROOF-ENTRA-DEMO-1
+fixture:
+  locator: example-flag-proof-http-entra.json
+  sha256: 6f639d874ca5b0cdfe7247afe2be64e074b692cf45fac8df30f6fc515e906383
+pipeline:
+  # The known-bad and known-good legs each run this pipeline. The pipeline does
+  # its own token exchange (pipeline {{token}} is a capture, separate from the
+  # control block's per-leg {{token}}). Swap the second step for the request
+  # against your own app that the flag actually changes the behaviour of.
+  - operation: http.oauth2ClientCredentials
+    with:
+      tokenUrl: https://login.microsoftonline.com/${AZURE_TENANT_ID}/oauth2/v2.0/token
+      clientId: ${FLAGS_CLIENT_ID}
+      clientSecret: ${FLAGS_CLIENT_SECRET}
+      scope: ${FLAGS_SCOPE}
+    capture:
+      - name: token
+        from: json:$.access_token
+  - operation: http.request
+    with:
+      method: GET
+      url: ${FLAGS_API}/flags/checkout-v2
+      headers:
+        Authorization: Bearer {{token}}
+flag_proof:
+  feature_key: checkout-v2
+  build_identity: build-demo-1
+  control:
+    method: PUT
+    url: ${FLAGS_API}/flags/{{featureKey}}
+    headers:
+      Authorization: "Bearer {{token}}"
+    body: '{"state":"{{state}}"}'
+    known_bad_when: disabled
+    auth:
+      oauth2_client_credentials:
+        token_url: https://login.microsoftonline.com/${AZURE_TENANT_ID}/oauth2/v2.0/token
+        client_id: ${FLAGS_CLIENT_ID}
+        client_secret: ${FLAGS_CLIENT_SECRET}
+        scope: ${FLAGS_SCOPE}

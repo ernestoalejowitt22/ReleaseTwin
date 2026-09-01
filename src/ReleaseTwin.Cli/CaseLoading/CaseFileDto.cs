@@ -48,6 +48,20 @@ internal sealed class FlagProofControlDto
     public string? Body { get; set; }
     public string? KnownBadWhen { get; set; }
     public FlagProofControlVerifyDto? Verify { get; set; }
+    public FlagProofControlAuthDto? Auth { get; set; }
+}
+
+internal sealed class FlagProofControlAuthDto
+{
+    public FlagProofOauth2ClientCredentialsDto? Oauth2ClientCredentials { get; set; }
+}
+
+internal sealed class FlagProofOauth2ClientCredentialsDto
+{
+    public string? TokenUrl { get; set; }
+    public string? ClientId { get; set; }
+    public string? ClientSecret { get; set; }
+    public string? Scope { get; set; }
 }
 
 internal sealed class FlagProofControlVerifyDto

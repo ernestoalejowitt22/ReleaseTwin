@@ -1,0 +1,3 @@
+{
+  "note": "Entra-gated HTTP flag-control demo fixture. The case mints an OAuth2 client-credentials token against the org's Entra token endpoint (flag_proof.control.auth), toggles a flag over REST with that bearer token, and its pipeline reads the flag back. No fixture content is consumed, but every case still needs a verified fixture."
+}
