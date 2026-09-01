@@ -1,4 +1,5 @@
 using System.Text;
+using System.Text.Json;
 using ReleaseTwin.Core;
 
 namespace ReleaseTwin.Adapters.Http;
@@ -32,6 +33,18 @@ public sealed record HttpFlagVerify(
     string ExpectedTemplate);
 
 /// <summary>
+/// http-flag-control: an OAuth2 client-credentials exchange performed before the control request for
+/// each leg. The resulting access token is substituted for <c>{{token}}</c> in the control request,
+/// letting flag proof reach a flag API gated by Entra ID / organization OAuth. <c>${ENV_VAR}</c> is
+/// already resolved at case-load time.
+/// </summary>
+public sealed record HttpFlagAuth(
+    string TokenUrl,
+    string ClientId,
+    string ClientSecret,
+    string? Scope);
+
+/// <summary>
 /// http-flag-control: flips an arbitrary feature-flag system's state with one config-declared HTTP
 /// request. Built per-case by the CLI (not vended by <see cref="HttpAdapter"/>) from a resolved
 /// <c>flag_proof.control</c> block: <c>${ENV_VAR}</c> is already substituted at case-load time;
@@ -47,6 +60,7 @@ public sealed class HttpFeatureStateController : IFeatureStateController
     private readonly bool _knownBadWhenDisabled;
     private readonly string _featureKey;
     private readonly HttpFlagVerify? _verify;
+    private readonly HttpFlagAuth? _auth;
 
     public HttpFeatureStateController(
         HttpClient client,
@@ -56,7 +70,8 @@ public sealed class HttpFeatureStateController : IFeatureStateController
         IReadOnlyDictionary<string, string> headerTemplates,
         string? bodyTemplate,
         bool knownBadWhenDisabled,
-        HttpFlagVerify? verify = null)
+        HttpFlagVerify? verify = null,
+        HttpFlagAuth? auth = null)
     {
         _client = client;
         _featureKey = featureKey;
@@ -66,6 +81,7 @@ public sealed class HttpFeatureStateController : IFeatureStateController
         _bodyTemplate = bodyTemplate;
         _knownBadWhenDisabled = knownBadWhenDisabled;
         _verify = verify;
+        _auth = auth;
     }
 
     public async Task SetStateAsync(string featureKey, bool enabled, CancellationToken cancellationToken)
@@ -75,10 +91,17 @@ public sealed class HttpFeatureStateController : IFeatureStateController
         // flag tracks Core's `enabled`; `known_bad_when: enabled` inverts it.
         var flagOn = _knownBadWhenDisabled ? enabled : !enabled;
 
+        // http-flag-control: when the control block declares an `auth` section, mint an access token
+        // per leg (design/spec: the exchange runs before the control request for each leg) and make
+        // it available as {{token}}. A failed exchange throws FlagControlException, which the
+        // flag-proof runner maps to ControlFailed — the same as a rejected toggle.
+        var token = _auth is null ? null : await ExchangeTokenAsync(_auth, cancellationToken);
+
         string Substitute(string template) => template
             .Replace("{{featureKey}}", _featureKey)
             .Replace("{{state}}", flagOn ? "enabled" : "disabled")
-            .Replace("{{enabled}}", flagOn ? "true" : "false");
+            .Replace("{{enabled}}", flagOn ? "true" : "false")
+            .Replace("{{token}}", token ?? string.Empty);
 
         var url = Substitute(_urlTemplate);
         using var request = new HttpRequestMessage(new HttpMethod(_method), url);
@@ -170,5 +193,69 @@ public sealed class HttpFeatureStateController : IFeatureStateController
             throw new FlagStateUnverifiedException(
                 $"flag-proof verify request {verify.Method} {url}: expected '{expected}' but got '{match.Actual ?? "<missing>"}' at path '{verify.JsonPath}'");
         }
+    }
+
+    private async Task<string> ExchangeTokenAsync(HttpFlagAuth auth, CancellationToken cancellationToken)
+    {
+        var form = new Dictionary<string, string>
+        {
+            ["grant_type"] = "client_credentials",
+            ["client_id"] = auth.ClientId,
+            ["client_secret"] = auth.ClientSecret,
+        };
+
+        if (!string.IsNullOrWhiteSpace(auth.Scope))
+        {
+            form["scope"] = auth.Scope!;
+        }
+
+        using var request = new HttpRequestMessage(HttpMethod.Post, auth.TokenUrl)
+        {
+            Content = new FormUrlEncodedContent(form),
+        };
+
+        HttpResponseMessage response;
+        try
+        {
+            response = await _client.SendAsync(request, cancellationToken);
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            throw new FlagControlException(
+                $"flag-proof control auth token request POST {auth.TokenUrl} could not be sent: {ex.Message}", ex);
+        }
+
+        string body;
+        using (response)
+        {
+            // The response body of a token endpoint is an error description on failure and, on
+            // success, the token itself — never echo it into the exception message.
+            if (!response.IsSuccessStatusCode)
+            {
+                throw new FlagControlException(
+                    $"flag-proof control auth token request POST {auth.TokenUrl} returned {(int)response.StatusCode} {response.ReasonPhrase}");
+            }
+
+            body = await response.Content.ReadAsStringAsync(cancellationToken);
+        }
+
+        try
+        {
+            using var doc = JsonDocument.Parse(body);
+            if (doc.RootElement.ValueKind == JsonValueKind.Object
+                && doc.RootElement.TryGetProperty("access_token", out var accessToken)
+                && accessToken.ValueKind == JsonValueKind.String
+                && accessToken.GetString() is { Length: > 0 } value)
+            {
+                return value;
+            }
+        }
+        catch (JsonException)
+        {
+            // fall through to the shared "no access_token" failure below
+        }
+
+        throw new FlagControlException(
+            $"flag-proof control auth token response from {auth.TokenUrl} contained no 'access_token'");
     }
 }

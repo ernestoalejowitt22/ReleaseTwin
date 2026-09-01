@@ -447,6 +447,9 @@ public sealed class CliRunner
                             knownBadWhenDisabled: control.Polarity == FlagProofPolarity.KnownBadWhenDisabled,
                             verify: control.Verify is { } v
                                 ? new HttpFlagVerify(v.Method, v.Url, v.Headers, v.Body, v.JsonPath, v.Expected)
+                                : null,
+                            auth: control.Auth is { } a
+                                ? new HttpFlagAuth(a.TokenUrl, a.ClientId, a.ClientSecret, a.Scope)
                                 : null)
                         : featureStateController;
 
