@@ -13,11 +13,12 @@ only when a real prospect or pilot names it. The ranking below is a guess at
 
 ## Likely a pilot triggers
 
-### 1. CLI packaging — `dotnet tool` / NuGet global install, Homebrew, GitHub Action wrapper
-Today: run the CLI = clone source + have the .NET SDK. A published Docker image
-is the only distribution. This is rung-1 funnel friction for self-serve, but a
-paid "Founding Setup" engagement hand-holds the first customers past it, so it
-is not pilot-blocking. Source: README, funnel plan Workstream C.
+### 1. CLI packaging — Homebrew tap, single-file per-RID binary
+**Mostly resolved by `cli-distribution` (2026-09-01):** the CLI now ships as a
+Docker image, a `dotnet tool` on nuget.org, and a GitHub Action. What's left is
+a Homebrew formula and a self-contained single-file binary (no .NET runtime).
+Low urgency — the three shipped paths cover the demand. Source: funnel plan
+Workstream C.
 
 ### 2. Project-level `control` template for flag proof
 Every flag-proof case re-declares the toggle HTTP request. A project-level

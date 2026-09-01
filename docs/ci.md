@@ -6,7 +6,7 @@ SPDX-License-Identifier: AGPL-3.0-only WITH LicenseRef-ReleaseTwin-Adapter-Excep
 # ReleaseTwin in CI
 
 The CLI exits non-zero on any case failure, so it drops into any pipeline as a required
-check with no extra wiring:
+check with no extra wiring. Three ways to get the CLI into a job:
 
 ```yaml
 name: Release-proof gate
@@ -16,12 +16,20 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - run: docker run --rm -v "$PWD/examples:/workspace:ro" \
-          ghcr.io/OWNER/releasetwin/cli:VERSION /workspace/cases-http-only
+
+      # A — the container image (no .NET on the runner)
+      - run: docker run --rm -v "$PWD:/workspace:ro"
+          ghcr.io/ernestoalejowitt22/releasetwin/cli:0.2.0 /workspace/cases
+
+      # B — the .NET global tool (the runner has .NET)
+      # - run: dotnet tool install -g releasetwin --version 0.2.0
+      # - run: releasetwin ./cases
+
+      # C — the GitHub Action (adds a PR comment + check run) — see "PR annotations" below
 ```
 
-A non-zero exit fails the job, fails the check, blocks the merge — the same gate you trust
-for unit tests.
+Pin a released version (`cli:0.2.0`, `--version 0.2.0`, `@v0.2.0`) in CI. A non-zero exit
+fails the job, fails the check, blocks the merge — the same gate you trust for unit tests.
 
 ## Machine-readable run summary
 
@@ -70,11 +78,19 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: ernestoalejowitt22/ReleaseTwin/integrations/github-action@v1
+      - uses: ernestoalejowitt22/ReleaseTwin/integrations/github-action@v0.2.0
         with:
           cases-path: cases
-          image: ghcr.io/OWNER/releasetwin/cli:VERSION
+          image: ghcr.io/ernestoalejowitt22/releasetwin/cli:0.2.0
 ```
+
+Pin a full version (`@v0.2.0`) in CI. `@v0` is a floating tag that tracks the latest 0.x
+release if you want patches automatically. The `image` input must be a publicly pullable
+tag.
+
+**Run-only gate** (no PR comment, just the check): pass `comment: false`. The `ReleaseTwin`
+check run still reports pass/fail — make it a required status check on the protected branch
+and that's your merge gate, no comment noise.
 
 See [`integrations/github-action/README.md`](../integrations/github-action/README.md) for
 every input. This repo dogfoods the Action in `.github/workflows/pr-annotations.yml`.

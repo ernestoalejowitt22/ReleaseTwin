@@ -1,6 +1,7 @@
 # Test your first API in 10 minutes
 
-No account, no clone, no .NET SDK — just Docker.
+No account, no clone, no .NET SDK — just Docker. (Prefer a `dotnet tool` or the
+GitHub Action? See [`docs/install.md`](install.md).)
 
 ## 1. Scaffold a project
 
