@@ -13,6 +13,10 @@ public static class ApiTokenDefaults
     public const string Scheme = "ApiToken";
     public const string ProjectIdClaim = "project_id";
     public const string OrganizationIdClaim = "organization_id";
+
+    /// <summary>security-hardening-pre-pilot D7: the token's SHA-256 hash (never the secret), stamped so
+    /// the ingest rate limiter can partition one bucket per API token without re-reading the header.</summary>
+    public const string TokenHashClaim = "token_hash";
 }
 
 /// <summary>
@@ -70,6 +74,7 @@ public sealed class ApiTokenAuthenticationHandler : AuthenticationHandler<Authen
         {
             new Claim(ApiTokenDefaults.ProjectIdClaim, token.ProjectId.ToString()),
             new Claim(ApiTokenDefaults.OrganizationIdClaim, token.OrganizationId.ToString()),
+            new Claim(ApiTokenDefaults.TokenHashClaim, hash),
         };
         var identity = new ClaimsIdentity(claims, ApiTokenDefaults.Scheme);
         var principal = new ClaimsPrincipal(identity);

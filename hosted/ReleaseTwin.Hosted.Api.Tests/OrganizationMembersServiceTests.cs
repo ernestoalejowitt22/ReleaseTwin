@@ -128,6 +128,56 @@ public class OrganizationMembersServiceTests
         Assert.Equal(MembershipRole.Member, result.Role); // not elevated during acceptance
     }
 
+    // security-hardening-pre-pilot D2 --------------------------------------------------------------
+
+    [Fact]
+    public async Task AcceptWithMatchingVerifiedEmailSucceeds_CaseInsensitive()
+    {
+        var h = new Harness();
+        var owner = await h.Provisioning.GetOrCreateUserAsync("clerk-owner", "Owner", "owner@example.com");
+        var invite = await h.Service.InviteAsync(owner.OrganizationId, owner.Id, "Teammate@Example.com", MembershipRole.Member);
+
+        var teammate = await h.Provisioning.GetOrCreateUserAsync("clerk-mate", "Mate", "teammate@example.com", invite.Token);
+        var result = await h.Service.AcceptAsync(teammate, invite.Token);
+
+        Assert.Equal(owner.OrganizationId, result.OrganizationId);
+        Assert.NotNull(await h.Memberships.GetAsync(owner.OrganizationId, teammate.Id));
+    }
+
+    [Fact]
+    public async Task AcceptWithNonMatchingEmailIsRefusedLikeAnInvalidInvite()
+    {
+        var h = new Harness();
+        var owner = await h.Provisioning.GetOrCreateUserAsync("clerk-owner", "Owner", "owner@example.com");
+        var invite = await h.Service.InviteAsync(owner.OrganizationId, owner.Id, "invited@example.com", MembershipRole.Admin);
+
+        // A different signed-in user got hold of the link.
+        var attacker = await h.Provisioning.GetOrCreateUserAsync("clerk-x", "X", "someone-else@example.com");
+
+        var ex = await Assert.ThrowsAsync<InvitationInvalidException>(() => h.Service.AcceptAsync(attacker, invite.Token));
+        Assert.Equal("This invitation is no longer valid.", ex.Message); // identical to expired/revoked
+        Assert.Null(await h.Memberships.GetAsync(owner.OrganizationId, attacker.Id));
+
+        // Invite is untouched — the real invitee can still accept.
+        var invitee = await h.Provisioning.GetOrCreateUserAsync("clerk-i", "I", "invited@example.com", invite.Token);
+        var result = await h.Service.AcceptAsync(invitee, invite.Token);
+        Assert.Equal(MembershipRole.Admin, result.Role);
+    }
+
+    [Fact]
+    public async Task AcceptWithNoVerifiedEmailIsANonMatchNotABypass()
+    {
+        var h = new Harness();
+        var owner = await h.Provisioning.GetOrCreateUserAsync("clerk-owner", "Owner", "owner@example.com");
+        var invite = await h.Service.InviteAsync(owner.OrganizationId, owner.Id, "invited@example.com", MembershipRole.Member);
+
+        // Session carried no email claim → user provisioned with a null email + a throwaway org.
+        var noEmail = await h.Provisioning.GetOrCreateUserAsync("clerk-noemail", "NoEmail", null);
+
+        await Assert.ThrowsAsync<InvitationInvalidException>(() => h.Service.AcceptAsync(noEmail, invite.Token));
+        Assert.Null(await h.Memberships.GetAsync(owner.OrganizationId, noEmail.Id));
+    }
+
     [Fact]
     public async Task ChangeRoleAndRemoveRespectLastAdmin()
     {

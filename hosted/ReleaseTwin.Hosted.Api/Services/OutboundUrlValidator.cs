@@ -16,9 +16,19 @@ public static class OutboundUrlValidator
     /// addresses. On false, <paramref name="reason"/> is a short human-readable explanation.
     /// <paramref name="resolve"/> defaults to <see cref="Dns.GetHostAddresses(string)"/>; tests inject a fake.
     /// </summary>
-    public static bool IsAllowed(string? url, out string reason, Func<string, IPAddress[]>? resolve = null)
+    public static bool IsAllowed(string? url, out string reason, Func<string, IPAddress[]>? resolve = null) =>
+        IsAllowed(url, out reason, out _, resolve);
+
+    /// <summary>
+    /// As <see cref="IsAllowed(string?, out string, Func{string, IPAddress[]}?)"/>, but also yields the
+    /// resolved, approved addresses. security-hardening-pre-pilot D5: the send-time caller pins its
+    /// connection to one of these, so a name whose resolution changes between this check and the
+    /// socket connect cannot redirect delivery to a private address.
+    /// </summary>
+    public static bool IsAllowed(string? url, out string reason, out IPAddress[] approvedAddresses, Func<string, IPAddress[]>? resolve = null)
     {
         reason = "";
+        approvedAddresses = Array.Empty<IPAddress>();
 
         if (string.IsNullOrWhiteSpace(url) || !Uri.TryCreate(url, UriKind.Absolute, out var uri))
         {
@@ -66,6 +76,7 @@ public static class OutboundUrlValidator
             }
         }
 
+        approvedAddresses = addresses;
         return true;
     }
 

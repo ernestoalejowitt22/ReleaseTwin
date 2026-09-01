@@ -28,7 +28,7 @@ public sealed class GitHubConnectionFlowService
         _httpClientFactory = httpClientFactory;
     }
 
-    public GitHubAuthorizeResult BuildAuthorizeUrl(Guid projectId)
+    public GitHubAuthorizeResult BuildAuthorizeUrl(Guid projectId, Guid userId)
     {
         var clientId = _configuration["GitHubConnection:ClientId"];
         var redirectUri = _configuration["GitHubConnection:CallbackUrl"];
@@ -37,7 +37,7 @@ public sealed class GitHubConnectionFlowService
             return new GitHubAuthorizeResult(false, null);
         }
 
-        var mintedState = _state.Mint(projectId);
+        var mintedState = _state.Mint(projectId, userId);
 
         // github-oauth-private-repos: classic GitHub OAuth Apps have no scope that means "list
         // private repos without reading their content" — `repo` is the only scope covering private
@@ -53,13 +53,17 @@ public sealed class GitHubConnectionFlowService
         return new GitHubAuthorizeResult(true, authorizeUrl);
     }
 
-    public async Task<GitHubCallbackResult?> ExchangeCodeForRepositoriesAsync(string code, string state, CancellationToken cancellationToken = default)
+    public async Task<GitHubCallbackResult?> ExchangeCodeForRepositoriesAsync(string code, string state, Guid callerUserId, CancellationToken cancellationToken = default)
     {
-        var projectId = _state.Validate(state);
-        if (projectId is null)
+        // security-hardening-pre-pilot D6: the state must be valid, unexpired, and minted by the same
+        // user who is now completing the flow. Any mismatch collapses to the same generic null result.
+        var validated = _state.Validate(state);
+        if (validated is not { } s || s.UserId != callerUserId)
         {
             return null;
         }
+
+        var projectId = (Guid?)s.ProjectId;
 
         var clientId = _configuration["GitHubConnection:ClientId"];
         var clientSecret = _configuration["GitHubConnection:ClientSecret"];

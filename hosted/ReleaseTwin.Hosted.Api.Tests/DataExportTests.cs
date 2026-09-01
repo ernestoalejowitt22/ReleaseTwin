@@ -93,7 +93,7 @@ public class ExportArchiveBuilderTests
             UploadedAt = DateTimeOffset.UtcNow,
         });
 
-        await h.Blobs.PutAsync("shot-1", [1, 2, 3]);
+        await h.Blobs.PutAsync(p1.Id, "shot-1", [1, 2, 3]);
         await h.Evidence.AddAsync(new UploadedRunEvidence
         {
             Id = Guid.NewGuid(), ProjectId = p1.Id, ReportId = caseWithEvidence.Id, ReportKind = "case",

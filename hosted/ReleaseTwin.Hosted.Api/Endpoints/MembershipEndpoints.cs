@@ -138,11 +138,13 @@ public static class MembershipEndpoints
             }
 
             var org = await organizations.GetAsync(invitation.OrganizationId);
+            // security-hardening-pre-pilot D2: the preview is reachable by any authenticated user who
+            // holds the link — it must not disclose the invited email address. Acceptance itself
+            // checks the caller's verified email server-side (OrganizationMembersService.AcceptAsync).
             return Results.Ok(new
             {
                 organizationName = org?.Name,
                 role = invitation.Role.ToString(),
-                email = invitation.Email,
                 acceptable = invitation.IsAcceptable(DateTimeOffset.UtcNow),
             });
         });

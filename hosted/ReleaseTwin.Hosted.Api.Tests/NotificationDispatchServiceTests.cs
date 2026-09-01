@@ -14,11 +14,13 @@ public class NotificationDispatchServiceTests
     private sealed class RecordingHandler : HttpMessageHandler
     {
         public List<(Uri Url, string Body)> Sent { get; } = [];
+        public List<IPAddress?> PinnedAddresses { get; } = [];
         public HttpStatusCode Status { get; set; } = HttpStatusCode.OK;
         public Func<HttpRequestException>? Throw { get; set; }
 
         protected override async Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
         {
+            PinnedAddresses.Add(request.Options.TryGetValue(NotificationDispatchService.PinnedAddressOption, out var ip) ? ip : null);
             if (Throw is not null)
             {
                 throw Throw();
@@ -162,6 +164,21 @@ public class NotificationDispatchServiceTests
         Assert.Empty(h.Handler.Sent);
         var stored = (await h.Targets.ListByProjectAsync(project.Id))[0];
         Assert.Contains("non-public", stored.LastOutcome);
+    }
+
+    // security-hardening-pre-pilot D5: the outbound request pins the connection to the address the
+    // SSRF check approved (Program.cs's ConnectCallback dials it; here we just assert it is carried).
+    [Fact]
+    public async Task DeliveryPinsTheValidatedAddressOnTheRequest()
+    {
+        var h = new Harness();
+        var (orgId, project) = await h.SeedAsync();
+        await h.AddTargetAsync(project.Id, "https://hooks.example.com/a");
+
+        await h.Service.DispatchAsync(h.Notification(orgId, project.Id));
+
+        var pinned = Assert.Single(h.Handler.PinnedAddresses);
+        Assert.Equal(IPAddress.Parse("93.184.216.34"), pinned); // the resolver's fixed public address
     }
 
     [Fact]

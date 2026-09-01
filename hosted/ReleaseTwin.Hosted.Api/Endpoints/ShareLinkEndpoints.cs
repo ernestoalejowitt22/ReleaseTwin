@@ -71,6 +71,8 @@ public static class ShareLinkEndpoints
         });
 
         // --- unauthenticated ---
+        // security-hardening-pre-pilot D7: per-client-address ceiling — sized so a viewer loading a
+        // shared page and all its screenshots is never throttled, but token guessing is shed.
         app.MapGet("/api/shared-runs/{token}", async (string token, EvidenceSharingService sharing) =>
         {
             try
@@ -85,7 +87,7 @@ public static class ShareLinkEndpoints
             {
                 return Results.Json(new { error = "share-link-unavailable" }, statusCode: StatusCodes.Status403Forbidden);
             }
-        }).AllowAnonymous();
+        }).AllowAnonymous().RequireRateLimiting(RateLimiting.ShareLinkPolicy);
 
         app.MapGet("/api/shared-runs/{token}/screenshots/{screenshotId}", async (string token, string screenshotId,
             EvidenceSharingService sharing, IEvidenceBlobStore blobs) =>
@@ -103,7 +105,7 @@ public static class ShareLinkEndpoints
             {
                 return Results.StatusCode(StatusCodes.Status403Forbidden);
             }
-        }).AllowAnonymous();
+        }).AllowAnonymous().RequireRateLimiting(RateLimiting.ShareLinkPolicy);
     }
 
     private static async Task<IResult?> GateAsync(Guid projectId, CurrentOrganizationAccessor currentOrg,
