@@ -17,16 +17,20 @@ public class OrganizationMembersServiceTests
         public ProjectRepository Projects { get; }
         public OrganizationMembersService Service { get; }
         public ProvisioningService Provisioning { get; }
+        public RecordingInvitationEmailSender Email { get; }
 
-        public Harness()
+        public Harness() : this(new RecordingInvitationEmailSender()) { }
+
+        public Harness(RecordingInvitationEmailSender email)
         {
+            Email = email;
             Orgs = new OrganizationRepository(Table);
             Memberships = new MembershipRepository(Table);
             Invitations = new InvitationRepository(Table);
             Projects = new ProjectRepository(Table);
             var membershipService = new MembershipService(Memberships);
             Service = new OrganizationMembersService(Orgs, Memberships, Invitations, Projects, membershipService,
-                new LoggingInvitationEmailSender(NullLogger<LoggingInvitationEmailSender>.Instance));
+                email, NullLogger<OrganizationMembersService>.Instance);
             Provisioning = new ProvisioningService(
                 new UserRepository(Table), Orgs, Projects, new ApiTokenRepository(Table),
                 new TokenService(), TestEntitlements.Service, invitations: Invitations);
@@ -180,5 +184,79 @@ public class OrganizationMembersServiceTests
         Assert.NotEqual(first, second.Id);
         Assert.Equal(MembershipRole.Admin, (await h.Memberships.GetAsync(second.Id, user.Id))!.Role);
         Assert.NotNull(await h.Orgs.GetAsync(first)); // original org untouched
+    }
+
+    // company-and-domain-launch: invitation email is best-effort — sent when a provider is
+    // configured, skipped when none is, and never fatal to the invitation.
+
+    [Fact]
+    public async Task InvitationEmailIsSentWithTheAcceptLink()
+    {
+        var h = new Harness();
+        var owner = await h.Provisioning.GetOrCreateUserAsync("clerk-owner", "Owner", "owner@example.com");
+        var invite = await h.Service.InviteAsync(owner.OrganizationId, owner.Id, "teammate@example.com", MembershipRole.Member);
+
+        await h.Service.SendInvitationEmailAsync(invite, "Acme", $"https://releasetwin.com/invitations/{invite.Token}");
+
+        var sent = Assert.Single(h.Email.Sent);
+        Assert.Equal("teammate@example.com", sent.ToEmail);
+        Assert.Contains(invite.Token, sent.AcceptUrl);
+    }
+
+    [Fact]
+    public async Task InvitationSucceedsAndSkipsSendWhenNoProviderIsConfigured()
+    {
+        // The logging fallback is what runs with no Notifications:FromAddress — it must not throw
+        // and the invitation must still be created with a usable token.
+        var membershipService = new MembershipService(new MembershipRepository(new InMemoryHostedTable()));
+        var table = new InMemoryHostedTable();
+        var invitations = new InvitationRepository(table);
+        var service = new OrganizationMembersService(
+            new OrganizationRepository(table), new MembershipRepository(table), invitations,
+            new ProjectRepository(table), membershipService,
+            new LoggingInvitationEmailSender(NullLogger<LoggingInvitationEmailSender>.Instance),
+            NullLogger<OrganizationMembersService>.Instance);
+
+        var invite = await service.InviteAsync(Guid.NewGuid(), Guid.NewGuid(), "x@example.com", MembershipRole.Member);
+        await service.SendInvitationEmailAsync(invite, "Acme", "/invitations/" + invite.Token);
+
+        Assert.Equal(InvitationState.Pending, (await invitations.GetByTokenAsync(invite.Token))!.State);
+    }
+
+    [Fact]
+    public async Task EmailProviderFailureDoesNotInvalidateTheInvitation()
+    {
+        var h = new Harness(new RecordingInvitationEmailSender { Throw = true });
+        var owner = await h.Provisioning.GetOrCreateUserAsync("clerk-owner", "Owner", "owner@example.com");
+        var invite = await h.Service.InviteAsync(owner.OrganizationId, owner.Id, "teammate@example.com", MembershipRole.Member);
+
+        // Must not propagate.
+        await h.Service.SendInvitationEmailAsync(invite, "Acme", $"https://releasetwin.com/invitations/{invite.Token}");
+
+        var stored = await h.Invitations.GetByTokenAsync(invite.Token);
+        Assert.NotNull(stored);
+        Assert.Equal(InvitationState.Pending, stored!.State);
+
+        // The invitation is still acceptable end to end.
+        var teammate = await h.Provisioning.GetOrCreateUserAsync("clerk-mate", "Mate", "teammate@example.com", invite.Token);
+        var result = await h.Service.AcceptAsync(teammate, invite.Token);
+        Assert.Equal(owner.OrganizationId, result.OrganizationId);
+    }
+
+    internal sealed class RecordingInvitationEmailSender : IInvitationEmailSender
+    {
+        public bool Throw { get; init; }
+        public List<(string ToEmail, string OrganizationName, string AcceptUrl)> Sent { get; } = [];
+
+        public Task SendAsync(string toEmail, string organizationName, string acceptUrl, CancellationToken cancellationToken = default)
+        {
+            if (Throw)
+            {
+                throw new InvalidOperationException("provider unavailable");
+            }
+
+            Sent.Add((toEmail, organizationName, acceptUrl));
+            return Task.CompletedTask;
+        }
     }
 }

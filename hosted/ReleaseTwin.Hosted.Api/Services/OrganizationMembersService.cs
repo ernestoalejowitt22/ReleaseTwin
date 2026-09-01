@@ -1,4 +1,5 @@
 using Amazon.DynamoDBv2.Model;
+using Microsoft.Extensions.Logging;
 using ReleaseTwin.Hosted.Api.Data.Entities;
 using ReleaseTwin.Hosted.Api.Data.Repositories;
 
@@ -20,6 +21,7 @@ public sealed class OrganizationMembersService
     private readonly IProjectRepository _projects;
     private readonly MembershipService _membershipService;
     private readonly IInvitationEmailSender _email;
+    private readonly ILogger<OrganizationMembersService> _logger;
 
     public OrganizationMembersService(
         IOrganizationRepository organizations,
@@ -27,7 +29,8 @@ public sealed class OrganizationMembersService
         IInvitationRepository invitations,
         IProjectRepository projects,
         MembershipService membershipService,
-        IInvitationEmailSender email)
+        IInvitationEmailSender email,
+        ILogger<OrganizationMembersService> logger)
     {
         _organizations = organizations;
         _memberships = memberships;
@@ -35,6 +38,7 @@ public sealed class OrganizationMembersService
         _projects = projects;
         _membershipService = membershipService;
         _email = email;
+        _logger = logger;
     }
 
     public async Task<Organization> CreateOrganizationAsync(AppUser creator, string name, CancellationToken cancellationToken = default)
@@ -99,8 +103,24 @@ public sealed class OrganizationMembersService
         await _invitations.PutAsync(invitation, cancellationToken);
     }
 
-    public async Task SendInvitationEmailAsync(Invitation invitation, string organizationName, string acceptUrl, CancellationToken cancellationToken = default) =>
-        await _email.SendAsync(invitation.Email, organizationName, acceptUrl, cancellationToken);
+    /// <summary>
+    /// company-and-domain-launch: best-effort invite delivery. The invitation row is already
+    /// persisted by <see cref="InviteAsync"/>; a provider error here is logged and swallowed so the
+    /// invitation stays valid and its accept link (also returned in the API response) still works.
+    /// </summary>
+    public async Task SendInvitationEmailAsync(Invitation invitation, string organizationName, string acceptUrl, CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            await _email.SendAsync(invitation.Email, organizationName, acceptUrl, cancellationToken);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex,
+                "invitation_email_failed org={OrganizationId} to={Email} — invitation remains valid, link is in the API response",
+                invitation.OrganizationId, invitation.Email);
+        }
+    }
 
     public sealed record AcceptResult(Guid OrganizationId, MembershipRole Role);
 
