@@ -12,6 +12,7 @@ discriminating verdict instead of a plain pass/fail:
 | `Inverted` | known-bad passed, known-good failed — the oracle points the wrong way |
 | `Ineligible` | nothing could drive the toggle (no adapter controller, no `control` block) |
 | `ControlFailed` | the toggle request itself errored; the run could not be performed |
+| `ControlUnverified` | the toggle was accepted (2xx) but a read-back showed the flag never changed |
 
 ## Declaring it
 
@@ -62,10 +63,38 @@ flag is **off** — so the known-bad leg drives it off and the known-good leg dr
 on. Set `known_bad_when: enabled` when the flag *is* the bug (a half-built feature
 behind it) and the safe state is off.
 
+### Reading the flag back (`control.verify`)
+
+A toggle endpoint that returns `200` but silently ignores the request — wrong key,
+wrong environment, a body it doesn't understand, a deleted flag — leaves both legs
+running against the *same* real state, which surfaces as a misleading `WeakOracle`
+or `BothFailed`. Add an optional `verify` block to catch it:
+
+```yaml
+    verify:
+      method: GET                                 # optional, default GET
+      url: ${FLAGS_API}/flags/{{featureKey}}
+      # headers:                                  # optional; defaults to control.headers
+      json_path: $.state
+      expected: "{{state}}"                        # {{state}} / {{enabled}} allowed here
+```
+
+After each toggle and before that leg runs, the HTTP adapter issues the `verify`
+request and checks that `json_path` in the response equals `expected` (a JSON
+boolean matches `"true"` / `"false"`). If it doesn't, the run ends as
+`ControlUnverified` — naming the leg whose state couldn't be confirmed — instead of
+running a leg under the wrong flag state. When `headers` is omitted the `control`
+block's headers (and their `${VAR}` auth) are reused.
+
+Only enable `verify` when your flag service is **read-your-writes consistent**; a
+service that takes a moment to propagate a change can report a false
+`ControlUnverified`. A single read is performed — there is no retry or poll.
+
 ### Failures
 
 A non-2xx response — or a request that can't be sent — ends the run as
-`ControlFailed`, naming the method, URL, and status. No leg executes after a failed
-control call, so a broken toggle can never be misreported as a weak oracle.
+`ControlFailed`, naming the method, URL, and status (this covers a `verify` request
+that itself errors). No leg executes after a failed control call, so a broken toggle
+can never be misreported as a weak oracle.
 
 See `examples/cases-flag-proof-http/example-flag-proof-http.yaml` for a complete case.

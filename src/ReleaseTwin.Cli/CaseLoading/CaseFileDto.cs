@@ -47,6 +47,17 @@ internal sealed class FlagProofControlDto
     public Dictionary<string, string>? Headers { get; set; }
     public string? Body { get; set; }
     public string? KnownBadWhen { get; set; }
+    public FlagProofControlVerifyDto? Verify { get; set; }
+}
+
+internal sealed class FlagProofControlVerifyDto
+{
+    public string? Method { get; set; }
+    public string? Url { get; set; }
+    public Dictionary<string, string>? Headers { get; set; }
+    public string? Body { get; set; }
+    public string? JsonPath { get; set; }
+    public string? Expected { get; set; }
 }
 
 internal sealed class OracleDto

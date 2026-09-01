@@ -285,6 +285,104 @@ public class CaseFileLoaderTests
     }
 
     [Fact]
+    public void FlagProofControlVerifyBlockRoundTripsAndInterpolatesEnvButNotTemplateTokens()
+    {
+        var root = CreateTempWorkspace();
+        File.WriteAllText(Path.Combine(root, "fixtures", "claim.json"), "{}");
+        File.WriteAllText(Path.Combine(root, "cases", "case1.yaml"), """
+            id: CLM-1
+            oracle:
+              locator: t/1
+            fixture:
+              locator: claim.json
+            pipeline: []
+            flag_proof:
+              feature_key: checkout-v2
+              build_identity: build-123
+              control:
+                method: put
+                url: ${FLAGS_API}/flags/{{featureKey}}
+                headers:
+                  Authorization: "Bearer ${FLAGS_TOKEN}"
+                verify:
+                  url: ${FLAGS_API}/flags/{{featureKey}}
+                  json_path: $.enabled
+                  expected: "{{enabled}}"
+            """);
+
+        var loader = new CaseFileLoader(
+            Path.Combine(root, "cases"), Path.Combine(root, "fixtures"),
+            name => name switch { "FLAGS_API" => "https://flags.example", "FLAGS_TOKEN" => "s3cret", _ => null });
+        var verify = loader.LoadAll().Single().FlagProof!.Control!.Verify!;
+
+        Assert.Equal("GET", verify.Method);
+        Assert.Equal("https://flags.example/flags/{{featureKey}}", verify.Url);
+        Assert.Equal("$.enabled", verify.JsonPath);
+        Assert.Equal("{{enabled}}", verify.Expected);
+        Assert.Null(verify.Headers);
+    }
+
+    [Fact]
+    public void FlagProofControlVerifyWithoutUrlIsRejected()
+    {
+        var ex = LoadControlCase("""
+              control:
+                method: PUT
+                url: https://flags.example/f
+                verify:
+                  json_path: $.enabled
+                  expected: "true"
+            """);
+        Assert.Contains("verify", ex.Message);
+        Assert.Contains("url", ex.Message);
+    }
+
+    [Fact]
+    public void FlagProofControlVerifyWithoutJsonPathIsRejected()
+    {
+        var ex = LoadControlCase("""
+              control:
+                method: PUT
+                url: https://flags.example/f
+                verify:
+                  url: https://flags.example/f
+                  expected: "true"
+            """);
+        Assert.Contains("json_path", ex.Message);
+    }
+
+    [Fact]
+    public void FlagProofControlVerifyWithoutExpectedIsRejected()
+    {
+        var ex = LoadControlCase("""
+              control:
+                method: PUT
+                url: https://flags.example/f
+                verify:
+                  url: https://flags.example/f
+                  json_path: $.enabled
+            """);
+        Assert.Contains("expected", ex.Message);
+    }
+
+    [Fact]
+    public void FlagProofControlVerifyWithBadMethodIsRejected()
+    {
+        var ex = LoadControlCase("""
+              control:
+                method: PUT
+                url: https://flags.example/f
+                verify:
+                  method: FETCH
+                  url: https://flags.example/f
+                  json_path: $.enabled
+                  expected: "true"
+            """);
+        Assert.Contains("verify", ex.Message);
+        Assert.Contains("method", ex.Message);
+    }
+
+    [Fact]
     public void InvalidYamlIsRejectedWithFileNamed()
     {
         var root = CreateTempWorkspace();
