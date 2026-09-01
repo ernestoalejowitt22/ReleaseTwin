@@ -1,0 +1,3 @@
+{
+  "note": "HTTP flag-control demo fixture. The case toggles a flag over REST (flag_proof.control) and its pipeline reads that same flag back; no fixture content is consumed, but every case still needs a verified fixture."
+}

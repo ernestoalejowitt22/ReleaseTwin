@@ -203,6 +203,107 @@ public class CliRunnerFlagProofTests
         Assert.Contains("flag-proof-report", uploadHandler.LastRequest!.RequestUri!.ToString());
     }
 
+    // http-flag-control: a case whose flag_proof.control block toggles a flag system nothing
+    // installed knows about — the always-present HTTP adapter flips it and the legs discriminate.
+    [Fact]
+    public async Task FlagProofCaseWithHttpControlBlockReportsPassed()
+    {
+        var root = CreateWorkspace();
+        WriteHttpControlCase(root, "HFP-1");
+        var output = new StringWriter();
+
+        var exitCode = await new CliRunner().RunAsync(
+            Path.Combine(root, "cases"), new Dictionary<string, string?> { ["FLAGS_TOKEN"] = "s3cret" }, output,
+            httpAdapterHandlerForTesting: new StatefulFlagHandler());
+
+        var text = output.ToString();
+        Assert.Contains("FLAGPROOF HFP-1 (Passed)", text);
+        Assert.Equal(0, exitCode);
+    }
+
+    // Scenario: a failed control request fails the run, distinct from a weak/ineligible verdict.
+    [Fact]
+    public async Task FlagProofCaseWithFailingHttpControlReportsControlFailed()
+    {
+        var root = CreateWorkspace();
+        WriteHttpControlCase(root, "HFP-2");
+        var output = new StringWriter();
+
+        var exitCode = await new CliRunner().RunAsync(
+            Path.Combine(root, "cases"), new Dictionary<string, string?> { ["FLAGS_TOKEN"] = "s3cret" }, output,
+            httpAdapterHandlerForTesting: new StatefulFlagHandler(failToggle: true));
+
+        var text = output.ToString();
+        Assert.Contains("FLAGPROOF HFP-2 (ControlFailed)", text);
+        Assert.NotEqual(0, exitCode);
+    }
+
+    private static void WriteHttpControlCase(string root, string caseId)
+    {
+        File.WriteAllText(Path.Combine(root, "fixtures", $"{caseId}.json"), "{}");
+        var yaml = """
+            id: __ID__
+            oracle:
+              locator: t/__ID__
+            fixture:
+              locator: __ID__.json
+            pipeline:
+              - operation: http.request
+                with:
+                  url: https://api.example/checkout
+              - operation: http.assertJsonPath
+                with:
+                  path: $.status
+                  expected: live
+            flag_proof:
+              feature_key: checkout-v2
+              build_identity: build-123
+              control:
+                method: PUT
+                url: https://flags.example/flags/{{featureKey}}
+                headers:
+                  Authorization: "Bearer ${FLAGS_TOKEN}"
+                body: '{"state":"{{state}}"}'
+            """.Replace("__ID__", caseId);
+        File.WriteAllText(Path.Combine(root, "cases", $"{caseId}.yaml"), yaml);
+    }
+
+    private sealed class StatefulFlagHandler : HttpMessageHandler
+    {
+        private readonly bool _failToggle;
+        private bool _on;
+
+        public StatefulFlagHandler(bool failToggle = false) => _failToggle = failToggle;
+
+        protected override async Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
+        {
+            var uri = request.RequestUri!.ToString();
+            if (uri.Contains("flags.example"))
+            {
+                if (_failToggle)
+                {
+                    return new HttpResponseMessage(HttpStatusCode.InternalServerError)
+                    {
+                        Content = new StringContent("nope", System.Text.Encoding.UTF8, "text/plain"),
+                    };
+                }
+
+                var body = await request.Content!.ReadAsStringAsync(cancellationToken);
+                _on = body.Contains("\"enabled\"");
+                return new HttpResponseMessage(HttpStatusCode.OK)
+                {
+                    Content = new StringContent("{}", System.Text.Encoding.UTF8, "application/json"),
+                };
+            }
+
+            var status = _on ? "live" : "broken";
+            return new HttpResponseMessage(HttpStatusCode.OK)
+            {
+                Content = new StringContent($"{{\"status\":\"{status}\"}}", System.Text.Encoding.UTF8, "application/json"),
+            };
+        }
+    }
+
     private sealed class NeverCalledHandler : HttpMessageHandler
     {
         protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken) =>

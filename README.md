@@ -42,7 +42,7 @@ This runs every case in `examples/cases/`. `example-http.yaml` is a real HTTP ca
 
 ```
 FAIL CLM-042 (Infrastructure): missing-capability:http:azure-devops
-FLAGPROOF FLAGPROOF-DEMO-1 (Ineligible): no installed adapter exposes feature-state control
+FLAGPROOF FLAGPROOF-DEMO-1 (Ineligible): no installed adapter exposes feature-state control and the case declares no flag_proof.control
 PASS HTTP-DEMO-1
 1 passed, 2 failed
 ```
@@ -135,15 +135,29 @@ Available operation/precondition/cleanup names today:
 
 **Known limitation:** Azure DevOps's operations still take no per-case parameters — a case selects *which* Azure DevOps operations run, not what data they act on. The HTTP adapter doesn't have this limitation. See "What's not built yet" below.
 
-**Flag proof** (paired known-bad/known-good run, see `examples/cases/example-flag-proof.yaml`): add a `flag_proof` block to any case that also has Azure DevOps configured, and the CLI runs it twice — once with the feature toggled off, once on — reporting a single discriminating outcome instead of a plain pass/fail:
+**Flag proof** (paired known-bad/known-good run, see `examples/cases/example-flag-proof.yaml`): add a `flag_proof` block to any case, and the CLI runs it twice — once with the feature toggled off, once on — reporting a single discriminating outcome instead of a plain pass/fail:
 
 ```yaml
 flag_proof:
-  feature_key: release-proof-feature   # the variable-group variable to toggle
+  feature_key: release-proof-feature   # the flag to toggle
   build_identity: build-123            # an identifier for this run, carried through the report
 ```
 
-Output looks like `FLAGPROOF FLAGPROOF-DEMO-1 (Passed)` — or `WeakOracle`/`BothFailed`/`Inverted`/`Ineligible` when the case's own pipeline can't actually tell known-bad from known-good, or when no installed adapter exposes feature-state control. Only Azure DevOps (its variable-group `IFeatureStateController`) can drive this today.
+The toggle is driven by whichever installed adapter exposes feature-state control (Azure DevOps's variable group, or LaunchDarkly). If none does — or the flag lives in a system with no adapter — add a `control` block and the always-present HTTP adapter flips it over REST (see `examples/cases-flag-proof-http/example-flag-proof-http.yaml` and `docs/flag-proof.md`):
+
+```yaml
+flag_proof:
+  feature_key: checkout-v2
+  build_identity: orders@2f9c1a
+  control:
+    method: PUT
+    url: ${FLAGS_API}/flags/{{featureKey}}      # {{featureKey}} / {{state}} / {{enabled}} are per-leg
+    headers: { Authorization: "Bearer ${FLAGS_TOKEN}" }   # credentials only via ${ENV} / hosted secrets
+    body: '{ "state": "{{state}}" }'
+    known_bad_when: disabled                    # or `enabled` to invert polarity
+```
+
+Output looks like `FLAGPROOF FLAGPROOF-DEMO-1 (Passed)` — or `WeakOracle`/`BothFailed`/`Inverted` when the case's own pipeline can't tell known-bad from known-good, `Ineligible` when nothing can drive the toggle, or `ControlFailed` when the `control` request itself errors.
 
 ### Running the automated test suite
 
@@ -227,7 +241,7 @@ Deliberately deferred, not forgotten — each was a scoped decision, not an over
 - **Packaging/distribution** — a Docker image is now published (`cli-packaging`, see "Or run it via Docker" above), tag-triggered via a GitHub Actions release workflow. `dotnet tool`/NuGet and a GitHub Action wrapper are still deferred.
 - **Azure DevOps operation parameters** — its operations are still fixed-shape; only the HTTP adapter is data-driven from case files.
 - **A non-REST adapter** — the HTTP adapter covers anything with a REST surface; a message queue, database, or vendor SDK without one still needs bespoke adapter code.
-- **A generic (non-Azure-DevOps) flag-proof mechanism** — the CLI can now run flag-proof pairs end-to-end (a case declares `flag_proof: { feature_key, build_identity }` and the CLI reports `FLAGPROOF <id> (<outcome>)`), but only against Azure DevOps's variable-group `IFeatureStateController`; a flag source that isn't Azure DevOps (LaunchDarkly, a config service, a REST endpoint) still needs a new implementation.
+- **Flag proof against a non-REST flag store** — a case drives the toggle through an adapter controller (Azure DevOps, LaunchDarkly) or a `flag_proof.control` HTTP request; a flag system with neither a controller adapter nor a REST toggle (an SDK-only or streaming provider) still needs a new `IFeatureStateController`. A project-level `control` template (rather than per-case) and a post-toggle read-back assertion are also still deferred.
 - **External-check connector (Playwright)** — visual/browser evidence isn't wired in.
 - **Billing** — the hosted platform (above) is Stage 1 only: no Stripe integration, no paid tiers, no usage enforcement.
 - **Going public with the hosted platform** — it's deployed and a production Clerk instance is wired to it, but self-serve sign-up isn't linked or announced anywhere and no outside user has been invited. This is now a business decision, not a setup step.
