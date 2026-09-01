@@ -24,8 +24,14 @@ export const SITE_NAME = "ReleaseTwin";
  */
 export const LEGAL_ENTITY = "the ReleaseTwin project";
 
-/** Where legal / privacy / security questions go. TODO: swap for a domain address. */
-export const LEGAL_CONTACT_EMAIL = "ernestoalejo22@gmail.com";
+/**
+ * Contact addresses. Today all three resolve to the same personal inbox; after
+ * company-and-domain-launch they become hello@ / security@ / legal@ on the domain — change the
+ * values here only, every page reads these constants.
+ */
+export const CONTACT_EMAIL = "ernestoalejo22@gmail.com";
+export const SECURITY_CONTACT_EMAIL = CONTACT_EMAIL;
+export const LEGAL_CONTACT_EMAIL = CONTACT_EMAIL;
 
 export const SITE_DESCRIPTION =
   "Self-serve release-proof testing. Compose HTTP and UI journeys, run them from your own CI, " +
