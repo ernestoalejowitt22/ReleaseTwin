@@ -5,9 +5,9 @@ billing to production) and does not block a first paid pilot.
 
 ## 1. Prod-stack decision
 
-- [ ] 1.1 Confirm the `releasetwin-dev-` auto-deploy stack carries alerting, evidence-purge, and evidence infra (verify against `hosted/terraform/`)
-- [ ] 1.2 Write the prod-stack decision into `docs/` — pilot on the dev-prefixed stack; cut a dedicated stack only at customer #2
-- [ ] 1.3 Record the deferred DynamoDB-prefix migration steps (export/import single table, re-point `Api__PublicUrl` + repo vars, soak, retire old tables)
+- [x] 1.1 Confirmed — `alerting.tf` (5xx/error/throttle alarms + SNS + staleness digest), `evidence.tf` (blob bucket + scheduled purge), `notifications.tf`, `billing.tf` all apply with the `releasetwin-dev-` prefix. Table in `docs/go-public-runbook.md` §1.
+- [x] 1.2 `docs/go-public-runbook.md` §1: pilot on the `releasetwin-dev-` stack (prefix is cosmetic, no data bleed — local dev uses DynamoDB Local); cut a real prod stack at customer #2 or a compliance ask.
+- [x] 1.3 `docs/go-public-runbook.md` §1.1 — 7-step migration (workflow_dispatch new prefix, DynamoDB export/import, `s3 sync` the evidence bucket, `Api__PublicUrl` self-heals, bootstrap IAM prefix update, soak, destroy old) + enable PITR on the cut.
 
 ## 2. History-cache expiry (prerequisite for any public flip)
 
@@ -26,13 +26,13 @@ billing to production) and does not block a first paid pilot.
 
 - [ ] 4.1 Verify `company-and-domain-launch` §7 (Polar in production, `POLAR_UPGRADE_ENABLED=true`) is complete
 - [ ] 4.2 Walk the funnel end to end on the live site: sign-up → org provisioned → first project created → entitlements reflect Free tier
-- [ ] 4.3 Wire the sign-up link/CTA into the marketing site nav and the pricing page CTA
-- [ ] 4.4 `next build` + `npx eslint` green
+- [x] 4.3 `site-header.tsx` gains a primary "Sign up" button (logged-out); homepage hero "Sign in to get started" → "Get started free" → `/sign-up` (+ copy); pricing Free tier + `docs/hosted-platform` → `/sign-up`.
+- [x] 4.4 `next build` compiled + `npx eslint` clean on the 4 changed files.
 - [ ] 4.5 **Needs the user to run this** — deploy; do one real external sign-up + upgrade-to-Team round trip; confirm the webhook and entitlement change land
-- [ ] 4.6 Confirm `ADMIN_OPERATOR_USER_IDS` repo var is set (Enterprise tier endpoint + admin surface depend on it)
+- [ ] 4.6 **Needs the user to run this** — `ADMIN_OPERATOR_USER_IDS` repo var is **NOT set** (checked 2026-09-01). Set it to the operator's Clerk **production** user id after signing up. Empty ⇒ admin surface closed (safe).
 
 ## 5. Close-out
 
-- [ ] 5.1 `docs/` go-public runbook records what was flipped, when, and the prod-stack decision
+- [x] 5.1 `docs/go-public-runbook.md` created — prod-stack decision + migration + per-section status. Updated as sections complete.
 - [ ] 5.2 `openspec validate go-public-sequence --strict` passes
 - [ ] 5.3 Confirm with the user before archiving

@@ -39,13 +39,20 @@ export async function SiteHeader() {
             </a>
           </Button>
           <ThemeToggle />
-          <Button asChild size="sm">
-            {userId ? (
+          {userId ? (
+            <Button asChild size="sm">
               <Link href="/dashboard">Dashboard</Link>
-            ) : (
-              <Link href="/sign-in">Sign in</Link>
-            )}
-          </Button>
+            </Button>
+          ) : (
+            <>
+              <Button asChild variant="ghost" size="sm">
+                <Link href="/sign-in">Sign in</Link>
+              </Button>
+              <Button asChild size="sm">
+                <Link href="/sign-up">Sign up</Link>
+              </Button>
+            </>
+          )}
         </nav>
       </div>
     </header>
