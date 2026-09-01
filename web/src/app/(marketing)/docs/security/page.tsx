@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { DocHeader, DocSection, P, UL } from "@/components/doc";
 import { CodeBlock } from "@/components/code-block";
+import { SECURITY_CONTACT_EMAIL } from "@/lib/site";
 
 export const metadata: Metadata = {
   title: "Security & credentials — ReleaseTwin",
@@ -250,10 +251,10 @@ export default function SecurityPage() {
         <P>
           Email{" "}
           <a
-            href="mailto:ernestoalejo22@gmail.com?subject=ReleaseTwin%20security"
+            href={`mailto:${SECURITY_CONTACT_EMAIL}?subject=ReleaseTwin%20security`}
             className="text-primary underline underline-offset-4"
           >
-            ernestoalejo22@gmail.com
+            {SECURITY_CONTACT_EMAIL}
           </a>{" "}
           with details and a proof of concept. Please don&apos;t open a public issue for a
           security report.

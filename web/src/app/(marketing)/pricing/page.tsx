@@ -3,6 +3,7 @@ import Link from "next/link";
 import { Check, Minus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { CONTACT_EMAIL } from "@/lib/site";
 import {
   annualSavingsPct,
   defaultPrice,
@@ -21,7 +22,7 @@ export const metadata: Metadata = {
     "The CLI and adapters are free and source-available. The hosted dashboard is priced per project — free to start, from ~$49/project/mo for Team.",
 };
 
-const CONTACT = "mailto:ernestoalejo22@gmail.com?subject=ReleaseTwin%20early%20access";
+const CONTACT = `mailto:${CONTACT_EMAIL}?subject=ReleaseTwin%20early%20access`;
 
 /**
  * Authored, per-tier framing only — the tier set, prices, support, and feature values all come
