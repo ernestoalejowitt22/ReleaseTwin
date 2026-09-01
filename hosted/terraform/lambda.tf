@@ -115,6 +115,25 @@ resource "aws_iam_role_policy" "hosted_api_data_protection" {
   policy = data.aws_iam_policy_document.hosted_api_data_protection.json
 }
 
+# company-and-domain-launch: SesInvitationEmailSender sends org invitations through SES v2. Scoped
+# to exactly the one domain identity in dns-and-email.tf — no other SES access, and none at all
+# until domain_name is set. Sending is the only SES verb the running app needs; identity/DKIM
+# management is the deploy role's job, not the function's.
+data "aws_iam_policy_document" "hosted_api_ses" {
+  count = local.domain_enabled ? 1 : 0
+  statement {
+    actions   = ["ses:SendEmail"]
+    resources = [aws_ses_domain_identity.main[0].arn]
+  }
+}
+
+resource "aws_iam_role_policy" "hosted_api_ses" {
+  count  = local.domain_enabled ? 1 : 0
+  name   = "ses-send-invitation-email"
+  role   = aws_iam_role.hosted_api.id
+  policy = data.aws_iam_policy_document.hosted_api_ses[0].json
+}
+
 resource "aws_lambda_function" "hosted_api" {
   function_name = "${var.table_prefix}releasetwin-hosted-api"
   role          = aws_iam_role.hosted_api.arn
@@ -148,6 +167,10 @@ resource "aws_lambda_function" "hosted_api" {
       # SQS producer. Web__BaseUrl also builds the invite accept link + notification dashboard links.
       Notifications__QueueUrl = aws_sqs_queue.run_notifications.id
       Web__BaseUrl            = var.web_base_url
+
+      # company-and-domain-launch: presence of this binds SesInvitationEmailSender (SES v2);
+      # empty ⇒ LoggingInvitationEmailSender and the accept link is only in the API response.
+      Notifications__FromAddress = var.notifications_from_address
 
       # onboarding-activation: the hosted API's own public URL, shown in the guided first-run panel's
       # CLI command. Can't reference aws_lambda_function_url here (circular) — supplied by

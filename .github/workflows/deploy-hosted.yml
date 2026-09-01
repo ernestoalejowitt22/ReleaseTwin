@@ -101,6 +101,8 @@ jobs:
             -var="admin_operator_user_ids=${{ vars.ADMIN_OPERATOR_USER_IDS }}" \
             -var="web_base_url=${{ vars.WEB_BASE_URL }}" \
             -var="api_public_url=${{ steps.api_url.outputs.value }}" \
+            -var="domain_name=${{ vars.DOMAIN_NAME }}" \
+            -var="notifications_from_address=${{ vars.NOTIFICATIONS_FROM_ADDRESS }}" \
             -var="github_client_id=${{ vars.GH_OAUTH_CLIENT_ID }}" \
             -var="github_client_secret=${{ secrets.GH_OAUTH_CLIENT_SECRET }}" \
             -var="github_callback_url=${{ vars.GH_OAUTH_CALLBACK_URL }}" \

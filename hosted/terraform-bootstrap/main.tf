@@ -298,6 +298,38 @@ data "aws_iam_policy_document" "github_actions_deploy_permissions" {
       "arn:aws:s3:::releasetwin-dev-*/*",
     ]
   }
+
+  # company-and-domain-launch dns-and-email.tf: the SES domain identity + Easy DKIM + custom MAIL
+  # FROM that SesInvitationEmailSender sends through. SES v1 identity APIs (which the
+  # aws_ses_domain_identity / _dkim / _mail_from resources use) are account-global — they take no
+  # resource constraint at all — so this is `ses:*` on `*`, the same pragmatic trade-off this file
+  # already makes for LambdaEventSourceMapping and the CloudWatch/Logs Describe verbs. Actual
+  # blast radius is bounded elsewhere: the running function's send permission (lambda.tf) is pinned
+  # to the one identity ARN, and none of this is created until the DOMAIN_NAME repo var is set.
+  statement {
+    sid       = "SesDomainIdentity"
+    actions   = ["ses:*"]
+    resources = ["*"]
+  }
+
+  # company-and-domain-launch dns-and-email.tf: record-set changes in the hosted zone Route 53
+  # Domains auto-created for the registered domain (SES DKIM/MAIL FROM/verification, DMARC, and
+  # later the Clerk custom-domain CNAME + Workspace MX). ChangeResourceRecordSets is authorized
+  # against the hosted-zone ARN, but the zone id isn't known until `apply` looks it up, and
+  # List/GetChange have no resource scoping — so `*`, bounded by the specific verb list.
+  statement {
+    sid = "Route53Records"
+    actions = [
+      "route53:GetHostedZone",
+      "route53:ListHostedZones",
+      "route53:ListHostedZonesByName",
+      "route53:ListResourceRecordSets",
+      "route53:ChangeResourceRecordSets",
+      "route53:GetChange",
+      "route53:ListTagsForResource",
+    ]
+    resources = ["*"]
+  }
 }
 
 resource "aws_iam_role_policy" "github_actions_deploy" {

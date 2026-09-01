@@ -19,12 +19,13 @@ them unchecked until the user confirms.
 
 ## 3. Transactional email — SES identity (Terraform, CI-only)
 
-- [ ] 3.1 Add an SES domain identity + DKIM (`aws_ses_domain_identity`, `aws_ses_domain_dkim`) for `releasetwin.com` in `hosted/terraform/`
-- [ ] 3.2 Emit the DKIM CNAME + `MAIL FROM` records as Terraform outputs
-- [ ] 3.3 **Needs the user to run this** — add the SES DKIM / MAIL FROM DNS records at the registrar
-- [ ] 3.4 Add a scoped `ses:SendEmail` / `ses:SendRawEmail` statement to the API Lambda execution role, `Resource` = the verified identity ARN
-- [ ] 3.5 **Needs the user to run this** — request SES production access (move out of sandbox)
-- [ ] 3.6 Confirm the CI `terraform apply` on merge provisions the identity and role statement without a bootstrap change
+- [x] 3.1 Add an SES domain identity + DKIM (`aws_ses_domain_identity`, `aws_ses_domain_dkim`) for the domain in `hosted/terraform/dns-and-email.tf` — gated on the `domain_name` var
+- [x] 3.2 Manage the DKIM CNAME + `_amazonses` verification + custom MAIL FROM (MX + SPF) + DMARC records directly as `aws_route53_record` (supersedes "emit as outputs" — the zone is now in Route 53, so Terraform owns the records)
+- [x] 3.3 ~~add the SES DNS records at the registrar~~ — **superseded by 3.2**: Route 53 Domains registered the domain, Terraform manages the records in the auto-created hosted zone (looked up via `data "aws_route53_zone"`)
+- [x] 3.4 Add a scoped `ses:SendEmail` statement to the API Lambda execution role (`hosted/terraform/lambda.tf`), `Resource` = the SES identity ARN, gated on `domain_name`
+- [ ] 3.5 **Needs the user to run this** — request SES production access (move out of sandbox) once the identity verifies
+- [x] 3.6 CI `terraform apply` **does** need a bootstrap change (the deploy role had no SES/Route 53 perms) — added `SesDomainIdentity` + `Route53Records` statements to `hosted/terraform-bootstrap/main.tf` in the same PR, per that file's documented pattern. Both apply on merge.
+- [ ] 3.7 **Needs the user to run this** — set the `DOMAIN_NAME` repo var to `releasetwin.com` to activate the SES/DNS resources, then confirm `bootstrap.yml` + `deploy-hosted.yml` both go green (re-run deploy if it raced bootstrap on the first merge)
 
 ## 4. SesInvitationEmailSender (code)
 
@@ -36,7 +37,7 @@ them unchecked until the user confirms.
 - [x] 4.6 Unit tests: provider-configured path sends + returns link; no-provider path skips send + returns link; provider-throws path keeps invitation valid + returns link
 - [x] 4.7 Update the `IInvitationEmailSender` / `LoggingInvitationEmailSender` XML doc comments (they currently point at "tasks.md 3.8" of a different change)
 - [x] 4.8 `dotnet build ReleaseTwin.sln` + `dotnet test ReleaseTwin.sln` green; report the new test count
-- [ ] 4.9 **Needs the user to run this** — set `Notifications:FromAddress` (repo var / terraform var) once SES identity 3.x is verified
+- [ ] 4.9 **Needs the user to run this** — set the `NOTIFICATIONS_FROM_ADDRESS` repo var (e.g. `no-reply@releasetwin.com`) once the SES identity from 3.x is verified; `deploy-hosted.yml` passes it to `notifications_from_address` and Program.cs binds `SesInvitationEmailSender`
 - [ ] 4.10 Post-deploy: issue a real invitation to an external address, confirm the email arrives and the link accepts (evidence-quality: note which inbox, paste the rendered email)
 - [ ] 4.11 Deliverability check (mail-tester or equivalent) — SPF/DKIM/DMARC all pass, not flagged as spam
 - [ ] 4.12 (stretch, optional) "Resend invitation" affordance on `/dashboard/members`
