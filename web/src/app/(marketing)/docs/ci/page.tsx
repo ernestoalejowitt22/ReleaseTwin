@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { DocHeader, DocSection, P, UL } from "@/components/doc";
 import { CodeBlock } from "@/components/code-block";
+import { BITBUCKET_PIPELINES_LABEL, BITBUCKET_PIPELINES_SNIPPET } from "@/lib/ci-snippets";
 
 export const metadata: Metadata = {
   title: "CI & GitHub Actions — ReleaseTwin",
@@ -117,21 +118,7 @@ jobs:
           <code className="text-foreground">--summary-json</code> file — nothing about
           either is GitHub-specific. On Bitbucket Pipelines the gate is one step:
         </P>
-        <CodeBlock
-          label="bitbucket-pipelines.yml"
-          code={`pipelines:
-  pull-requests:
-    '**':
-      - step:
-          name: Release-proof gate
-          services: [docker]
-          script:
-            - >
-              docker run --rm -v "$BITBUCKET_CLONE_DIR/cases:/workspace:ro" -v "$BITBUCKET_CLONE_DIR:/out"
-              ghcr.io/OWNER/releasetwin/cli:VERSION /workspace --summary-json /out/releasetwin-summary.json
-          artifacts:
-            - releasetwin-summary.json`}
-        />
+        <CodeBlock label={BITBUCKET_PIPELINES_LABEL} code={BITBUCKET_PIPELINES_SNIPPET} />
         <P>
           A non-zero exit fails the step and blocks the merge with no extra wiring. To
           render the summary as a Bitbucket PR comment, parse{" "}

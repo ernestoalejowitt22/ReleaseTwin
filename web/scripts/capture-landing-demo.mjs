@@ -158,6 +158,78 @@ ${glyph}
 </svg>\n`;
 }
 
+// Neutral CI-log palette — deliberately NOT the GitHub-dark `C` above and with no
+// GitHub/Bitbucket chrome, so this panel reads as "any CI", not a product screenshot.
+const L = {
+  bg: "#0b0f14",
+  border: "#2b333d",
+  text: "#d7dee6",
+  muted: "#8b949e",
+  green: "#3fb950",
+  red: "#f85149",
+};
+
+/**
+ * A generic pipeline-log render of the CLI running as a merge gate, derived entirely from
+ * the run summary: the per-case PASS/FAIL lines, the totals, the flag-proof line, and the
+ * non-zero exit that fails the CI step. No vendor chrome — the landing caption names it as
+ * the CLI's own stdout on any CI.
+ */
+function pipelineLogSvg(summary) {
+  const failed = summary.overall !== "passed";
+  const fp = summary.flagProof ?? { proven: 0, ineligible: 0, regressed: 0 };
+  const rows = [
+    { c: L.muted, t: "$ releasetwin ./cases --summary-json releasetwin-summary.json" },
+    { t: "" },
+    ...(summary.cases ?? []).map((c) => {
+      const ok = c.outcome === "passed";
+      return { c: ok ? L.green : L.red, t: `  ${ok ? "PASS" : "FAIL"}  ${c.id}` };
+    }),
+    { t: "" },
+    {
+      c: L.text,
+      t: `  ${summary.totals.cases} cases · ${summary.totals.passed} passed · ${summary.totals.failed} failed`,
+    },
+    {
+      c: L.muted,
+      t: `  flag proof: ${fp.proven} proven · ${fp.ineligible} ineligible · ${fp.regressed} regressed`,
+    },
+    { t: "" },
+    {
+      c: failed ? L.red : L.green,
+      t: failed
+        ? "  step failed — exit 1 — merge blocked"
+        : "  step passed — exit 0",
+    },
+  ];
+
+  const W = 780;
+  const padX = 20;
+  const rowH = 22;
+  const headH = 40;
+  const H = headH + 16 + rows.length * rowH + 12;
+  const parts = [
+    `<rect x="0" y="0" width="${W}" height="${headH}" fill="#11161c"/>`,
+    `<circle cx="20" cy="20" r="5" fill="#3a4048"/>`,
+    `<circle cx="38" cy="20" r="5" fill="#3a4048"/>`,
+    `<circle cx="56" cy="20" r="5" fill="#3a4048"/>`,
+    `<text x="78" y="25" font-size="12" fill="${L.muted}">ci: release-proof gate</text>`,
+  ];
+  let y = headH + 16 + 12;
+  for (const r of rows) {
+    if (r.t) {
+      parts.push(
+        `<text x="${padX}" y="${y}" font-size="13" font-family="ui-monospace,SFMono-Regular,Menlo,monospace" fill="${r.c ?? L.text}">${esc(r.t)}</text>`,
+      );
+    }
+    y += rowH;
+  }
+  return `<svg xmlns="http://www.w3.org/2000/svg" width="${W}" height="${H}">
+<rect x="0.5" y="0.5" width="${W - 1}" height="${H - 1}" rx="6" fill="${L.bg}" stroke="${L.border}"/>
+${parts.join("\n")}
+</svg>\n`;
+}
+
 function main() {
   mkdirSync(OUT, { recursive: true });
   const load = (n) => JSON.parse(readFileSync(join(HERE, "demo-summaries", n), "utf8"));
@@ -169,6 +241,7 @@ function main() {
     "pr-comment-passed.svg": commentSvg(passed),
     "pr-check-failed.svg": checkSvg(failed),
     "pr-check-passed.svg": checkSvg(passed),
+    "pipeline-log.svg": pipelineLogSvg(failed),
   };
   for (const [name, svg] of Object.entries(assets)) {
     const p = join(OUT, name);
