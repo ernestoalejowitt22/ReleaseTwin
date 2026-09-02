@@ -57,4 +57,4 @@
 - [x] 5.2 `web/` untouched — changes are `src/ReleaseTwin.Cli/CaseLoading/`,
       `tests/ReleaseTwin.Cli.Tests/`, `examples/`, `docs/flag-proof.md`, `README.md`.
 - [x] 5.3 `openspec validate flag-proof-project-template --strict` passes.
-- [ ] 5.4 Confirm with the user before archiving.
+- [x] 5.4 Confirm with the user before archiving.
