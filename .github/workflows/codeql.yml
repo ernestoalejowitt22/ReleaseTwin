@@ -1,0 +1,56 @@
+# SPDX-FileCopyrightText: 2026 Ernesto Alejo and the ReleaseTwin contributors
+# SPDX-License-Identifier: Apache-2.0
+#
+# supply-chain-and-ci-hardening (supply-chain-assurance): CodeQL SAST across the C# code (engine +
+# hosted) and the web sources, on every PR, every push to main, and a weekly full sweep. Advanced
+# setup (this file) rather than repo-settings "default setup" so the schedule, query suite, and build
+# steps are reviewable and diffable.
+name: CodeQL
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  schedule:
+    - cron: "0 5 * * 1" # Mondays 05:00 UTC
+
+permissions:
+  contents: read
+
+jobs:
+  analyze:
+    runs-on: ubuntu-latest
+    permissions:
+      security-events: write # required to upload results to the Security tab
+      actions: read
+      contents: read
+    strategy:
+      fail-fast: false
+      matrix:
+        language: [csharp, javascript-typescript]
+    steps:
+      - uses: actions/checkout@v4
+
+      - if: matrix.language == 'csharp'
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "10.0.x"
+
+      - name: Initialize CodeQL
+        uses: github/codeql-action/init@v3
+        with:
+          languages: ${{ matrix.language }}
+          # Default (`security`) query suite for now — keeps PR noise low. `security-extended` is the
+          # later opt-in once the baseline is clean and triaged.
+
+      # C# needs a real compile; JS/TS is analysed directly from source (no build step).
+      - name: Build C#
+        if: matrix.language == 'csharp'
+        run: |
+          dotnet build ReleaseTwin.sln --configuration Release
+          dotnet build hosted/ReleaseTwin.Hosted.slnx --configuration Release
+
+      - name: Analyze
+        uses: github/codeql-action/analyze@v3
+        with:
+          category: "/language:${{ matrix.language }}"
