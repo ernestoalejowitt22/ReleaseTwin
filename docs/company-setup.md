@@ -25,15 +25,38 @@ All in `hosted/terraform/*.tf`, gated on the `domain_name` var, applied by
 
 ## Company email
 
-Provider: _TBD_ (Google Workspace or equivalent). Aliases `hello@`, `security@`,
-`billing@`, `legal@` forwarding to one inbox.
+**Provider: Google Workspace** (chosen 2026-09-02). Aliases `hello@`, `security@`,
+`billing@`, `legal@` forwarding to one inbox (a Workspace group or a single user).
 
-| Record | Type | Value | Status |
+DNS is **Terraform-managed** in `hosted/terraform/dns-and-email.tf` on the apex,
+gated on `enable_google_workspace_email` — separate from the SES records, which
+send transactional mail from the `mail.releasetwin.com` subdomain. The two don't
+collide: apex SPF authorises Google, the MAIL FROM subdomain SPF authorises SES,
+one `_dmarc` record (already at `p=none`) covers both.
+
+| Record | Type | Value | Managed by |
 |---|---|---|---|
-| MX | | | |
-| SPF | TXT | | |
-| DKIM | CNAME/TXT | | |
-| DMARC | TXT | | |
+| apex `MX` | MX | `1 smtp.google.com` | Terraform (`gws_mx`) |
+| apex `SPF` | TXT | `v=spf1 include:_spf.google.com ~all` (+ optional site-verification) | Terraform (`gws_apex_txt`) |
+| `google._domainkey` | TXT | the 2048-bit DKIM value from Google Admin | Terraform (`gws_dkim`), value from `GOOGLE_WORKSPACE_DKIM` repo var |
+| `_dmarc` | TXT | `v=DMARC1; p=none; rua=mailto:security@releasetwin.com` | Terraform (already live from the SES work) |
+
+**Operator steps:**
+
+1. Create the Google Workspace account on `releasetwin.com`; add the aliases /
+   group; verify the domain (Workspace usually verifies via the MX records or an
+   existing Search Console property — if it asks for a TXT token, put it in the
+   `GOOGLE_SITE_VERIFICATION` repo var).
+2. Set repo var `ENABLE_GOOGLE_WORKSPACE_EMAIL` = `true` → next deploy publishes
+   the MX + apex SPF.
+3. In Admin console → Apps → Google Workspace → Gmail → **Authenticate email**,
+   generate the DKIM key (2048-bit); put the TXT value in the
+   `GOOGLE_WORKSPACE_DKIM` repo var → next deploy publishes `google._domainkey`;
+   then click **Start authentication** in the console.
+4. Send a test to each alias from an external address (task 2.3); run a
+   deliverability check (mail-tester) — SPF + DKIM + DMARC all pass (task 4.11).
+5. Once Google mail and SES both pass DMARC, consider tightening `_dmarc` to
+   `p=quarantine` (edit `dns-and-email.tf`).
 
 ## Transactional email (SES)
 

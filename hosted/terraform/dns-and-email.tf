@@ -33,8 +33,27 @@ variable "notifications_from_address" {
   }
 }
 
+variable "enable_google_workspace_email" {
+  description = "company-and-domain-launch §2: when true (and domain_name set), publish the Google Workspace MX + apex SPF for the company mailbox (hello@ / security@ / billing@ / legal@ ...). Flip after the Workspace account exists. Supplied from the ENABLE_GOOGLE_WORKSPACE_EMAIL repo variable."
+  type        = bool
+  default     = false
+}
+
+variable "google_workspace_dkim" {
+  description = "The DKIM TXT value Google generates in Admin console → Apps → Gmail → Authenticate email (2048-bit). Empty ⇒ the google._domainkey record is not published yet. Supplied from the GOOGLE_WORKSPACE_DKIM repo variable."
+  type        = string
+  default     = ""
+}
+
+variable "google_site_verification" {
+  description = "Optional google-site-verification token for the apex TXT record, if Workspace/Search Console asks for one (many setups verify via the MX records or an existing Search Console property instead). Empty ⇒ apex TXT is SPF only."
+  type        = string
+  default     = ""
+}
+
 locals {
   domain_enabled = var.domain_name != ""
+  gws_enabled    = local.domain_enabled && var.enable_google_workspace_email
 }
 
 data "aws_route53_zone" "main" {
@@ -112,6 +131,51 @@ resource "aws_route53_record" "dmarc" {
   type    = "TXT"
   ttl     = 1800
   records = ["v=DMARC1; p=none; rua=mailto:security@${var.domain_name}"]
+}
+
+# --- Company mailbox: Google Workspace on the apex ------------------------------------------------
+#
+# Separate from SES: SES sends *transactional* mail from mail.releasetwin.com (a subdomain, its own
+# SPF above). Google Workspace handles person-to-person mail from @releasetwin.com (the apex). The
+# two do not collide — apex SPF authorises Google, the MAIL FROM subdomain SPF authorises SES, and
+# the one _dmarc record covers both.
+#
+# Gated on `enable_google_workspace_email` (flip after the Workspace account is created). The
+# google._domainkey record is additionally gated on `google_workspace_dkim` being set — generate
+# the key in Admin console → Apps → Google Workspace → Gmail → Authenticate email, then put the
+# TXT value in the GOOGLE_WORKSPACE_DKIM repo variable.
+
+resource "aws_route53_record" "gws_mx" {
+  count   = local.gws_enabled ? 1 : 0
+  zone_id = data.aws_route53_zone.main[0].zone_id
+  name    = var.domain_name
+  type    = "MX"
+  ttl     = 3600
+  records = ["1 smtp.google.com"]
+}
+
+resource "aws_route53_record" "gws_apex_txt" {
+  count   = local.gws_enabled ? 1 : 0
+  zone_id = data.aws_route53_zone.main[0].zone_id
+  name    = var.domain_name
+  type    = "TXT"
+  ttl     = 3600
+  # One record set: the SPF plus, optionally, a Google site-verification token. Anything else that
+  # needs an apex TXT (a future verification, etc.) must be added to this list, not a second resource.
+  records = compact([
+    "v=spf1 include:_spf.google.com ~all",
+    var.google_site_verification != "" ? "google-site-verification=${var.google_site_verification}" : "",
+  ])
+}
+
+resource "aws_route53_record" "gws_dkim" {
+  count   = local.gws_enabled && var.google_workspace_dkim != "" ? 1 : 0
+  zone_id = data.aws_route53_zone.main[0].zone_id
+  name    = "google._domainkey.${var.domain_name}"
+  type    = "TXT"
+  ttl     = 3600
+  # The AWS provider auto-splits a TXT value over 255 chars into quoted chunks.
+  records = [var.google_workspace_dkim]
 }
 
 output "ses_domain_identity_arn" {
