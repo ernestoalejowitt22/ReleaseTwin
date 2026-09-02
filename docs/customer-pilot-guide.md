@@ -15,16 +15,19 @@ scale** and do **not** block a pilot.
 ### Hard blockers (≈1 day of operator time + one lawyer engagement)
 
 1. **Operator account + `ADMIN_OPERATOR_USER_IDS`.** Sign up once on the
-   *production* Clerk instance to create the operator login, then set the
-   `ADMIN_OPERATOR_USER_IDS` repo var to that Clerk prod user id. Without an
-   operator account you can't set up the partner's org or grant a tier.
+   *production* Clerk instance, then open **`/dashboard/me`** while signed in — it
+   returns `{ clerkUserId, email, isOperator, ... }`. Set the
+   `ADMIN_OPERATOR_USER_IDS` repo var to that `clerkUserId`, redeploy, reload
+   `/dashboard/me`, confirm `isOperator: true`. Without an operator account you
+   can't set up the partner's org or grant a tier.
    (go-public-sequence §4.6; company-and-domain-launch §5.1b leftover.)
 2. **Prove the Clerk `email` claim end to end.** `security-hardening-pre-pilot`
    made invitation *acceptance* require a provider-verified `email` claim — if the
    Clerk session-token customization put `email` where the API doesn't read it, or
-   it isn't the verified primary, invites fail silently. One real test: sign up →
-   invite a second address you control → accept → confirm the join.
-   (company-and-domain-launch 4.10; go-public-sequence 4.2.)
+   it isn't the verified primary, invites fail silently. Fast check:
+   **`/dashboard/me`** shows the `email` it resolved — if that's your verified
+   address, the claim is landing. Then do one real invite → accept round trip to
+   be sure. (company-and-domain-launch 4.10; go-public-sequence 4.2.)
 3. **A pilot agreement a real counterparty can sign.** Drafts are in
    [`docs/legal/`](legal/) (pilot agreement + DPA, built from the Common
    Paper / Bonterms structure). A Mexican technology lawyer needs 1–2 hours on the

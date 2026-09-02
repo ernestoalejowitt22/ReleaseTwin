@@ -21,6 +21,27 @@ public static class MembershipEndpoints
         var orgs = app.MapGroup("/api/organizations")
             .RequireAuthorization(policy => policy.RequireAuthenticatedUser().AddAuthenticationSchemes("ClerkJwt"));
 
+        // company-and-domain-launch / operator setup: what the API resolved from the caller's Clerk
+        // session token. Two operator uses: (1) `clerkUserId` is the exact value for the
+        // `ADMIN_OPERATOR_USER_IDS` repo var; (2) `email` shows whether the Clerk session-token
+        // customization is delivering a verified email claim (invitation acceptance depends on it).
+        // No secrets — only identity facts the caller already owns.
+        app.MapGet("/api/me", async (IUserRepository users, CurrentOrganizationAccessor currentOrg,
+            AdminOperators operators, ClaimsPrincipal principal) =>
+        {
+            var sub = principal.FindFirstValue("sub");
+            var user = await CurrentUserAsync(users, principal);
+            return Results.Ok(new MeView(
+                ClerkUserId: sub,
+                UserId: user?.Id,
+                Email: principal.FindFirstValue("email"),
+                DisplayName: principal.FindFirstValue("user_display_name") ?? user?.DisplayName,
+                ActiveOrganizationId: currentOrg.OrganizationId,
+                ActiveRole: currentOrg.Role?.ToString(),
+                IsOperator: operators.IsOperator(sub),
+                OperatorAllowlistConfigured: operators.Any));
+        }).RequireAuthorization(policy => policy.RequireAuthenticatedUser().AddAuthenticationSchemes("ClerkJwt"));
+
         // org-membership: the organizations the current user belongs to — powers the header org
         // switcher and tells a page whether the caller is an admin of the active org.
         app.MapGet("/api/me/organizations", async (MembershipService membershipService, IUserRepository users,
@@ -208,6 +229,17 @@ public static class MembershipEndpoints
 public sealed record CreateOrganizationRequest(string? Name);
 public sealed record CreateInvitationRequest(string? Email, string? Role);
 public sealed record ChangeRoleRequest(string? Role);
+
+/// <summary>What <c>GET /api/me</c> reports: the identity the API resolved from the caller's session token.</summary>
+public sealed record MeView(
+    string? ClerkUserId,
+    Guid? UserId,
+    string? Email,
+    string? DisplayName,
+    Guid? ActiveOrganizationId,
+    string? ActiveRole,
+    bool IsOperator,
+    bool OperatorAllowlistConfigured);
 public sealed record MemberView(Guid UserId, string Role, string? DisplayName, string? Email, DateTimeOffset JoinedAt);
 public sealed record MyOrganizationView(Guid Id, string Name, string Role, bool Active);
 public sealed record InvitationView(string Token, string Email, string Role, string State, DateTimeOffset ExpiresAt, string AcceptUrl);
