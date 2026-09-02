@@ -31,7 +31,7 @@ persona física.
 - [x] 4.3 `site-header.tsx` gains a primary "Sign up" button (logged-out); homepage hero "Sign in to get started" → "Get started free" → `/sign-up` (+ copy); pricing Free tier + `docs/hosted-platform` → `/sign-up`.
 - [x] 4.4 `next build` compiled + `npx eslint` clean on the 4 changed files.
 - [ ] 4.5 **Needs the user to run this** — deploy; do one real external sign-up + upgrade-to-Team round trip; confirm the webhook and entitlement change land
-- [ ] 4.6 **Needs the user to run this** — `ADMIN_OPERATOR_USER_IDS` repo var is **NOT set** (checked 2026-09-01). Set it to the operator's Clerk **production** user id after signing up. Empty ⇒ admin surface closed (safe).
+- [ ] 4.6 **Needs the user to run this** — `ADMIN_OPERATOR_USER_IDS` repo var is **NOT set** (checked 2026-09-01). After signing up on prod Clerk, open `/dashboard/me` for the `clerkUserId`, then `gh variable set ADMIN_OPERATOR_USER_IDS -b '<clerkUserId>'`; redeploy; reload `/dashboard/me` and confirm `isOperator: true`. Empty ⇒ admin surface closed (safe).
 
 ## 5. Close-out
 
