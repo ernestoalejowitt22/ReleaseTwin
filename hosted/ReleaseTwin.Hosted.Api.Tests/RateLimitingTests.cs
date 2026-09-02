@@ -39,7 +39,11 @@ public class RateLimitingTests
     [Fact]
     public async Task IngestBurstPastCeilingGets429AndStoresNothingForRejected()
     {
-        using var factory = Factory(("RateLimiting:Ingest:TokenLimit", "2"));
+        // ReplenishmentSeconds huge ⇒ the bucket never refills mid-test, so the burst is deterministic
+        // even if the test thread is starved on a contended CI runner.
+        using var factory = Factory(
+            ("RateLimiting:Ingest:TokenLimit", "2"),
+            ("RateLimiting:Ingest:ReplenishmentSeconds", "3600"));
 
         // Guard: the test override must actually reach the composed configuration the limiter reads.
         using (var s = factory.Services.CreateScope())
@@ -68,7 +72,9 @@ public class RateLimitingTests
     [Fact]
     public async Task OneTokenBeingThrottledDoesNotAffectAnother()
     {
-        using var factory = Factory(("RateLimiting:Ingest:TokenLimit", "1"));
+        using var factory = Factory(
+            ("RateLimiting:Ingest:TokenLimit", "1"),
+            ("RateLimiting:Ingest:ReplenishmentSeconds", "3600"));
         var (clientA, _, _) = await IngestClientAsync(factory);
         var (clientB, _, _) = await IngestClientAsync(factory);
 
