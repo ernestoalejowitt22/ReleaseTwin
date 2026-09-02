@@ -2,6 +2,77 @@
 
 Grounds "how would customers use it" in what's literally built today, not the aspirational version. An honest account of what is built versus aspirational — so nobody oversells real release-proof coverage as a five-minute setup.
 
+## First-pilot readiness (assessment 2026-09-02)
+
+A "first pilot" here means **one design partner, invited privately, running against
+their own systems, on the `releasetwin-dev-` stack, free**. Against that bar — not
+against GA — here is what actually stands between now and starting.
+
+Most open tasks in `company-and-domain-launch`, `go-public-sequence`,
+`cli-distribution`, and `support-intake` are for **GA / going public / billing /
+scale** and do **not** block a pilot.
+
+### Hard blockers (≈1 day of operator time + one lawyer engagement)
+
+1. **Operator account + `ADMIN_OPERATOR_USER_IDS`.** Sign up once on the
+   *production* Clerk instance to create the operator login, then set the
+   `ADMIN_OPERATOR_USER_IDS` repo var to that Clerk prod user id. Without an
+   operator account you can't set up the partner's org or grant a tier.
+   (go-public-sequence §4.6; company-and-domain-launch §5.1b leftover.)
+2. **Prove the Clerk `email` claim end to end.** `security-hardening-pre-pilot`
+   made invitation *acceptance* require a provider-verified `email` claim — if the
+   Clerk session-token customization put `email` where the API doesn't read it, or
+   it isn't the verified primary, invites fail silently. One real test: sign up →
+   invite a second address you control → accept → confirm the join.
+   (company-and-domain-launch 4.10; go-public-sequence 4.2.)
+3. **A pilot agreement a real counterparty can sign.** Drafts are in
+   [`docs/legal/`](legal/) (pilot agreement + DPA, built from the Common
+   Paper / Bonterms structure). A Mexican technology lawyer needs 1–2 hours on the
+   pilot agreement + the ToS governing-law/liability clause (company-and-domain-launch
+   §6.7). Highest-value item on the list; skippable only for a genuinely informal
+   design partner.
+
+### Strongly recommended before sending it to a real company
+
+4. **`@releasetwin.com` mailbox** (Google Workspace or equivalent). Not strictly
+   required — a pilot can run with the personal inbox — but it's the notice
+   address on the pilot agreement, the `SECURITY.md` contact, and how procurement
+   reads you. Also unblocks company-and-domain-launch §6.5. ~30 min.
+5. **Talk to the prospect first.** The validation questions at the bottom of this
+   doc have never been asked of a real prospect. Budget commitment to build out
+   *their* workflow is the signal — not demo enthusiasm.
+
+### Explicitly NOT needed for a pilot
+
+- **Going public** (`go-public-sequence`) — a pilot is private; the change says so.
+- **Polar production / billing** (company-and-domain-launch §7) — pilot is free.
+- **Incorporation** (S.A.S. / S. de R.L.) — deferred track; a registered persona
+  física is a sufficient legal counterparty and Merchant-of-Record payee.
+- **nuget.org / a `v0.2.0` release** (`cli-distribution`) — the documented pilot
+  setup is "clone the repo, `dotnet build`" (or hand the partner the GHCR image).
+- **Trademark glance, Google Search Console, invite-email deliverability, the
+  `docs/company-setup.md` close-out** — GA housekeeping. The invite workaround
+  (admin copies the accept link from the UI) is fine for pilot #1.
+
+### The product reality (this is the actual work — not a checkbox)
+
+- The **demo is real today** for anything REST-shaped: prerequisite ownership,
+  cleanup, failure classification, flag proof. A live demo against a sandbox org
+  is honest.
+- **"It works with your system" is not true yet** for anyone but Azure DevOps in a
+  fixed operation shape. Testing the partner's *actual* workflow is scoped
+  engineering done *together, during the pilot* — that is what the pilot is.
+- **Flag proof — the differentiator — is still Azure-DevOps-specific.** A partner
+  whose flags live in LaunchDarkly / a config service / their own REST endpoint
+  needs an `IFeatureStateController` built for it. Good pilot scope, not a blocker,
+  but go in knowing it.
+- **No pricing exists.** Don't imply it.
+
+So a first pilot is: find a design partner whose critical workflow is
+REST-reachable → sign a lawyer-glanced pilot agreement → build their Tier-2
+integration together → learn whether they'd commit budget. Items 1–3 are the
+gate; the rest is polish or comes later.
+
 ## Update (commercial-readiness-gaps): teams, notifications, and shareable evidence
 
 The hosted platform is no longer single-user. A pilot can now bring their team:
@@ -10,7 +81,7 @@ The hosted platform is no longer single-user. A pilot can now bring their team:
 - **Run-failure notifications** (Team tier, opt-in, per project). A Slack incoming-webhook or a generic HTTPS webhook fires when a run fails or a flag proof doesn't discriminate. The payload carries the project, the case/run id, the result and classification, and a dashboard link — never fixture content, response bodies, or secrets. The customer-supplied URL is validated (https-only, no private/loopback/metadata addresses) at save time and again at send time.
 - **Shareable evidence links** (Team tier). An admin creates a per-run, revocable, expiring link. Opening it renders exactly the redacted evidence document that run already uploaded — no dashboard, no other runs, no account surface — to someone with no login. Good for handing a proof to an auditor or a manager; the redaction still happened in the customer's own CLI before upload.
 
-Two honest caveats for a pilot pitch: (1) both notifications and share links sit behind a master feature flag that is **off by default** — flip it on for a design partner deliberately; (2) there is no transactional-email provider wired yet, so an invitation's accept link is returned in the API/UI for the admin to share directly rather than being emailed.
+Two honest caveats for a pilot pitch: (1) both notifications and share links sit behind a master feature flag that is **off by default** — flip it on for a design partner deliberately; (2) the transactional-email sender (`SesInvitationEmailSender`) is now in the codebase but **dormant** until the `DOMAIN_NAME` + `NOTIFICATIONS_FROM_ADDRESS` repo vars are set and SES is verified — until then an invitation's accept link is returned in the API/UI for the admin to share directly rather than being emailed (a fine pilot workaround).
 
 ## Update (hosted-self-serve-platform): self-serve onboarding now exists — with real limits
 
