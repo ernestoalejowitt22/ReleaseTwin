@@ -2,23 +2,34 @@
 
 See proposal.md — Why. The product is built; the company around it is a
 placeholder. This change establishes a registered domain, company email, a
-legal entity, and the one product feature blocked on all of it: actually
+named legal operator, and the one product feature blocked on all of it: actually
 delivering invitation emails.
 
 Almost all of the work is external configuration (registrar, Google Workspace,
-Stripe Atlas, Polar, Clerk, DNS). The only code is a second
-`IInvitationEmailSender` implementation and a sweep of placeholder
-URL/identity constants. The engine, adapters, and execution path are
-untouched.
+Polar, Clerk, DNS). The only code is a second `IInvitationEmailSender`
+implementation and a sweep of placeholder URL/identity constants. The engine,
+adapters, and execution path are untouched.
 
-Two external long poles gate ordering:
+**Legal operator (updated 2026-09-02):** the operator is a **Mexican tax
+resident, bootstrapping (no venture capital), already registered as a persona
+física con actividad empresarial under RESICO.** That is a real legal operator
+that can invoice domestic and foreign customers and receive USD/MXN — a US LLC
+is *not* needed (no VC forcing function, no US-procurement requirement yet) and
+would only add a US filing burden. `LEGAL_ENTITY` is set to the operator's
+registered name now. Incorporation (S.A.S. or S. de R.L. de C.V.) is deferred to
+a separate track, triggered by the RESICO persona-física revenue ceiling
+(~3.5M MXN/yr), a customer's procurement demand, or legal advice — none of which
+blocks a first pilot. The pre-pilot legal work that *does* matter is the
+counsel review of the Terms of Service (governing law + limitation of liability)
+and the AGPL/BSL licensing stack.
+
+One external long pole gates ordering:
 
 ```
-register releasetwin.com  ─┬─► DNS (MX/SPF/DKIM/DMARC), Workspace, SES identity,
-  (~1 hr)                   │   Clerk custom domain, NEXT_PUBLIC_SITE_URL, POLAR_*_URL
-                            │
-form US LLC ──► EIN ────────┴─► LEGAL_ENTITY swap, Polar production payee, legal review
-  (~1–2 wk)
+register releasetwin.com  ──► DNS (MX/SPF/DKIM/DMARC), Workspace, SES identity,
+  (~1 hr)                      Clerk custom domain, NEXT_PUBLIC_SITE_URL, POLAR_*_URL
+
+counsel review of ToS + licensing ──► GA readiness (does NOT block a pilot)
 ```
 
 ## Goals / Non-Goals
@@ -28,7 +39,7 @@ form US LLC ──► EIN ────────┴─► LEGAL_ENTITY swap, P
   as the fallback so local dev and tests are unaffected.
 - SES domain identity + DKIM provisioned in Terraform (CI-only apply), with a
   Lambda-role `ses:SendEmail` statement scoped to the verified identity.
-- Every placeholder URL/identity constant re-pointed to `releasetwin.com` and the LLC.
+- Every placeholder URL/identity constant re-pointed to `releasetwin.com` and the named operator.
 - A `docs/company-setup.md` recording what was registered where.
 
 **Non-Goals:**
@@ -69,11 +80,37 @@ accept link in the API response is a complete fallback path. This matches the
 existing behavior where the link is surfaced to the admin regardless.
 
 ### `LEGAL_ENTITY` / `LEGAL_CONTACT_EMAIL` are the single swap point
-`web/src/lib/site.ts` already centralizes these (currently
-`"the ReleaseTwin project"` / `ernestoalejo22@gmail.com`). The `mailto:` links
-on the security and pricing pages should be migrated to reference these
-constants rather than hard-coding the address again, so a future entity/email
-change is one edit.
+`web/src/lib/site.ts` centralizes these. `LEGAL_ENTITY` is now the operator's
+registered persona-física name; `LEGAL_CONTACT_EMAIL` moves to
+`legal@releasetwin.com` once the mailbox exists. The `mailto:` links on the
+security and pricing pages already reference these constants, so a future
+entity/email change is one edit.
+
+### Legal operator: named persona física now, incorporation deferred
+The operator is a Mexican tax resident, bootstrapping, already registered as a
+persona física con actividad empresarial (RESICO). That is sufficient to invoice
+customers (CFDI domestically; a plain invoice for foreign customers, export of
+services often 0% IVA) and take Merchant-of-Record payouts from Polar. **A US LLC
+is rejected:** no venture capital (the usual forcing function), customers "could
+be anyone" so no specific US-procurement requirement, and it adds a US Form 5472
+filing burden ($25k penalty for a mistake) plus cross-border tax complexity for a
+solo MX operator. **Incorporation (S.A.S. / S. de R.L. de C.V.) is a deferred
+track**, triggered by the RESICO persona-física ceiling (~3.5M MXN/yr), a
+customer's procurement demand, or legal advice — ask a Mexican contador +
+tech lawyer which form fits (S.A.S. is a free online single-shareholder company
+with limited liability; S. de R.L. is the traditional small-company form). None
+of this blocks a first pilot.
+
+### The liability shield is mostly the contract, not the entity
+For "a test run broke a customer's production system," what protects the operator
+is the Terms of Service — "as is", no consequential damages, liability capped at
+fees paid / US$100, customer indemnity, and a governing-law/dispute clause. That
+draft already exists (`web/src/app/(marketing)/terms/page.tsx`) and needs a
+few hours of counsel review for the governing-law clause (Mexican law is the
+cheap-to-enforce default for the operator) and the liability wording. A DPA and a
+short design-partner/pilot agreement are worth adding at the same time — all
+adaptable from a free standardized template (Common Paper / Bonterms) rather than
+drafted from scratch.
 
 ### Domain-dependent config is enumerated, not automated
 `NEXT_PUBLIC_SITE_URL` (Vercel), `WEB_BASE_URL` + `Api__PublicUrl` (repo vars),
@@ -121,13 +158,18 @@ An SES domain identity is an account+region singleton, so only one stack may set
 - **DKIM/DMARC misconfiguration silently lands invites in spam.** → Task
   includes a deliverability check (mail-tester or equivalent) against a real
   external inbox before declaring the feature done.
-- **LLC formation timeline is outside our control (~1–2 wk).** → Everything
-  domain-gated proceeds in parallel; only `LEGAL_ENTITY` swap, Polar production
-  payee, and legal review wait on the EIN. None of those block a first pilot on
-  the dev stack.
+- **Persona física = unlimited personal liability.** → Mitigated primarily by the
+  ToS (as-is, liability cap, indemnity, governing law) + the product design
+  (runs in the customer's infra, metadata-only by default). Incorporate (S.A.S. /
+  S. de R.L.) when revenue nears the RESICO ceiling or a customer/lawyer requires
+  it — deferred track, not a pilot blocker.
+- **Counsel review is still pending.** → The ToS page itself says "reviewed by
+  counsel before general availability". A pilot can run on the current draft +
+  a short pilot agreement; GA waits on the review (also covers the AGPL/BSL
+  licensing stack — `go-public-sequence` §2.3).
 - **Trademark conflict on "ReleaseTwin" surfaces after registration.** → A
-  quick USPTO/EUIPO glance is the first task; the README already frames the
-  brand as provisional, so a rename is still cheap at this stage.
+  quick USPTO/EUIPO/IMPI glance is a task; a rename is still relatively cheap at
+  this stage.
 - **Polar production cutover with wrong price IDs charges real money wrong.** →
   Polar sandbox e2e (`docs/billing-sandbox-runbook.md`) is a prerequisite task;
   `POLAR_UPGRADE_ENABLED` stays `false` until that passes.
@@ -139,8 +181,9 @@ An SES domain identity is an account+region singleton, so only one stack may set
 3. `SesInvitationEmailSender` + DI gate + tests; deploy via CI; `Notifications:FromAddress`
    set once SES identity is verified.
 4. Re-point domain-dependent config (Vercel, repo vars, Clerk custom domain).
-5. LLC filing (background) → EIN → `LEGAL_ENTITY` swap, Polar production payee,
-   legal review.
+5. `LEGAL_ENTITY` = the operator's persona-física name (done); Polar production
+   payee = the persona física / RFC. Counsel review of the ToS + licensing stack
+   (background, gates GA not the pilot). Incorporation deferred.
 6. `docs/company-setup.md` + README brand-line update.
 
 Rollback: the DI gate means dropping `Notifications:FromAddress` reverts to

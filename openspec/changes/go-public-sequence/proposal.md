@@ -13,7 +13,7 @@ vendor dashboards) and a sequencing hazard: flipping a repo public before the
 cached pre-history-rewrite SHAs expire re-exposes purged prior-vendor history.
 
 This change is the single tracked place for that sequence. It is deliberately
-downstream of `company-and-domain-launch` (domain + entity) and does **not**
+downstream of `company-and-domain-launch` (domain + the ToS/licensing counsel review) and does **not**
 block a first paid design-partner pilot, which can run on the dev stack with a
 hand-sent invite.
 
