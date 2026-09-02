@@ -72,8 +72,8 @@ about-to-be-public repo, `git rev-list --all | xargs -I{} git grep -i
 
 ## 3. Repo visibility
 
-Blocked on §2 **and** `company-and-domain-launch` §6.7 (licensing legal review),
-which is itself blocked on the LLC. Do not flip before both.
+Blocked on `company-and-domain-launch` §6.7 (licensing legal review). Do not
+flip before it. (The history-cache concern in §2 is closed — not pursued.)
 
 - [ ] Polish `ReleaseTwin` repo description + topics; `SECURITY.md` contact on the
   company domain (waits on Workspace — `company-and-domain-launch` group 2).
