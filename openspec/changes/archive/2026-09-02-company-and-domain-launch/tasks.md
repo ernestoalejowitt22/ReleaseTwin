@@ -72,8 +72,8 @@ customer's procurement demand, or legal advice — see `deferred` below.
 
 ### Deferred — incorporation track
 
-- [ ] 6.D1 **Deferred** — form a Mexican entity (**S.A.S.** — free, online at tuempresa.gob.mx, single shareholder, limited liability, ~5M MXN cap — or **S. de R.L. de C.V.**). Trigger: nearing the RESICO persona-física ceiling, a customer procurement requirement, or legal advice. Ask a contador + tech lawyer which form fits.
-- [ ] 6.D2 **Deferred** — on incorporation: assign the codebase + brand IP to the entity; re-point `LEGAL_ENTITY` + the Polar payee; update the SPDX copyright line.
+- [x] 6.D1 **Out of scope for this change (2026-09-02).** Not incorporating now — operating as persona física con actividad empresarial under RESICO. If/when the trigger fires (RESICO ceiling ~3.5M MXN/yr, a customer procurement requirement, or legal advice), form a Mexican entity (**S.A.S.** — free, online at tuempresa.gob.mx, single shareholder, limited liability, ~5M MXN cap — or **S. de R.L. de C.V.**) under its own OpenSpec change.
+- [x] 6.D2 **Out of scope for this change (2026-09-02).** On any future incorporation: assign the codebase + brand IP to the entity; re-point `LEGAL_ENTITY` + the Polar payee; update the SPDX copyright line. Tracked with 6.D1.
 
 ## 7. Billing → production (Polar)
 
@@ -88,4 +88,4 @@ customer's procurement demand, or legal advice — see `deferred` below.
 - [x] 8.1 `docs/company-setup.md` complete 2026-09-02 — domain + all Terraform-managed DNS records (web / Clerk / SES / Google Workspace), company email, SES transactional (verified + production), legal operator, transport security, and a "Where each thing is administered" table (AWS/Route 53/SES, Google Admin, Vercel, Clerk, Polar, Search Console, GitHub repo vars, IAM/OIDC)
 - [x] 8.2 `git grep -i "validuo\|provisional brand\|working name"` is clean (handled in 1.3); root `README.md` brand line is the real tagline. The remaining "solo-maintained" phrasing in CONTRIBUTING/SECURITY/SUPPORT is deliberate and accurate, not provisional-entity copy
 - [x] 8.3 `openspec validate company-and-domain-launch --strict` passes (2026-09-02)
-- [ ] 8.4 Confirm with the user before archiving
+- [x] 8.4 User confirmed archive 2026-09-02. Carried forward as still-open (not blockers): 4.10 (real invite end-to-end — sender bound, SES identity production, Workspace deliverability clean), 7.1–7.4 (Polar production — activate when paid plans go live, see `docs/billing-sandbox-runbook.md`), 6.3/6.5 operator `ADMIN_OPERATOR_USER_IDS` (set when an operator-only endpoint is actually needed). 6.D1/6.D2 incorporation moved to its own future change.
