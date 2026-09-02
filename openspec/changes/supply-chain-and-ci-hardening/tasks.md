@@ -29,7 +29,7 @@
 ## 5. Deploy environment gate (D5)
 
 - [x] 5.1 Add `environment: production` to the `deploy` job in `.github/workflows/deploy-hosted.yml`.
-- [ ] 5.2 **Needs the user to run this (repo settings):** create the `production` GitHub environment (Settings → Environments) before merging 5.1, so the deploy run does not stall on an unknown environment. Add protection rules (required reviewer / wait timer) at the maintainer's discretion.
+- [x] 5.2 **Needs the user to run this (repo settings):** create the `production` GitHub environment (Settings → Environments) before merging 5.1, so the deploy run does not stall on an unknown environment. Add protection rules (required reviewer / wait timer) at the maintainer's discretion. _(Done by the user 2026-09-01 — environment exists.)_
 - [ ] 5.3 Optional follow-up — **deferred to its own change.** The OIDC trust doc in `hosted/terraform-bootstrap/main.tf` (`github_actions_assume_role`) is shared by the deploy role *and* the e2e role, and the e2e workflow does not run in the `production` environment — tightening `sub` to `…:environment:production` there would break e2e auth. The `sub` format is also already fragile (two candidate formats kept). Needs a dedicated, carefully-tested change that splits the trust docs; not worth the blast radius here.
 
 ## 6. Verification
