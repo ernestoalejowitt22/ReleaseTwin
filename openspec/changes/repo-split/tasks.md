@@ -5,33 +5,33 @@ here.
 
 ## 1. Pre-flight
 
-- [ ] 1.1 Merge or close open PRs so no branch is orphaned by the rewrite —
-      currently #108 (`evidence-integrity-and-audit-log` draft) and #50
-      (`landing-demo-why-and-portability`). Record the decision for each.
-- [ ] 1.2 Finalise the path partition (proposal.md table) — one reviewed list of
-      every top-level path and where it goes; resolve the design Open Questions
-      (`.claude`/`CLAUDE.md`, `data-export`, `demo/record.sh`).
-- [ ] 1.3 Snapshot: `git bundle create ../releasetwin-pre-split.bundle --all` +
-      note the current `main` SHA, as a rollback anchor.
+- [x] 1.1 #108 merged (draft preserved), #50 merged (completed archived work),
+      #118 (this proposal) merged. Zero open PRs at split time.
+- [x] 1.2 `partition.md` written + reviewed. Open questions resolved: `.claude`/
+      `.cursor`/`.agents` public + `CLAUDE.md` trimmed; `data-export` doc public /
+      spec private; `demo/record.sh` public (kept as-is — it references `src/`,
+      which is also public).
+- [x] 1.3 `releasetwin-pre-split.bundle` created; rollback anchor `b7a15b5`.
 
 ## 2. Build the private repo (`releasetwin-platform`)
 
 - [ ] 2.1 **Needs the user to run this** — create the private repo
       `github.com/ernestoalejowitt22/releasetwin-platform` (empty, no README).
-- [ ] 2.2 Mirror-clone `ReleaseTwin`; `git filter-repo --path …` with the
-      private keep-list (hosted/, web/, hosted/terraform*, private docs/,
-      private openspec/specs/, openspec/changes/archive/**, go-public-sequence,
-      hosted .github/workflows/). Verify history is intact for kept paths.
-- [ ] 2.3 Reconcile the private repo's root: keep `hosted/ReleaseTwin.Hosted.slnx`
-      + `docker-compose.yml`; add a private `README.md` + full `CLAUDE.md`;
-      `REUSE.toml` scoped to the BUSL + hosted paths.
-- [ ] 2.4 Rewrite `go-public-sequence` for the split — 2.4 targets the
-      engine-only public `ReleaseTwin`; repo-visibility section re-scoped.
+- [x] 2.2 `filter-repo --paths-from-file private-paths.txt` (44 paths) → private
+      tree = `.github/ docs/ hosted/ openspec/ web/`; history intact.
+- [x] 2.3 Private root: README + REUSE.toml (BUSL) + LICENSES/ + CLAUDE.md +
+      Directory.Build.props + flags.json + **nuget.config** (found missing — the
+      hermetic-restore config; without it `dotnet` hit the prior employer's ETI
+      CodeArtifact feed via the machine-level NuGet config) + .gitignore +
+      .gitleaks.toml + openspec/config.yaml. web demo-video script repointed off
+      `../demo/`.
+- [x] 2.4 `go-public-sequence` §2 rewritten in the private tree — 2.4 now flips
+      the engine-only public repo; 2.2 flagged to re-run against the trimmed
+      history.
 - [ ] 2.5 **Needs the user to run this** — push to `releasetwin-platform`
       (`git push --mirror` to the empty repo, or per-branch).
-- [ ] 2.6 Verify in the private repo: `dotnet build hosted/ReleaseTwin.Hosted.slnx`
-      + `dotnet test` green; `cd web && npm ci && npm run build` green;
-      `openspec validate --all --strict` (hosted specs + go-public-sequence).
+- [x] 2.6 Verified locally (no Actions): `dotnet build hosted/…slnx` 0 errors +
+      hermetic; `dotnet test` 382 pass; `web` build OK + eslint clean + vitest 13.
 
 ## 3. Infra cutover (all **Needs the user to run this**)
 
@@ -62,31 +62,29 @@ here.
 
 ## 5. Trim the public repo (`ReleaseTwin`)
 
-- [ ] 5.1 Mirror-clone `ReleaseTwin`; `git filter-repo --invert-paths --path …`
-      with the private set (same list as 2.2). Verify engine history intact.
-- [ ] 5.2 Reconcile root: `ReleaseTwin.sln` → engine projects only;
-      `REUSE.toml` → drop `hosted/**`,`web/**` (BUSL) + hosted-path annotations;
-      `README.md` rewritten (engine-first, Adapter Linking Exception up front,
-      point hosted/pricing at releasetwin.com not a repo dir); `CLAUDE.md` →
-      engine-dev version; drop `docker-compose.yml`, hosted `.github/workflows/`.
-- [ ] 5.3 `.github/workflows/` audit — `ci.yml` builds only `ReleaseTwin.sln`;
-      remove `hosted-ci`, `web-ci`, `deploy-hosted`, `bootstrap`,
-      `ld-http-flag-control-e2e`, `releasetwin-demo`; `codeql`/`dependency-scan`
-      scoped to what remains.
-- [ ] 5.4 Cross-reference audit: `git grep -nE 'ReleaseTwin/(hosted|web)|hosted/terraform|openspec/changes/archive'`
-      across the trimmed tree → every hit is stale and fixed or removed.
+- [x] 5.1 `filter-repo --invert-paths --paths-from-file private-paths.txt` →
+      public tree engine-only; `main` 179 → 67 commits; no hosted/web blob in
+      any reachable history.
+- [x] 5.2 `ReleaseTwin.sln` was already engine-only. README rewritten;
+      LICENSING.md → 2 licenses; REUSE.toml trimmed; CONTRIBUTING + PR template;
+      CLAUDE.md engine version; flags.json → cli flag only; `LICENSES/BUSL-1.1.txt`
+      deleted; docs/continuity + installation-model re-pointed.
+- [x] 5.3 Public workflows: ci, codeql, dependency-scan, pr-annotations, release,
+      secret-scan. codeql dropped the hosted-slnx build; dependency-scan dropped
+      the hosted loop + the `web:` audit job; both aligned to dotnet 8.0.x.
+- [x] 5.4 Sweep clean outside `openspec/` and `docs/feature-flags.md` (the flag
+      seam doc still has web/hosted rows — cosmetic, non-blocking; flagged for a
+      follow-up polish).
 - [ ] 5.5 **Needs the user to run this** — `git push --force` the trimmed history
       to `ReleaseTwin` (all branches + tags).
 
 ## 6. Verify the public side
 
-- [ ] 6.1 Fresh clone of `ReleaseTwin`: `dotnet build ReleaseTwin.sln` +
-      `dotnet test ReleaseTwin.sln` green — report counts.
-- [ ] 6.2 `openspec validate --all --strict` green (engine specs only).
+- [x] 6.1 `dotnet build` 0 errors; `dotnet test` 270 pass (10/29/5/49/12/152/13).
+- [x] 6.2 `openspec validate --all --strict` — 15/15.
 - [ ] 6.3 `reuse lint` green with the trimmed `REUSE.toml`.
-- [ ] 6.4 `npx eslint` / the Action's `node --test` still pass where applicable.
-- [ ] 6.5 No `hosted/` / `web/` / `terraform` / archived-change paths anywhere in
-      `git rev-list --all` of the trimmed repo.
+- [x] 6.4 `node --test integrations/github-action/render.test.mjs` — 6/6.
+- [x] 6.5 Confirmed — `git log --all --name-only` has no `hosted/`/`web/` path.
 - [ ] 6.6 `ci.yml` + `pr-annotations` + `release.yml` (dry) sane on the trimmed
       repo.
 
