@@ -87,6 +87,51 @@ public class MembershipEndpointsHttpTests
         Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
     }
 
+    // company-and-domain-launch 4.12: resend the invite email for a pending invitation.
+    [Fact]
+    public async Task AdminCanResendAPendingInvitation()
+    {
+        using var factory = new CustomWebApplicationFactory { UseTestClerkAuth = true };
+        var orgId = await SeedOrgAsync(factory);
+        var admin = factory.CreateClientForOrg(orgId, MembershipRole.Admin);
+
+        var created = await admin.PostAsJsonAsync($"/api/organizations/{orgId}/invitations",
+            new { email = "teammate@example.com", role = "Member" });
+        var invite = await created.Content.ReadFromJsonAsync<InvView>();
+
+        var resend = await admin.PostAsync($"/api/organizations/{orgId}/invitations/{invite!.Token}/resend", null);
+        Assert.Equal(HttpStatusCode.OK, resend.StatusCode);
+        var body = await resend.Content.ReadFromJsonAsync<InvView>();
+        Assert.Equal(invite.Token, body!.Token); // same token, unchanged
+        Assert.Equal("teammate@example.com", body.Email);
+    }
+
+    [Fact]
+    public async Task ResendingAnUnknownInvitationIs404()
+    {
+        using var factory = new CustomWebApplicationFactory { UseTestClerkAuth = true };
+        var orgId = await SeedOrgAsync(factory);
+        var admin = factory.CreateClientForOrg(orgId, MembershipRole.Admin);
+
+        var resend = await admin.PostAsync($"/api/organizations/{orgId}/invitations/{orgId}.nope/resend", null);
+        Assert.Equal(HttpStatusCode.NotFound, resend.StatusCode);
+    }
+
+    [Fact]
+    public async Task MemberCannotResendAnInvitation()
+    {
+        using var factory = new CustomWebApplicationFactory { UseTestClerkAuth = true };
+        var orgId = await SeedOrgAsync(factory);
+        var admin = factory.CreateClientForOrg(orgId, MembershipRole.Admin);
+        var created = await admin.PostAsJsonAsync($"/api/organizations/{orgId}/invitations",
+            new { email = "x@example.com", role = "Member" });
+        var invite = await created.Content.ReadFromJsonAsync<InvView>();
+
+        var member = factory.CreateClientForOrg(orgId, MembershipRole.Member);
+        var resend = await member.PostAsync($"/api/organizations/{orgId}/invitations/{invite!.Token}/resend", null);
+        Assert.Equal(HttpStatusCode.Forbidden, resend.StatusCode);
+    }
+
     // security-hardening-pre-pilot D2: the invitation preview must not disclose the invited email.
     [Fact]
     public async Task InvitationPreviewDoesNotDiscloseTheInvitedEmail()
