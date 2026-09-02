@@ -20,7 +20,7 @@ public static class ConnectionEndpoints
         var group = app.MapGroup("/api/connections")
             .RequireAuthorization(policy => policy.RequireAuthenticatedUser().AddAuthenticationSchemes("ClerkJwt"));
 
-        group.MapPost("/start", async (StartConnectionRequest request, ConnectionService connections, GitHubConnectionFlowService flow, CurrentOrganizationAccessor currentOrg) =>
+        group.MapPost("/start", async (StartConnectionRequest request, ConnectionService connections, GitHubConnectionFlowService flow, CurrentOrganizationAccessor currentOrg, System.Security.Claims.ClaimsPrincipal principal) =>
         {
             var orgId = currentOrg.OrganizationId;
             if (orgId is null || !await connections.ProjectBelongsToOrganizationAsync(request.ProjectId, orgId.Value))
@@ -28,12 +28,23 @@ public static class ConnectionEndpoints
                 return Results.Forbid();
             }
 
-            return Results.Ok(flow.BuildAuthorizeUrl(request.ProjectId));
+            // security-hardening-pre-pilot D6: bind the OAuth state to the initiating user.
+            if (!Guid.TryParse(principal.FindFirst("user_id")?.Value, out var userId))
+            {
+                return Results.Forbid();
+            }
+
+            return Results.Ok(flow.BuildAuthorizeUrl(request.ProjectId, userId));
         });
 
-        group.MapPost("/callback", async (ConnectionCallbackRequest request, GitHubConnectionFlowService flow, CancellationToken cancellationToken) =>
+        group.MapPost("/callback", async (ConnectionCallbackRequest request, GitHubConnectionFlowService flow, System.Security.Claims.ClaimsPrincipal principal, CancellationToken cancellationToken) =>
         {
-            var result = await flow.ExchangeCodeForRepositoriesAsync(request.Code, request.State, cancellationToken);
+            if (!Guid.TryParse(principal.FindFirst("user_id")?.Value, out var userId))
+            {
+                return Results.BadRequest(new { error = "That connection attempt expired, was invalid, or GitHub connections are not configured — try again." });
+            }
+
+            var result = await flow.ExchangeCodeForRepositoriesAsync(request.Code, request.State, userId, cancellationToken);
             if (result is null)
             {
                 return Results.BadRequest(new { error = "That connection attempt expired, was invalid, or GitHub connections are not configured — try again." });

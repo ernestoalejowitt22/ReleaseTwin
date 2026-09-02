@@ -87,5 +87,28 @@ public class MembershipEndpointsHttpTests
         Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
     }
 
+    // security-hardening-pre-pilot D2: the invitation preview must not disclose the invited email.
+    [Fact]
+    public async Task InvitationPreviewDoesNotDiscloseTheInvitedEmail()
+    {
+        using var factory = new CustomWebApplicationFactory { UseTestClerkAuth = true };
+        var orgId = await SeedOrgAsync(factory);
+        var admin = factory.CreateClientForOrg(orgId, MembershipRole.Admin);
+
+        var created = await admin.PostAsJsonAsync($"/api/organizations/{orgId}/invitations",
+            new { email = "secret-invitee@example.com", role = "Member" });
+        var invite = await created.Content.ReadFromJsonAsync<InvView>();
+
+        // Any authenticated user holding the link can hit the preview.
+        var someoneElse = factory.CreateClientForOrg(Guid.NewGuid(), MembershipRole.Member);
+        var preview = await someoneElse.GetAsync($"/api/invitations/{invite!.Token}");
+        Assert.Equal(HttpStatusCode.OK, preview.StatusCode);
+
+        var payload = await preview.Content.ReadAsStringAsync();
+        Assert.DoesNotContain("secret-invitee@example.com", payload);
+        Assert.DoesNotContain("\"email\"", payload);
+        Assert.Contains("Acme", payload); // org name + role are still shown
+    }
+
     private sealed record InvView(string Token, string Email, string Role, string State, DateTimeOffset ExpiresAt, string AcceptUrl);
 }

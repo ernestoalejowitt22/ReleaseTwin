@@ -93,11 +93,16 @@ public sealed class ExportArchiveBuilder
                 });
             }
 
-            var screenshotIds = evidenceDocs.SelectMany(d => d.ScreenshotIds).Distinct().ToList();
+            // security-hardening-pre-pilot D3: blob keys are project-namespaced, so fetch each
+            // screenshot with its owning evidence doc's project id rather than a flat id.
+            var screenshots = evidenceDocs
+                .SelectMany(d => d.ScreenshotIds.Select(id => (d.ProjectId, Id: id)))
+                .Distinct()
+                .ToList();
             var writtenScreenshots = 0;
-            foreach (var id in screenshotIds)
+            foreach (var (projectId, id) in screenshots)
             {
-                var bytes = await _blobs.GetAsync(id, cancellationToken);
+                var bytes = await _blobs.GetAsync(projectId, id, cancellationToken);
                 if (bytes is null)
                 {
                     missingScreenshots.Add(id);

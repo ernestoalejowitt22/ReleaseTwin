@@ -151,7 +151,11 @@ resource "aws_lambda_function" "hosted_api" {
 
   environment {
     variables = {
-      Clerk__Domain                  = var.clerk_domain
+      Clerk__Domain = var.clerk_domain
+      # security-hardening-pre-pilot D1: empty ⇒ JWT audience validation stays off (back-compat). Set
+      # the CLERK_AUDIENCE repo variable only after a Clerk JWT template that sets this API's `aud`
+      # exists — until then every session token would fail audience validation.
+      Clerk__Audience                = var.clerk_audience
       Aws__Region                    = var.region
       Aws__DynamoDb__TablePrefix     = var.table_prefix
       GitHubConnection__ClientId     = var.github_client_id
@@ -217,6 +221,12 @@ variable "clerk_domain" {
     condition     = length(var.clerk_domain) > 0
     error_message = "clerk_domain must be set (CLERK_DOMAIN repo variable / -var). It is the JWT issuer the API validates against."
   }
+}
+
+variable "clerk_audience" {
+  description = "security-hardening-pre-pilot D1: the `aud` value this API validates Clerk session tokens against. Empty ⇒ audience validation is disabled (issuer + signature + expiry only), which is the safe default until a Clerk JWT template that sets this `aud` exists. Supplied from the CLERK_AUDIENCE repo variable by deploy-hosted.yml."
+  type        = string
+  default     = ""
 }
 
 variable "admin_operator_user_ids" {

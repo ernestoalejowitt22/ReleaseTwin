@@ -139,6 +139,17 @@ public sealed class OrganizationMembersService
             throw new InvitationInvalidException("This invitation is no longer valid.");
         }
 
+        // security-hardening-pre-pilot D2: an invite link is a bearer secret — anyone it is forwarded
+        // to, logged in, or leaked to could otherwise accept it. Require the accepting user's
+        // provider-verified email to match the invited address. A missing verified email is a
+        // non-match, never a bypass. The failure is reported identically to an invalid/expired invite
+        // so it discloses nothing about who was invited or whether the token is real.
+        if (string.IsNullOrWhiteSpace(user.Email)
+            || !string.Equals(user.Email.Trim(), invitation.Email.Trim(), StringComparison.OrdinalIgnoreCase))
+        {
+            throw new InvitationInvalidException("This invitation is no longer valid.");
+        }
+
         var membership = new Membership
         {
             OrganizationId = invitation.OrganizationId,

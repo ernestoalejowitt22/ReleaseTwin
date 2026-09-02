@@ -13,7 +13,6 @@ const API_BASE_URL = process.env.RELEASETWIN_API_URL ?? "http://localhost:5199";
 interface InvitePreview {
   organizationName: string | null;
   role: string;
-  email: string;
   acceptable: boolean;
 }
 

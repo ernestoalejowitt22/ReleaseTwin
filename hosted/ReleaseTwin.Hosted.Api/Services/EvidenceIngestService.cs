@@ -81,7 +81,7 @@ public sealed class EvidenceIngestService
         var ids = new List<string>(screenshots.Count);
         foreach (var screenshot in screenshots)
         {
-            await _blobs.PutAsync(screenshot.Id, screenshot.Bytes, cancellationToken);
+            await _blobs.PutAsync(projectId, screenshot.Id, screenshot.Bytes, cancellationToken);
             ids.Add(screenshot.Id);
         }
 

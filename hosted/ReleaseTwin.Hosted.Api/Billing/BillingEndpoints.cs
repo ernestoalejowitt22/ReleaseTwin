@@ -33,6 +33,9 @@ public static class BillingEndpoints
             if (!BillingWebhookSignature.Verify(options.WebhookSecret, webhookId, timestamp, signature, body))
             {
                 // billing spec: missing/invalid signature ⇒ rejected, no state change.
+                // security-hardening-pre-pilot D4: a stale/far-future timestamp fails Verify the same
+                // way, so a replayed valid delivery lands here too — 401, processor never runs, the
+                // dedupe row is never written.
                 return Results.Unauthorized();
             }
 
@@ -52,6 +55,9 @@ public static class BillingEndpoints
                 BillingEventOutcome.Processed or BillingEventOutcome.Duplicate => Results.Ok(),
                 _ => Results.StatusCode(StatusCodes.Status500InternalServerError),
             };
-        });
+        })
+        // security-hardening-pre-pilot D7: per-client-address ceiling, evaluated before the handler
+        // body so a flood is shed without ever running signature verification.
+        .RequireRateLimiting(RateLimiting.BillingWebhookPolicy);
     }
 }
