@@ -1,7 +1,7 @@
 using System.Net;
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
-using Microsoft.AspNetCore.Mvc.Testing;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using ReleaseTwin.Hosted.Api.Data.Repositories;
 using ReleaseTwin.Hosted.Api.Data.Store;
@@ -11,24 +11,14 @@ namespace ReleaseTwin.Hosted.Api.Tests;
 
 /// <summary>
 /// security-hardening-pre-pilot D7 (abuse-rate-limiting): the ingest / share-link / billing-webhook
-/// ceilings. Limits are driven tiny via host settings so a burst is a handful of requests, not
-/// thousands.
+/// ceilings. Limits are driven tiny via config so a burst is a handful of requests, not thousands.
 /// </summary>
 public class RateLimitingTests
 {
-    private static WebApplicationFactory<Program> Factory(params (string Key, string Value)[] settings)
-    {
-        var f = new CustomWebApplicationFactory();
-        return f.WithWebHostBuilder(b =>
-        {
-            foreach (var (key, value) in settings)
-            {
-                b.UseSetting(key, value);
-            }
-        });
-    }
+    private static CustomWebApplicationFactory Factory(params (string Key, string Value)[] settings) =>
+        new() { ExtraConfiguration = settings.ToDictionary(s => s.Key, s => (string?)s.Value) };
 
-    private static async Task<(HttpClient Client, Guid ProjectId, Guid OrgId)> IngestClientAsync(WebApplicationFactory<Program> factory)
+    private static async Task<(HttpClient Client, Guid ProjectId, Guid OrgId)> IngestClientAsync(CustomWebApplicationFactory factory)
     {
         using var scope = factory.Services.CreateScope();
         var provisioning = scope.ServiceProvider.GetRequiredService<ProvisioningService>();
@@ -50,6 +40,13 @@ public class RateLimitingTests
     public async Task IngestBurstPastCeilingGets429AndStoresNothingForRejected()
     {
         using var factory = Factory(("RateLimiting:Ingest:TokenLimit", "2"));
+
+        // Guard: the test override must actually reach the composed configuration the limiter reads.
+        using (var s = factory.Services.CreateScope())
+        {
+            Assert.Equal("2", s.ServiceProvider.GetRequiredService<IConfiguration>()["RateLimiting:Ingest:TokenLimit"]);
+        }
+
         var (client, projectId, orgId) = await IngestClientAsync(factory);
 
         var first = await client.PostAsJsonAsync("/api/ingest/case-report", Report());

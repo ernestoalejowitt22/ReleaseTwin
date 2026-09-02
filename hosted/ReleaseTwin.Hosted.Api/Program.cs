@@ -383,7 +383,7 @@ builder.Services.AddAuthorization();
 
 // security-hardening-pre-pilot D7: per-caller ceilings on the ingest / share-link / billing-webhook
 // surface. See RateLimiting.cs for the policies, sizing, and the RateLimiting:Enabled kill-switch.
-builder.Services.AddReleaseTwinRateLimiting(builder.Configuration);
+builder.Services.AddReleaseTwinRateLimiting();
 
 var app = builder.Build();
 

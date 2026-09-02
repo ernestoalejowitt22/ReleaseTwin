@@ -1,5 +1,4 @@
 using System.Globalization;
-using System.Net;
 using System.Security.Claims;
 using System.Threading.RateLimiting;
 using Microsoft.AspNetCore.RateLimiting;
@@ -23,6 +22,10 @@ namespace ReleaseTwin.Hosted.Api;
 ///    per client address is generous for a human and cheap to shed for a scanner.
 ///  - Billing webhook: Polar sends a handful; 60 / minute per address, rejected before the endpoint
 ///    body runs (so signature verification is never reached under a flood).
+///
+/// Config (`RateLimiting:*`) is read lazily per partition from the request's <see cref="IConfiguration"/>
+/// — not captured at registration — so an environment override (or a test's in-memory override) is
+/// always the fully-composed value. `RateLimiting:Enabled=false` disables every policy.
 /// </summary>
 public static class RateLimiting
 {
@@ -30,29 +33,16 @@ public static class RateLimiting
     public const string ShareLinkPolicy = "share-links";
     public const string BillingWebhookPolicy = "billing-webhook";
 
-    public static IServiceCollection AddReleaseTwinRateLimiting(this IServiceCollection services, IConfiguration configuration)
+    public static IServiceCollection AddReleaseTwinRateLimiting(this IServiceCollection services)
     {
-        // 7.x: a config kill-switch. Absent ⇒ on. `RateLimiting:Enabled=false` disables every policy
-        // below without a code change (each becomes a no-op limiter).
-        var enabled = configuration["RateLimiting:Enabled"] is not { } v || bool.TryParse(v, out var b) && b;
-
-        // Ceilings default to the sizing above; each is overridable by config (mainly so tests can
-        // drive tiny limits without sending thousands of requests).
-        int Limit(string key, int fallback) => int.TryParse(configuration[$"RateLimiting:{key}"], out var n) && n > 0 ? n : fallback;
-        var ingestTokenLimit = Limit("Ingest:TokenLimit", 5_000);
-        var ingestReplenish = Limit("Ingest:TokensPerPeriod", 500);
-        var shareLinkLimit = Limit("ShareLinks:PermitLimit", 120);
-        var billingWebhookLimit = Limit("BillingWebhook:PermitLimit", 60);
-
         services.AddRateLimiter(options =>
         {
-            options.RejectionStatusCode = (int)HttpStatusCode.TooManyRequests;
+            options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
 
             // 7.2: the caller gets 429 + Retry-After; a failure of the limiter mechanism itself must
             // never turn into blocking all traffic (fail open for the platform) — the framework
-            // already lets an in-ceiling request through, and OnRejected is the only place we add
-            // behavior, so there is nothing here that can throw a request into a false rejection.
-            options.OnRejected = (context, cancellationToken) =>
+            // already lets an in-ceiling request through, and OnRejected only adds a header + log.
+            options.OnRejected = (context, _) =>
             {
                 if (context.Lease.TryGetMetadata(MetadataName.RetryAfter, out var retryAfter))
                 {
@@ -69,41 +59,61 @@ public static class RateLimiting
                 return ValueTask.CompletedTask;
             };
 
-            options.AddPolicy(IngestPolicy, httpContext => enabled
-                ? RateLimitPartition.GetTokenBucketLimiter(IngestPartitionKey(httpContext), _ => new TokenBucketRateLimiterOptions
-                {
-                    TokenLimit = ingestTokenLimit,
-                    TokensPerPeriod = ingestReplenish,
-                    ReplenishmentPeriod = TimeSpan.FromSeconds(10),
-                    AutoReplenishment = true,
-                    QueueLimit = 0,
-                })
-                : NoLimiter(httpContext));
+            options.AddPolicy(IngestPolicy, httpContext =>
+            {
+                var cfg = Config(httpContext);
+                return Enabled(cfg)
+                    ? RateLimitPartition.GetTokenBucketLimiter(IngestPartitionKey(httpContext), _ => new TokenBucketRateLimiterOptions
+                    {
+                        TokenLimit = Limit(cfg, "Ingest:TokenLimit", 5_000),
+                        TokensPerPeriod = Limit(cfg, "Ingest:TokensPerPeriod", 500),
+                        ReplenishmentPeriod = TimeSpan.FromSeconds(10),
+                        AutoReplenishment = true,
+                        QueueLimit = 0,
+                    })
+                    : NoLimiter();
+            });
 
-            options.AddPolicy(ShareLinkPolicy, httpContext => enabled
-                ? RateLimitPartition.GetFixedWindowLimiter(ClientAddress(httpContext), _ => new FixedWindowRateLimiterOptions
-                {
-                    PermitLimit = shareLinkLimit,
-                    Window = TimeSpan.FromMinutes(1),
-                    QueueLimit = 0,
-                })
-                : NoLimiter(httpContext));
+            options.AddPolicy(ShareLinkPolicy, httpContext =>
+            {
+                var cfg = Config(httpContext);
+                return Enabled(cfg)
+                    ? RateLimitPartition.GetFixedWindowLimiter(ClientAddress(httpContext), _ => new FixedWindowRateLimiterOptions
+                    {
+                        PermitLimit = Limit(cfg, "ShareLinks:PermitLimit", 120),
+                        Window = TimeSpan.FromMinutes(1),
+                        QueueLimit = 0,
+                    })
+                    : NoLimiter();
+            });
 
-            options.AddPolicy(BillingWebhookPolicy, httpContext => enabled
-                ? RateLimitPartition.GetFixedWindowLimiter(ClientAddress(httpContext), _ => new FixedWindowRateLimiterOptions
-                {
-                    PermitLimit = billingWebhookLimit,
-                    Window = TimeSpan.FromMinutes(1),
-                    QueueLimit = 0,
-                })
-                : NoLimiter(httpContext));
+            options.AddPolicy(BillingWebhookPolicy, httpContext =>
+            {
+                var cfg = Config(httpContext);
+                return Enabled(cfg)
+                    ? RateLimitPartition.GetFixedWindowLimiter(ClientAddress(httpContext), _ => new FixedWindowRateLimiterOptions
+                    {
+                        PermitLimit = Limit(cfg, "BillingWebhook:PermitLimit", 60),
+                        Window = TimeSpan.FromMinutes(1),
+                        QueueLimit = 0,
+                    })
+                    : NoLimiter();
+            });
         });
 
         return services;
     }
 
-    private static RateLimitPartition<string> NoLimiter(HttpContext httpContext) =>
-        RateLimitPartition.GetNoLimiter("disabled");
+    private static IConfiguration Config(HttpContext httpContext) =>
+        httpContext.RequestServices.GetRequiredService<IConfiguration>();
+
+    private static bool Enabled(IConfiguration cfg) =>
+        cfg["RateLimiting:Enabled"] is not { } v || (bool.TryParse(v, out var b) && b);
+
+    private static int Limit(IConfiguration cfg, string key, int fallback) =>
+        int.TryParse(cfg[$"RateLimiting:{key}"], out var n) && n > 0 ? n : fallback;
+
+    private static RateLimitPartition<string> NoLimiter() => RateLimitPartition.GetNoLimiter("disabled");
 
     /// <summary>The token's own hash claim (stamped by <see cref="ApiTokenAuthenticationHandler"/>) —
     /// one bucket per API token. Falls back to the connection address for an unauthenticated request
