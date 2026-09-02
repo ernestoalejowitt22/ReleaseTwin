@@ -120,6 +120,6 @@ advice.
 | Item | Value | Status |
 |---|---|---|
 | Polar mode | sandbox → `api.polar.sh` production | |
-| MoR payee | the LLC | |
+| MoR payee | the persona física (RFC + bank/CLABE) | |
 | Product / price IDs | | |
 | `POLAR_UPGRADE_ENABLED` | `false` | flip to `true` after the sandbox e2e passes |
