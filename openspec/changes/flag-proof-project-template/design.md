@@ -21,12 +21,15 @@ covers hosted `project-secrets`, so credential resolution needs no new plumbing.
 
 ## Decisions
 
-### The manifest is `releasetwin.yml` at the cases-directory root
-It sits beside the case files and the `fixtures/` directory, so discovery is
-"look one level up from a case file" — the same root the loader already computes
-for fixture resolution. **Alternative rejected:** a `.releasetwin/` directory or
-a path passed on the CLI — more surface, and the single-file form matches how
-small suites are laid out in `examples/`.
+### The manifest is `releasetwin.yml` inside the cases directory
+It sits beside the case files (`_casesDirectory`), the one path `LoadAll` has
+cleanly — `_fixturesRoot` can be overridden independently, so "parent of
+fixtures" is not a reliable anchor. `releasetwin.yaml` is also accepted so a
+`.yaml` house style is not a silent no-op. **Alternative rejected:** a
+`.releasetwin/` directory or a path passed on the CLI — more surface, and the
+single-file form matches how small suites are laid out in `examples/`.
+**Alternative rejected:** project root next to `fixtures/` — not a directory the
+loader is given directly.
 
 ### Deep merge, case-over-manifest, with sub-block replace for `auth`/`verify`
 Scalars and `headers` merge key-by-key so a case can add one header. `auth` and
@@ -68,7 +71,8 @@ the rest, and confirms the run is unchanged.
 
 ## Open Questions
 
-- Should `known_bad_when` be mergeable independently, or is it "all or nothing"
-  with the rest of the scalars? (Leaning: it is a scalar, merges like the others.)
-- Do we want a `releasetwin.yaml` spelling accepted too, or exactly one name?
-  (Leaning: exactly `releasetwin.yml`, error on the other with a hint.)
+_Resolved during implementation:_
+
+- `known_bad_when` merges as a scalar like the other fields (case value wins).
+- Both `releasetwin.yml` and `releasetwin.yaml` are accepted (`.yml` wins if both
+  exist); error messages use the `.yml` spelling.

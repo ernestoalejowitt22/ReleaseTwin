@@ -15,9 +15,14 @@ public sealed class CaseFileLoader
 {
     private static readonly Regex EnvVarPattern = new(@"\$\{([A-Z0-9_]+)\}", RegexOptions.Compiled);
 
+    /// <summary>flag-proof-project-template: the manifest file names looked for at the cases-directory
+    /// root, in precedence order. <c>[0]</c> is the canonical spelling used in error messages.</summary>
+    internal static readonly string[] ManifestFileNames = { "releasetwin.yml", "releasetwin.yaml" };
+
     private readonly string? _casesDirectory;
     private readonly string _fixturesRoot;
     private readonly IDeserializer _deserializer;
+    private readonly IDeserializer _strictDeserializer;
     private readonly Func<string, string?> _resolveEnvironmentVariable;
 
     /// <summary>
@@ -32,10 +37,19 @@ public sealed class CaseFileLoader
         _casesDirectory = casesDirectory;
         _fixturesRoot = fixturesRoot ?? Path.Combine(casesDirectory, "..", "fixtures");
         _resolveEnvironmentVariable = resolveEnvironmentVariable ?? Environment.GetEnvironmentVariable;
-        _deserializer = new DeserializerBuilder()
-            .WithNamingConvention(UnderscoredNamingConvention.Instance)
-            .IgnoreUnmatchedProperties()
-            .Build();
+        _deserializer = BuildDeserializer(strict: false);
+        _strictDeserializer = BuildDeserializer(strict: true);
+    }
+
+    private static IDeserializer BuildDeserializer(bool strict)
+    {
+        var builder = new DeserializerBuilder().WithNamingConvention(UnderscoredNamingConvention.Instance);
+        if (!strict)
+        {
+            builder = builder.IgnoreUnmatchedProperties();
+        }
+
+        return builder.Build();
     }
 
     /// <summary>
@@ -52,10 +66,8 @@ public sealed class CaseFileLoader
         _casesDirectory = null;
         _fixturesRoot = fixturesRootOnly;
         _resolveEnvironmentVariable = resolveEnvironmentVariable ?? Environment.GetEnvironmentVariable;
-        _deserializer = new DeserializerBuilder()
-            .WithNamingConvention(UnderscoredNamingConvention.Instance)
-            .IgnoreUnmatchedProperties()
-            .Build();
+        _deserializer = BuildDeserializer(strict: false);
+        _strictDeserializer = BuildDeserializer(strict: true);
     }
 
     public IReadOnlyList<LoadedCase> LoadAll()
@@ -70,12 +82,45 @@ public sealed class CaseFileLoader
             throw new CaseFileException(_casesDirectory, "cases directory does not exist");
         }
 
+        var projectFlagProofControl = LoadProjectManifestControl();
+
         var files = Directory.EnumerateFiles(_casesDirectory, "*.yaml", SearchOption.TopDirectoryOnly)
             .Concat(Directory.EnumerateFiles(_casesDirectory, "*.yml", SearchOption.TopDirectoryOnly))
+            .Where(f => !ManifestFileNames.Contains(Path.GetFileName(f), StringComparer.Ordinal))
             .OrderBy(f => f, StringComparer.Ordinal)
             .ToList();
 
-        return files.Select(f => ParseYaml(Path.GetFileName(f), File.ReadAllText(f))).ToList();
+        return files.Select(f => ParseYaml(Path.GetFileName(f), File.ReadAllText(f), projectFlagProofControl)).ToList();
+    }
+
+    /// <summary>
+    /// flag-proof-project-template: loads <c>releasetwin.yml</c> from the cases directory, if present,
+    /// and returns its <c>flag_proof.control</c> block with its <c>${ENV_VAR}</c> references already
+    /// resolved (errors here name the manifest). Absent manifest → null → unchanged behavior.
+    /// </summary>
+    private FlagProofControlDto? LoadProjectManifestControl()
+    {
+        var path = ManifestFileNames
+            .Select(name => Path.Combine(_casesDirectory!, name))
+            .FirstOrDefault(File.Exists);
+        if (path is null)
+        {
+            return null;
+        }
+
+        ProjectManifestDto? manifest;
+        try
+        {
+            manifest = _strictDeserializer.Deserialize<ProjectManifestDto>(File.ReadAllText(path));
+        }
+        catch (YamlException ex)
+        {
+            // A strict deserializer surfaces an unknown key as "Property 'x' not found on type ...".
+            throw new CaseFileException(ManifestFileNames[0], $"invalid manifest: {ex.Message}");
+        }
+
+        var control = manifest?.FlagProof?.Control;
+        return control is null ? null : InterpolateControlDtoEnv(ManifestFileNames[0], control);
     }
 
     /// <summary>
@@ -83,7 +128,14 @@ public sealed class CaseFileLoader
     /// <see cref="LoadAll"/> uses per file, exposed so a hosted-fetched journey's YAML parses
     /// identically to a locally-loaded case file (only the source of the YAML differs).
     /// </summary>
-    public LoadedCase ParseYaml(string label, string yamlContent)
+    public LoadedCase ParseYaml(string label, string yamlContent) => ParseYaml(label, yamlContent, projectFlagProofControl: null);
+
+    /// <param name="projectFlagProofControl">
+    /// flag-proof-project-template: the project manifest's <c>flag_proof.control</c> block (env
+    /// already resolved), inherited by a <c>flag_proof</c> case that omits <c>control</c> or declares
+    /// only part of it. Null when there is no manifest — unchanged behavior.
+    /// </param>
+    internal LoadedCase ParseYaml(string label, string yamlContent, FlagProofControlDto? projectFlagProofControl)
     {
         var fileName = label;
 
@@ -200,7 +252,7 @@ public sealed class CaseFileLoader
             Release = release,
         };
 
-        return new LoadedCase(testCase, ResolveFlagProof(fileName, dto.FlagProof), ResolveEvidenceRules(fileName, dto.Evidence));
+        return new LoadedCase(testCase, ResolveFlagProof(fileName, dto.FlagProof, projectFlagProofControl), ResolveEvidenceRules(fileName, dto.Evidence));
     }
 
     private static string? ResolveRelease(string fileName, object? raw)
@@ -267,7 +319,7 @@ public sealed class CaseFileLoader
     private static readonly HashSet<string> AllowedControlMethods =
         new(new[] { "GET", "PUT", "POST", "PATCH", "DELETE" }, StringComparer.OrdinalIgnoreCase);
 
-    private FlagProofDeclaration? ResolveFlagProof(string fileName, FlagProofDto? dto)
+    private FlagProofDeclaration? ResolveFlagProof(string fileName, FlagProofDto? dto, FlagProofControlDto? projectControl)
     {
         if (dto is null)
         {
@@ -284,7 +336,85 @@ public sealed class CaseFileLoader
             throw new CaseFileException(fileName, "flag_proof is missing 'build_identity'");
         }
 
-        return new FlagProofDeclaration(dto.FeatureKey, dto.BuildIdentity, ResolveFlagProofControl(fileName, dto.Control));
+        var control = MergeControl(projectControl, dto.Control);
+        return new FlagProofDeclaration(dto.FeatureKey, dto.BuildIdentity, ResolveFlagProofControl(fileName, control));
+    }
+
+    /// <summary>
+    /// flag-proof-project-template: deep-merges a case's inline <c>control</c> block over the project
+    /// manifest's. Scalars and <c>headers</c> merge key-by-key with the case winning; <c>auth</c> and
+    /// <c>verify</c> present on the case replace the manifest's sub-block wholesale.
+    /// </summary>
+    private static FlagProofControlDto? MergeControl(FlagProofControlDto? baseDto, FlagProofControlDto? overrideDto)
+    {
+        if (baseDto is null)
+        {
+            return overrideDto;
+        }
+
+        if (overrideDto is null)
+        {
+            return baseDto;
+        }
+
+        var headers = new Dictionary<string, string>(baseDto.Headers ?? new Dictionary<string, string>());
+        foreach (var (key, value) in overrideDto.Headers ?? new Dictionary<string, string>())
+        {
+            headers[key] = value;
+        }
+
+        return new FlagProofControlDto
+        {
+            Method = overrideDto.Method ?? baseDto.Method,
+            Url = overrideDto.Url ?? baseDto.Url,
+            Body = overrideDto.Body ?? baseDto.Body,
+            KnownBadWhen = overrideDto.KnownBadWhen ?? baseDto.KnownBadWhen,
+            Headers = headers.Count > 0 ? headers : null,
+            Auth = overrideDto.Auth ?? baseDto.Auth,
+            Verify = overrideDto.Verify ?? baseDto.Verify,
+        };
+    }
+
+    /// <summary>
+    /// flag-proof-project-template: resolves <c>${ENV_VAR}</c> in every string field of a control
+    /// block once, at manifest-load time, so an undefined variable is reported against the manifest.
+    /// Leaves <c>{{featureKey}}</c> / <c>{{state}}</c> / <c>{{enabled}}</c> / <c>{{token}}</c> intact.
+    /// </summary>
+    private FlagProofControlDto InterpolateControlDtoEnv(string fileName, FlagProofControlDto dto)
+    {
+        string? Env(string? value) => value is null ? null : (string)InterpolateEnvVars(fileName, value)!;
+
+        return new FlagProofControlDto
+        {
+            Method = dto.Method,
+            KnownBadWhen = dto.KnownBadWhen,
+            Url = Env(dto.Url),
+            Body = Env(dto.Body),
+            Headers = dto.Headers?.ToDictionary(kv => kv.Key, kv => Env(kv.Value)!),
+            Auth = dto.Auth?.Oauth2ClientCredentials is { } oauth
+                ? new FlagProofControlAuthDto
+                {
+                    Oauth2ClientCredentials = new FlagProofOauth2ClientCredentialsDto
+                    {
+                        TokenUrl = Env(oauth.TokenUrl),
+                        ClientId = Env(oauth.ClientId),
+                        ClientSecret = Env(oauth.ClientSecret),
+                        Scope = Env(oauth.Scope),
+                    },
+                }
+                : dto.Auth,
+            Verify = dto.Verify is { } v
+                ? new FlagProofControlVerifyDto
+                {
+                    Method = v.Method,
+                    JsonPath = v.JsonPath,
+                    Url = Env(v.Url),
+                    Body = Env(v.Body),
+                    Expected = Env(v.Expected),
+                    Headers = v.Headers?.ToDictionary(kv => kv.Key, kv => Env(kv.Value)!),
+                }
+                : null,
+        };
     }
 
     private FlagProofControl? ResolveFlagProofControl(string fileName, FlagProofControlDto? dto)

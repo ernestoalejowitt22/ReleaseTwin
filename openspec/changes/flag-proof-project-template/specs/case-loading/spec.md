@@ -2,11 +2,12 @@
 
 ### Requirement: A project manifest at the cases-directory root is discovered and parsed
 
-The loader SHALL look for a file named `releasetwin.yml` at the root of the
-directory of case files being loaded (the same directory whose sibling
-`fixtures/` holds fixture content). When the file is present it SHALL be parsed
-into project-level defaults before any case in the batch is loaded. When the file
-is absent, loading SHALL behave exactly as it did before this capability existed.
+The loader SHALL look for a file named `releasetwin.yml` (a `releasetwin.yaml`
+spelling SHALL also be accepted) at the root of the directory of case files being
+loaded — the cases directory itself. When the file is present it SHALL be parsed
+into project-level defaults before any case in the batch is loaded, and SHALL NOT
+itself be loaded as a case. When the file is absent, loading SHALL behave exactly
+as it did before this capability existed.
 
 The manifest SHALL support at least a `flag_proof.control` section holding the
 same fields a case's inline `control` block accepts (`method`, `url`, `headers`,
