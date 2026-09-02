@@ -17,7 +17,7 @@ The history-cache concern is closed — NOT PURSUED (decision 2026-09-01): both
 repos private, 0 forks, no fork network, no pre-rewrite external clone; residual
 risk accepted (`docs/go-public-runbook.md` §2).
 
-- [ ] 2.1 **Needs the user to run this** — polish `ReleaseTwin` repo description + topics; confirm `SECURITY.md` contact is on the company domain
+- [x] 2.1 Repo description + topics polished; `SECURITY.md` contact on the company domain (user, 2026-09-02)
 - [ ] 2.2 Pre-flip sanity: fresh clone of the about-to-be-public repo, `git rev-list --all | xargs -I{} git grep -i <prior-vendor-term> {}` returns zero on reachable history
 - [x] 2.3 `company-and-domain-launch` §6.7 counsel review complete 2026-09-02 (ToS governing-law/liability + AGPL/BSL stack + DPA/pilot-agreement drafts). Note: `docs/legal/README.md` placeholders (operator RFC/address, governing-law/venue, liability cap) still need filling before a real pilot signs.
 - [ ] 2.4 **Needs the user to run this** — flip `ReleaseTwin` to public (only after 2.2 + 2.3)
