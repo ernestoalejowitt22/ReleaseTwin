@@ -174,8 +174,10 @@ resource "aws_route53_record" "gws_dkim" {
   name    = "google._domainkey.${var.domain_name}"
   type    = "TXT"
   ttl     = 3600
-  # The AWS provider auto-splits a TXT value over 255 chars into quoted chunks.
-  records = [var.google_workspace_dkim]
+  # Route 53 caps each TXT character-string at 255 bytes; a 2048-bit DKIM value is ~400. Split it
+  # into quoted 255-char segments in a single record — the AWS provider passes a value that already
+  # begins and ends with a quote straight through, so Route 53 stores one RR with multiple strings.
+  records = [join("", [for s in regexall(".{1,255}", var.google_workspace_dkim) : "\"${s}\""])]
 }
 
 output "ses_domain_identity_arn" {
