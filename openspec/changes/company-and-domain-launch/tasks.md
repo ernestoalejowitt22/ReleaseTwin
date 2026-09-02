@@ -5,7 +5,7 @@ them unchecked until the user confirms.
 
 ## 1. Brand & domain
 
-- [ ] 1.1 **Needs the user to run this** — quick IMPI (Mexico) + USPTO/EUIPO trademark glance for "ReleaseTwin" (dedupe with 6.9)
+- [x] 1.1 Trademark glance done 2026-09-02 (IMPI marcanet + USPTO tmsearch + EUIPO eSearch for "ReleaseTwin" / "Release Twin", classes 9/42) — no blocking identical mark. Registration deferred. (dedupe with 6.9)
 - [ ] 1.2 **Needs the user to run this** — register `releasetwin.com` at a registrar
 - [x] 1.3 Drop the "provisional brand is Validuo" hedge from `README.md` line 5 and any other doc that repeats it (`git grep -i validuo`)
 - [x] 1.4 Add `docs/company-setup.md` skeleton (domain, email, entity, DNS records — filled in as steps complete)
@@ -14,7 +14,7 @@ them unchecked until the user confirms.
 
 - [x] 2.1 Google Workspace account created 2026-09-02 (Business Starter, MXN, persona física — RFC via Admin console → Billing, régimen 626/RESICO). Domain **verified**. **Left:** Authenticate email → "Start authentication"; add the four aliases (Directory → Users → alternate emails).
 - [x] 2.2 MX + apex SPF + `google._domainkey` DKIM Terraformed in `hosted/terraform/dns-and-email.tf` ("Company mailbox" block), gated on `enable_google_workspace_email`. **All three repo vars set + records live 2026-09-02** (`dig +short TXT google._domainkey.releasetwin.com` returns the split key; MX = `1 smtp.google.com`). DKIM value is split into two 255-char character-strings (PR #102 — the AWS provider does not auto-chunk a >255-byte TXT).
-- [ ] 2.3 **Needs the user to run this** — send to each alias from an external address, confirm it lands.
+- [x] 2.3 Aliases confirmed 2026-09-02 — `support@` / `security@` / `legal@` / `hello@releasetwin.com` all receive mail sent from an external address. `support` added as the 5th alias.
 - [x] 2.4 Record set documented in `docs/company-setup.md` §Company email (Terraform-managed table).
 
 ## 3. Transactional email — SES identity (Terraform, CI-only)
@@ -25,7 +25,7 @@ them unchecked until the user confirms.
 - [x] 3.4 Add a scoped `ses:SendEmail` statement to the API Lambda execution role (`hosted/terraform/lambda.tf`), `Resource` = the SES identity ARN, gated on `domain_name`
 - [ ] 3.5 **Needs the user to run this** — request SES production access (move out of sandbox) once the identity verifies
 - [x] 3.6 CI `terraform apply` **does** need a bootstrap change (the deploy role had no SES/Route 53 perms) — added `SesDomainIdentity` + `Route53Records` statements to `hosted/terraform-bootstrap/main.tf` in the same PR, per that file's documented pattern. Both apply on merge.
-- [ ] 3.7 **Needs the user to run this** — set the `DOMAIN_NAME` repo var to `releasetwin.com` to activate the SES/DNS resources, then confirm `bootstrap.yml` + `deploy-hosted.yml` both go green (re-run deploy if it raced bootstrap on the first merge)
+- [x] 3.7 `DOMAIN_NAME` = `releasetwin.com` repo var set 2026-09-01. `deploy-hosted.yml` green on the 2026-09-02 run (PR #102). All records resolve: `_amazonses` TXT, 3 SES DKIM CNAMEs, `mail.releasetwin.com` MX/SPF, `_dmarc` (p=none). SES identity + DKIM verified in the console (task A).
 
 ## 4. SesInvitationEmailSender (code)
 
@@ -39,7 +39,7 @@ them unchecked until the user confirms.
 - [x] 4.8 `dotnet build ReleaseTwin.sln` + `dotnet test ReleaseTwin.sln` green; report the new test count
 - [ ] 4.9 **Needs the user to run this** — set the `NOTIFICATIONS_FROM_ADDRESS` repo var (e.g. `no-reply@releasetwin.com`) once the SES identity from 3.x is verified; `deploy-hosted.yml` passes it to `notifications_from_address` and Program.cs binds `SesInvitationEmailSender`
 - [ ] 4.10 Post-deploy: issue a real invitation to an external address, confirm the email arrives and the link accepts (evidence-quality: note which inbox, paste the rendered email)
-- [ ] 4.11 Deliverability check (mail-tester or equivalent) — SPF/DKIM/DMARC all pass, not flagged as spam
+- [x] 4.11 Deliverability check done 2026-09-02 (mail-tester) — SPF / DKIM / DMARC all pass from the Google Workspace apex sender, not spam-flagged. SES-path check folded into 4.10.
 - [x] 4.12 "Resend invitation" affordance on `/dashboard/members` — `POST /api/organizations/{orgId}/invitations/{token}/resend` (`OrganizationMembersService.ResendInvitationEmailAsync`, admin-gated, re-sends only a still-acceptable invite, token unchanged) + `resendInvitation` server action + "Resend email" button. Tests in `MembershipEndpointsHttpTests` + `OrganizationMembersServiceTests`
 
 ## 5. Auth / hosting identity re-pointing
@@ -51,7 +51,7 @@ them unchecked until the user confirms.
 - [x] 5.3 `WEB_BASE_URL` = `https://releasetwin.com` repo var applied to the Lambda
 - [x] 5.4 Verified `Api__PublicUrl` self-heals — the 2026-09-02 deploy read `function_url` from state and passed it back as `-var api_public_url=https://aeq4mvkh3n63sqnngc4lp7567y0mqfzr.lambda-url.us-east-1.on.aws/`; no manual set. Recorded in `docs/company-setup.md`
 - [ ] 5.5 **Needs the user to run this** — submit `releasetwin.com` to Google Search Console
-- [x] 5.6 Literal sweep: app code already reads `SITE_URL` / `CLERK_DOMAIN` from env — no hard-coded `vercel.app` / `clerk.accounts.dev` in `web/` app code. Contact emails routed through `web/src/lib/site.ts` constants. Remaining stale refs are `docs/billing-sandbox-runbook.md` + root `SECURITY.md` (both wait on the domain addresses existing)
+- [x] 5.6 Literal sweep: app code already reads `SITE_URL` / `CLERK_DOMAIN` from env — no hard-coded `vercel.app` / `clerk.accounts.dev` in `web/` app code. Contact emails routed through `web/src/lib/site.ts` constants. All `@gmail` / `vercel.app` stale refs swapped 2026-09-02 (PR #104, task 6.5).
 
 ## 6. Legal operator
 
@@ -68,7 +68,7 @@ customer's procurement demand, or legal advice — see `deferred` below.
 - [ ] 6.7 **Needs the user to run this** — engage a Mexican tech lawyer: (a) review the Terms of Service (`web/src/app/(marketing)/terms/page.tsx`) for a **governing-law / dispute clause** (Mexican law is the cheap-to-enforce default) and the liability wording; (b) review the AGPL-3.0 + Adapter Linking Exception + BSL 1.1 licensing stack; (c) review the DPA + design-partner-agreement drafts. This is the pre-GA legal gate (`go-public-sequence` §2.3); a pilot can run on the current ToS draft + the pilot agreement.
 - [x] 6.7a DPA + pilot-agreement **drafts** produced from the Common Paper / Bonterms structure, filled with ReleaseTwin facts (MX persona física operator; metadata-only default; AWS/Clerk/Polar/SES subprocessors; per-project evidence retention/purge). `docs/legal/{dpa,pilot-agreement,README}.md`. Marked DRAFT — counsel review (6.7) still required; placeholders (operator RFC/address, governing-law/venue, liability cap, EU SCC member state) flagged in `docs/legal/README.md`.
 - [x] 6.8 `next build` + `npx eslint` green after the `site.ts` / page edits (re-run after the 6.5 email swap).
-- [ ] 6.9 **Needs the user to run this** — quick IMPI (Mexico) + USPTO/EUIPO trademark glance for "ReleaseTwin" before wider launch.
+- [x] 6.9 Done — see 1.1 (trademark glance 2026-09-02, no blocking mark, registration deferred).
 
 ### Deferred — incorporation track
 
