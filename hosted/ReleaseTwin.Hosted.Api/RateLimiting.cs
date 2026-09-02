@@ -67,7 +67,10 @@ public static class RateLimiting
                     {
                         TokenLimit = Limit(cfg, "Ingest:TokenLimit", 5_000),
                         TokensPerPeriod = Limit(cfg, "Ingest:TokensPerPeriod", 500),
-                        ReplenishmentPeriod = TimeSpan.FromSeconds(10),
+                        // `ReplenishmentSeconds` is a knob mainly so a test can set it far larger than
+                        // the test's own runtime and get a deterministic burst (no mid-test refill on
+                        // a slow, contended CI runner).
+                        ReplenishmentPeriod = TimeSpan.FromSeconds(Limit(cfg, "Ingest:ReplenishmentSeconds", 10)),
                         AutoReplenishment = true,
                         QueueLimit = 0,
                     })
