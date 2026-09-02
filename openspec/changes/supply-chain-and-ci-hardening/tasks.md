@@ -8,10 +8,10 @@
 
 ## 2. Static analysis — CodeQL (D2)
 
-- [x] 2.1 Add `.github/workflows/codeql.yml` (advanced setup) with `language: [csharp, javascript-typescript]`, triggers `pull_request` + `push` to `main` + weekly `schedule`, and the required `security-events: write` permission.
+- [x] 2.1 Add `.github/workflows/codeql.yml` (advanced setup) with `language: [csharp, javascript-typescript]`, triggers `pull_request` + `push` to `main` + weekly `schedule`, and the required `security-events: write` permission. _(The analysis runs; the Security-tab upload needs code scanning enabled — GHAS on a private repo, or a public repo — so the Analyze step is `continue-on-error: true` (non-fatal) and the SARIF is also uploaded as a workflow artifact. Same plan-gated situation as required status checks.)_
 - [x] 2.2 C# analysis: explicit `dotnet build ReleaseTwin.sln` (pinned SDK) between `init` and `analyze`; JS/TS analysis: no build step. _(Also builds `hosted/ReleaseTwin.Hosted.slnx` so the hosted API is covered.)_
 - [x] 2.3 Keep the query suite at the default `security` level for now (avoid PR noise); leave a comment noting `security-extended` as a later opt-in.
-- [ ] 2.4 Run once on a branch; triage initial findings to green (fix or dismiss with a reason in the Security tab). _(Deferred to the first CI run on this PR — CodeQL can't run locally. Review the PR's Security tab / checks and dismiss false positives with a reason.)_
+- [ ] 2.4 Run once on a branch; triage initial findings to green (fix or dismiss with a reason). _(Blocked on code scanning being enabled. Once GHAS/public: flip the Analyze step's `continue-on-error` to `false`, then review findings in the Security tab (or the `codeql-sarif-*` artifacts in the meantime) and dismiss false positives with a reason.)_
 
 ## 3. Harden the gitleaks install (D4)
 
