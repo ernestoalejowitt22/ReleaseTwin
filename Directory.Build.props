@@ -1,0 +1,19 @@
+<Project>
+
+  <!--
+    supply-chain-and-ci-hardening (supply-chain-assurance): NuGet audit is on by default; the
+    dependency-scan workflow fails a PR on any *new* High/Critical advisory. The suppressions below
+    are the documented waivers for advisories that do not apply to how this repo builds:
+
+    - System.Net.Http 4.3.0 / System.Text.RegularExpressions 4.3.0 (GHSA-7jgj-8wvc-jh57,
+      GHSA-cmhx-cq75-c4mj): pulled only transitively by xunit 2.5.3 -> NETStandard.Library 1.6.1.
+      On the .NET 8/10 target framework these legacy reference assemblies are entirely superseded by
+      the shared runtime — the vulnerable code never loads or ships. Revisit when xunit is upgraded
+      past the NETStandard.Library dependency.
+  -->
+  <ItemGroup>
+    <NuGetAuditSuppress Include="https://github.com/advisories/GHSA-7jgj-8wvc-jh57" />
+    <NuGetAuditSuppress Include="https://github.com/advisories/GHSA-cmhx-cq75-c4mj" />
+  </ItemGroup>
+
+</Project>

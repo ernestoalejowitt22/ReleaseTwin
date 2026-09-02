@@ -1,19 +1,41 @@
+# supply-chain-and-ci-hardening (supply-chain-assurance): automated update proposals so an advisory
+# published against a dependency already in the tree surfaces as its own PR rather than waiting to be
+# noticed. Weekly, with minor/patch grouped into one PR per ecosystem to keep the review load sane
+# for a solo maintainer.
 version: 2
 updates:
   - package-ecosystem: nuget
     directory: "/"
-    schedule: { interval: weekly }
+    schedule:
+      interval: weekly
     open-pull-requests-limit: 5
     groups:
-      dotnet:
-        patterns: ["*"]
+      dotnet-minor-patch:
+        update-types: [minor, patch]
+
+  - package-ecosystem: nuget
+    directory: "/hosted"
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 5
+    groups:
+      hosted-minor-patch:
+        update-types: [minor, patch]
+
   - package-ecosystem: npm
     directory: "/web"
-    schedule: { interval: weekly }
+    schedule:
+      interval: weekly
     open-pull-requests-limit: 5
     groups:
-      web:
-        patterns: ["*"]
+      web-minor-patch:
+        update-types: [minor, patch]
+
   - package-ecosystem: github-actions
     directory: "/"
-    schedule: { interval: weekly }
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 5
+    groups:
+      actions-all:
+        patterns: ["*"]

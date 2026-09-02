@@ -36,6 +36,11 @@ concurrency:
 jobs:
   deploy:
     runs-on: ubuntu-latest
+    # supply-chain-and-ci-hardening: run under a protected deployment environment so the OIDC→AWS
+    # step is subject to that environment's rules (add required reviewers / a wait timer in repo
+    # Settings → Environments at your discretion), not just "any push to main". Create the
+    # `production` environment before this workflow next runs or the job waits on an unknown env.
+    environment: production
     steps:
       - uses: actions/checkout@v7
 
