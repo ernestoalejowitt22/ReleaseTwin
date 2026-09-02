@@ -1,0 +1,102 @@
+# SPDX-FileCopyrightText: 2026 Ernesto Alejo and the ReleaseTwin contributors
+# SPDX-License-Identifier: Apache-2.0
+#
+# supply-chain-and-ci-hardening (supply-chain-assurance): fail a PR that introduces a dependency —
+# direct or transitive — with a High or Critical advisory. Native tooling only: no account, no token.
+# Ongoing advisories in existing dependencies surface as Dependabot PRs (.github/dependabot.yml).
+name: Dependency scan
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  dotnet:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "10.0.x"
+
+      # `dotnet list package --vulnerable` always exits 0, has no severity filter, and does NOT honor
+      # the NuGetAuditSuppress waivers in Directory.Build.props — so parse its output, drop any line
+      # whose advisory URL is on that waiver list, and fail on any High/Critical line that remains.
+      # Also fail if the report didn't render at all (guards against a silent SDK output-format change
+      # turning into a false pass). Covers the engine solution and the hosted solution (separate;
+      # hosted is not in ReleaseTwin.sln).
+      - name: Scan for vulnerable NuGet packages
+        run: |
+          set -o pipefail
+          waived="$(grep -oE 'https://github.com/advisories/[A-Za-z0-9-]+' Directory.Build.props | sort -u || true)"
+          echo "Waived advisories (Directory.Build.props):"; echo "${waived:-  (none)}"
+
+          fail=0
+          for sln in ReleaseTwin.sln hosted/ReleaseTwin.Hosted.slnx; do
+            echo "::group::$sln"
+            dotnet restore "$sln"
+            report="$(dotnet list "$sln" package --vulnerable --include-transitive 2>&1)"
+            echo "$report"
+            echo "::endgroup::"
+
+            if ! echo "$report" | grep -qiE 'no vulnerable packages|The following sources were used|Vulnerable'; then
+              echo "::error::Could not parse 'dotnet list package --vulnerable' output for $sln — treat as a scan failure."
+              fail=1
+              continue
+            fi
+
+            offenders="$(echo "$report" | grep -iE '\b(High|Critical)\b' || true)"
+            if [ -n "$waived" ]; then
+              offenders="$(echo "$offenders" | grep -vF "$waived" || true)"
+            fi
+            if [ -n "$offenders" ]; then
+              echo "::error::$sln: a dependency resolves to a package with a non-waived High/Critical advisory."
+              echo "$offenders"
+              fail=1
+            fi
+          done
+          [ "$fail" -eq 0 ] && echo "No non-waived High/Critical NuGet advisories." || exit 1
+
+  web:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: web
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+
+      - name: Install
+        run: npm ci
+
+      - name: npm audit (high and above)
+        run: npm audit --audit-level=high
+
+  action-image-pin:
+    # supply-chain-and-ci-hardening: the published Action must never default its image to a mutable
+    # reference (:latest / bare major). release.yml keeps it pinned to a digest; this guards against
+    # a hand-edit regressing it.
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: action.yml default image is pinned
+        run: |
+          default="$(grep -E '^    default: ghcr\.io/.*/cli[:@]' integrations/github-action/action.yml | sed -E 's/^    default: //')"
+          echo "default image: $default"
+          if [[ "$default" == *"@sha256:"* ]] || [[ "$default" =~ :[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "OK — pinned."
+          else
+            echo "::error::integrations/github-action/action.yml defaults 'image' to a mutable reference ($default). It must be a digest or a specific version."
+            exit 1
+          fi
