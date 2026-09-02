@@ -159,6 +159,8 @@ flag_proof:
 
 Output looks like `FLAGPROOF FLAGPROOF-DEMO-1 (Passed)` — or `WeakOracle`/`BothFailed`/`Inverted` when the case's own pipeline can't tell known-bad from known-good, `Ineligible` when nothing can drive the toggle, or `ControlFailed` when the `control` request itself errors.
 
+When a suite has several flag-proof cases against the same flag system, declare the `control` block once in a `releasetwin.yml` at the cases-directory root; each case then carries only its `feature_key` (and may override individual fields). See `examples/cases-flag-proof-shared-control/` and `docs/flag-proof.md`.
+
 ### Running the automated test suite
 
 ```bash
@@ -247,7 +249,7 @@ Deliberately deferred, not forgotten — each was a scoped decision, not an over
 - **Packaging/distribution** — the CLI ships as a Docker image (`cli-packaging`), a `dotnet tool` on nuget.org (`dotnet tool install -g releasetwin`, `cli-distribution`), and a PR-annotations GitHub Action (`ci-pr-integration`); all tag-triggered from the release workflow. See [`docs/install.md`](docs/install.md). A Homebrew tap and a self-contained single-file binary are still deferred.
 - **Azure DevOps operation parameters** — its operations are still fixed-shape; only the HTTP adapter is data-driven from case files.
 - **A non-REST adapter** — the HTTP adapter covers anything with a REST surface; a message queue, database, or vendor SDK without one still needs bespoke adapter code.
-- **Flag proof against a non-REST flag store** — a case drives the toggle through an adapter controller (Azure DevOps, LaunchDarkly) or a `flag_proof.control` HTTP request; a flag system with neither a controller adapter nor a REST toggle (an SDK-only or streaming provider) still needs a new `IFeatureStateController`. A project-level `control` template (rather than per-case) and a post-toggle read-back assertion are also still deferred.
+- **Flag proof against a non-REST flag store** — a case drives the toggle through an adapter controller (Azure DevOps, LaunchDarkly) or a `flag_proof.control` HTTP request; a flag system with neither a controller adapter nor a REST toggle (an SDK-only or streaming provider) still needs a new `IFeatureStateController`. A project-level `control` template and a post-toggle read-back assertion (`control.verify`) both exist now; only the SDK-only store case remains deferred.
 - **External-check connector (Playwright)** — visual/browser evidence isn't wired in.
 - **Billing** — the hosted platform (above) is Stage 1 only: no Stripe integration, no paid tiers, no usage enforcement.
 - **Going public with the hosted platform** — it's deployed and a production Clerk instance is wired to it, but self-serve sign-up isn't linked or announced anywhere and no outside user has been invited. This is now a business decision, not a setup step.

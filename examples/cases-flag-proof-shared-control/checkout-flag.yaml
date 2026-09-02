@@ -1,0 +1,21 @@
+# Inherits the whole `control` block from releasetwin.yml — only `feature_key` differs.
+id: FLAGPROOF-SHARED-CHECKOUT
+oracle:
+  locator: tickets/FLAGPROOF-SHARED-CHECKOUT
+fixture:
+  locator: example-flag-proof-http.json
+  sha256: b31419d04e4f3ec53e22db6da0d7347af49d11bed8efc891754ace6c154d1d27
+requires:
+  - http:generic
+pipeline:
+  - operation: http.request
+    with:
+      method: GET
+      url: ${FLAGS_API}/flags/checkout-v2
+  - operation: http.assertJsonPath
+    with:
+      path: $.state
+      expected: enabled
+flag_proof:
+  feature_key: checkout-v2
+  build_identity: orders@demo-1
