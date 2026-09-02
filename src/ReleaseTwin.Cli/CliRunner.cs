@@ -425,6 +425,9 @@ public sealed class CliRunner
             // below, when --summary-json / RELEASETWIN_SUMMARY_JSON is set (design.md D-A).
             var summaryPath = Get("RELEASETWIN_SUMMARY_JSON") is { Length: > 0 } sp ? sp : null;
             var summary = summaryPath is null ? null : new RunSummaryBuilder();
+            // pr-annotation-evidence-link: the project-dashboard URL, taken from the first successful
+            // upload's response. Stays null when nothing was uploaded.
+            string? runUrl = null;
 
             var passed = 0;
             var failed = 0;
@@ -474,11 +477,11 @@ public sealed class CliRunner
                         failed++;
                     }
 
-                    summary?.AddCase(result.CaseId, result.Outcome == FlagProofOutcome.Passed, classification: null, flagProofOutcome: result.Outcome.ToString(), release: testCase.Release);
                     output.WriteLine(result.Message is { Length: > 0 } flagProofMessage
                         ? $"FLAGPROOF {result.CaseId} ({result.Outcome}): {flagProofMessage}"
                         : $"FLAGPROOF {result.CaseId} ({result.Outcome})");
 
+                    string? flagProofEvidenceUrl = null;
                     if (ingestClient is not null)
                     {
                         try
@@ -490,8 +493,13 @@ public sealed class CliRunner
                                 evidence = redactor.Redact(seed, flagProofExecution.KnownBadEvidence, flagProofExecution.KnownGoodEvidence, loadedCase.Evidence);
                             }
 
-                            var evidenceAccepted = await ingestClient.UploadFlagProofReportAsync(result, evidence, cancellationToken, testCase.Release);
-                            if (evidence is not null && !evidenceAccepted)
+                            var upload = await ingestClient.UploadFlagProofReportAsync(result, evidence, cancellationToken, testCase.Release);
+                            runUrl ??= upload.RunUrl;
+                            if (evidence is not null && upload.EvidenceAccepted)
+                            {
+                                flagProofEvidenceUrl = upload.ReportUrl;
+                            }
+                            else if (evidence is not null && !upload.EvidenceAccepted)
                             {
                                 output.WriteLine($"WARN evidence not accepted for {result.CaseId} (report uploaded; check your plan tier)");
                             }
@@ -504,12 +512,13 @@ public sealed class CliRunner
                         }
                     }
 
+                    summary?.AddCase(result.CaseId, result.Outcome == FlagProofOutcome.Passed, classification: null, flagProofOutcome: result.Outcome.ToString(), release: testCase.Release, evidenceUrl: flagProofEvidenceUrl);
+
                     continue;
                 }
 
                 var execution = await executor.ExecuteAsync(testCase, executionOptions, cancellationToken);
                 var report = execution.Report;
-                summary?.AddCase(report.CaseId, report.Passed, report.Classification?.ToString(), flagProofOutcome: null, release: testCase.Release);
                 if (report.Passed)
                 {
                     passed++;
@@ -521,6 +530,7 @@ public sealed class CliRunner
                     output.WriteLine($"FAIL {report.CaseId} ({report.Classification}): {report.FailureDetail}");
                 }
 
+                string? caseEvidenceUrl = null;
                 if (ingestClient is not null)
                 {
                     try
@@ -529,8 +539,13 @@ public sealed class CliRunner
                             ? null
                             : redactor.Redact(execution.Evidence, null, null, loadedCase.Evidence);
 
-                        var evidenceAccepted = await ingestClient.UploadCaseReportAsync(report, evidence, cancellationToken, testCase.Release);
-                        if (evidence is not null && !evidenceAccepted)
+                        var upload = await ingestClient.UploadCaseReportAsync(report, evidence, cancellationToken, testCase.Release);
+                        runUrl ??= upload.RunUrl;
+                        if (evidence is not null && upload.EvidenceAccepted)
+                        {
+                            caseEvidenceUrl = upload.ReportUrl;
+                        }
+                        else if (evidence is not null && !upload.EvidenceAccepted)
                         {
                             output.WriteLine($"WARN evidence not accepted for {report.CaseId} (report uploaded; check your plan tier)");
                         }
@@ -542,6 +557,8 @@ public sealed class CliRunner
                         output.WriteLine($"WARN upload failed for {report.CaseId}: {ex.Message}");
                     }
                 }
+
+                summary?.AddCase(report.CaseId, report.Passed, report.Classification?.ToString(), flagProofOutcome: null, release: testCase.Release, evidenceUrl: caseEvidenceUrl);
             }
 
             output.WriteLine($"{passed} passed, {failed} failed");
@@ -552,7 +569,7 @@ public sealed class CliRunner
                 // up front in CliEntrypoint, so this only fails on a genuine I/O fault.
                 try
                 {
-                    RunSummaryWriter.Write(summaryPath, summary.Build());
+                    RunSummaryWriter.Write(summaryPath, summary.Build(runUrl));
                 }
                 catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
                 {

@@ -82,7 +82,7 @@ public class CliRunnerSummaryTests
 
         Assert.Equal(0, exit);
         var s = ReadSummary(summaryPath);
-        Assert.Equal(1, s.GetProperty("schemaVersion").GetInt32());
+        Assert.Equal(2, s.GetProperty("schemaVersion").GetInt32());
         Assert.Equal("passed", s.GetProperty("overall").GetString());
         Assert.Equal(1, s.GetProperty("totals").GetProperty("passed").GetInt32());
         Assert.Equal("4.2", s.GetProperty("cases")[0].GetProperty("release").GetString());

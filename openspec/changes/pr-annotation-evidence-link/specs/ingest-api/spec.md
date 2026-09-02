@@ -3,21 +3,29 @@
 ### Requirement: A successful upload response returns the report's dashboard URL
 
 When the ingest API accepts a case or flag-proof report upload, its response
-SHALL include a canonical, absolute dashboard URL identifying where that report
-can be viewed within the uploading token's organization. When evidence
-accompanying the report was accepted, that URL SHALL resolve to a view from which
-the stored evidence for the report is reachable.
+SHALL include a canonical dashboard URL identifying where that report can be
+viewed within the uploading token's organization (`reportUrl`), and a URL for the
+project's run history for run-level linking (`runUrl`). When evidence
+accompanying the report was accepted, `reportUrl` SHALL resolve to a view from
+which the stored evidence for the report is reachable.
 
-The URL SHALL be org-scoped and SHALL carry no fixture content, response bodies,
-or credential values — the same "no sensitive content" guarantee that applies to
-the case identifier. A response for a report whose evidence was **not** accepted
-(tier or redaction signal) SHALL still return the report URL; the distinction is
-conveyed by the existing not-accepted signal, not by omitting the URL.
+Both URLs SHALL be org-scoped and SHALL carry no fixture content, response
+bodies, or credential values — the same "no sensitive content" guarantee that
+applies to the case identifier. The URLs SHALL be absolute when the deployment
+has a configured web base URL, and MAY be site-relative otherwise. A response for
+a report whose evidence was **not** accepted (tier or redaction signal) SHALL
+still return both URLs; the distinction is conveyed by the existing not-accepted
+signal, not by omitting a URL.
 
 #### Scenario: Accepted upload returns a viewable URL
 
 - **WHEN** an ingest request with a valid API token uploads a case report and it is stored
-- **THEN** the response contains an absolute dashboard URL for that report, scoped to the token's organization
+- **THEN** the response contains a `reportUrl` for that report and a `runUrl` for the project's run history, both scoped to the token's organization
+
+#### Scenario: URLs are absolute when a web base URL is configured
+
+- **WHEN** the deployment has a web base URL configured and a report is stored
+- **THEN** the returned `reportUrl` and `runUrl` are absolute URLs under that base
 
 #### Scenario: Accepted evidence URL reaches the evidence view
 
