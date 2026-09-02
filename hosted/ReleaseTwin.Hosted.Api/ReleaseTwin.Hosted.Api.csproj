@@ -19,20 +19,20 @@
 
   <ItemGroup>
     <PackageReference Include="Amazon.Lambda.AspNetCoreServer.Hosting" Version="2.2.1" />
-    <PackageReference Include="Microsoft.AspNetCore.Authentication.JwtBearer" Version="10.0.0" />
-    <PackageReference Include="AWSSDK.DynamoDBv2" Version="4.0.5" />
+    <PackageReference Include="Microsoft.AspNetCore.Authentication.JwtBearer" Version="10.0.11" />
+    <PackageReference Include="AWSSDK.DynamoDBv2" Version="4.0.103.5" />
     <PackageReference Include="Amazon.AspNetCore.DataProtection.SSM" Version="4.0.3" />
     <!-- operator-alerting: the daily staleness digest publishes to SNS. -->
-    <PackageReference Include="AWSSDK.SimpleNotificationService" Version="4.0.100" />
+    <PackageReference Include="AWSSDK.SimpleNotificationService" Version="4.0.100.11" />
     <!-- company-and-domain-launch: SesInvitationEmailSender delivers org invites via SES v2, bound
          only when Notifications:FromAddress is set. Same AWSSDK.Core v4 line as the SNS/S3 clients. -->
-    <PackageReference Include="AWSSDK.SimpleEmailV2" Version="4.0.0.11" />
+    <PackageReference Include="AWSSDK.SimpleEmailV2" Version="4.0.104" />
     <!-- run-notifications: the ingest path enqueues a failure-notification message; a second Lambda
          (RELEASETWIN_LAMBDA_TASK=NotificationDispatch) drains the queue. v4 line, matching AWSSDK.Core. -->
-    <PackageReference Include="AWSSDK.SQS" Version="4.0.0.13" />
+    <PackageReference Include="AWSSDK.SQS" Version="4.0.100.11" />
     <!-- evidence-purge-and-blob-store: S3EvidenceBlobStore. v4 line, matching the AWSSDK.Core
          the DynamoDB/SNS packages already pull. -->
-    <PackageReference Include="AWSSDK.S3" Version="4.0.6" />
+    <PackageReference Include="AWSSDK.S3" Version="4.0.102.4" />
     <PackageReference Include="OpenFeature" Version="2.14.1" />
     <!-- supply-chain-and-ci-hardening: Amazon.AspNetCore.DataProtection.SSM → Microsoft.AspNetCore.DataProtection
          10.0.7 pulls System.Security.Cryptography.Xml 10.0.7, which carries High-severity advisories
