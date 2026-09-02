@@ -91,6 +91,30 @@ public class OrganizationMembersServiceTests
         Assert.NotNull(await h.Memberships.GetAsync(owner.OrganizationId, busy.Id));
     }
 
+    // company-and-domain-launch 4.12 -------------------------------------------------------------
+    [Fact]
+    public async Task ResendInvitationEmailReSendsForAPendingInviteAndNoOpsOtherwise()
+    {
+        var email = new RecordingInvitationEmailSender();
+        var h = new Harness(email);
+        var owner = await h.Provisioning.GetOrCreateUserAsync("clerk-owner", "Owner", "owner@example.com");
+        var invite = await h.Service.InviteAsync(owner.OrganizationId, owner.Id, "mate@example.com", MembershipRole.Member);
+
+        var resent = await h.Service.ResendInvitationEmailAsync(owner.OrganizationId, invite.Token, "Acme", "https://releasetwin.com/invitations/" + invite.Token);
+        Assert.NotNull(resent);
+        Assert.Equal(invite.Token, resent!.Token);
+        Assert.Single(email.Sent);
+        Assert.Equal("mate@example.com", email.Sent[0].ToEmail);
+
+        // Wrong org → null, no send.
+        Assert.Null(await h.Service.ResendInvitationEmailAsync(Guid.NewGuid(), invite.Token, "Acme", "url"));
+
+        // Revoked → null, no further send.
+        await h.Service.RevokeInvitationAsync(owner.OrganizationId, invite.Token);
+        Assert.Null(await h.Service.ResendInvitationEmailAsync(owner.OrganizationId, invite.Token, "Acme", "url"));
+        Assert.Single(email.Sent);
+    }
+
     [Fact]
     public async Task ExpiredOrRevokedInvitationIsRejected()
     {
