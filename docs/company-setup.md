@@ -110,7 +110,7 @@ advice.
 | Contact email | `legal@releasetwin.com` → `LEGAL_CONTACT_EMAIL` | currently `ernestoalejo22@gmail.com` (swaps with the mailbox) |
 | ToS counsel review | governing-law/dispute clause (Mexican law default) + liability wording — `web/src/app/(marketing)/terms/page.tsx` | **pending** — pre-GA gate, not a pilot blocker |
 | Licensing review | AGPL-3.0 + Adapter Linking Exception + BSL 1.1 | **pending** (same counsel engagement) |
-| DPA + design-partner agreement | from a standardized template (Common Paper / Bonterms) | **pending** |
+| DPA + design-partner agreement | `docs/legal/dpa.md` + `docs/legal/pilot-agreement.md` — drafted from the Common Paper / Bonterms structure with ReleaseTwin facts | **drafts ready 2026-09-02; counsel review pending** |
 | Incorporation | S.A.S. or S. de R.L. de C.V. | **deferred** |
 | IP assignment | codebase + brand → the entity | deferred (on incorporation) |
 | Polar MoR payee | the persona física (RFC + bank/CLABE) | pending Polar production (§7) |
