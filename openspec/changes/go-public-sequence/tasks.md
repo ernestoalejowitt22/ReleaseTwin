@@ -19,7 +19,7 @@ risk accepted (`docs/go-public-runbook.md` §2).
 
 - [ ] 2.1 **Needs the user to run this** — polish `ReleaseTwin` repo description + topics; confirm `SECURITY.md` contact is on the company domain
 - [ ] 2.2 Pre-flip sanity: fresh clone of the about-to-be-public repo, `git rev-list --all | xargs -I{} git grep -i <prior-vendor-term> {}` returns zero on reachable history
-- [ ] 2.3 Confirm `company-and-domain-launch` §6.7 (licensing legal review) is complete
+- [x] 2.3 `company-and-domain-launch` §6.7 counsel review complete 2026-09-02 (ToS governing-law/liability + AGPL/BSL stack + DPA/pilot-agreement drafts). Note: `docs/legal/README.md` placeholders (operator RFC/address, governing-law/venue, liability cap) still need filling before a real pilot signs.
 - [ ] 2.4 **Needs the user to run this** — flip `ReleaseTwin` to public (only after 2.2 + 2.3)
 - [ ] 2.5 Decide whether `NAHA` goes public or stays private as the demo target (design Open Question); flip only if decided yes
 - [ ] 2.6 Post-flip: confirm the Vercel Preview demo target still builds and renders
@@ -36,5 +36,5 @@ risk accepted (`docs/go-public-runbook.md` §2).
 ## 5. Close-out
 
 - [x] 5.1 `docs/go-public-runbook.md` created — prod-stack decision + migration + per-section status. Updated as sections complete.
-- [ ] 5.2 `openspec validate go-public-sequence --strict` passes
+- [x] 5.2 `openspec validate go-public-sequence --strict` passes (2026-09-02)
 - [ ] 5.3 Confirm with the user before archiving
