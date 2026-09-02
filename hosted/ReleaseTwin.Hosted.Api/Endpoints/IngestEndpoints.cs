@@ -3,6 +3,7 @@ using System.Text.Json;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Routing;
+using Microsoft.Extensions.Configuration;
 using ReleaseTwin.Hosted.Api.Auth;
 using ReleaseTwin.Hosted.Api.Contracts;
 using ReleaseTwin.Hosted.Api.Data.Entities;
@@ -35,7 +36,7 @@ public static class IngestEndpoints
             // is never processed — no report, no evidence, no usage increment.
             .RequireRateLimiting(RateLimiting.IngestPolicy);
 
-        group.MapPost("/case-report", async (HttpRequest http, ICaseReportRepository reports, IUsageCounterRepository usage, EvidenceIngestService evidenceIngest, ProjectWritabilityService writability, IOrganizationRepository organizations, INotificationQueue notifications, ReleaseTwin.Hosted.Api.Flags.IFlagService flags, ILoggerFactory loggerFactory, ClaimsPrincipal user) =>
+        group.MapPost("/case-report", async (HttpRequest http, ICaseReportRepository reports, IUsageCounterRepository usage, EvidenceIngestService evidenceIngest, ProjectWritabilityService writability, IOrganizationRepository organizations, INotificationQueue notifications, ReleaseTwin.Hosted.Api.Flags.IFlagService flags, IConfiguration config, ILoggerFactory loggerFactory, ClaimsPrincipal user) =>
         {
             var (request, screenshots, bindError) = await ReadAsync<IngestCaseReportRequest>(http);
             if (bindError is not null)
@@ -97,16 +98,18 @@ public static class IngestEndpoints
                     http.HttpContext.RequestAborted);
             }
 
+            var (caseReportUrl, caseRunUrl) = ReportUrls(config, projectId, entity.Id);
+
             if (request.Evidence is null)
             {
-                return Results.Created($"/api/reports/case/{entity.Id}", new { entity.Id });
+                return Results.Created($"/api/reports/case/{entity.Id}", new { entity.Id, reportUrl = caseReportUrl, runUrl = caseRunUrl });
             }
 
             var accepted = await evidenceIngest.StoreAsync(organizationId, projectId, entity.Id, "case", request.Evidence.Value, screenshots, http.HttpContext.RequestAborted);
-            return Results.Created($"/api/reports/case/{entity.Id}", new { entity.Id, evidenceAccepted = accepted });
+            return Results.Created($"/api/reports/case/{entity.Id}", new { entity.Id, evidenceAccepted = accepted, reportUrl = caseReportUrl, runUrl = caseRunUrl });
         });
 
-        group.MapPost("/flag-proof-report", async (HttpRequest http, IFlagProofReportRepository reports, IUsageCounterRepository usage, EvidenceIngestService evidenceIngest, ProjectWritabilityService writability, IOrganizationRepository organizations, INotificationQueue notifications, ReleaseTwin.Hosted.Api.Flags.IFlagService flags, ILoggerFactory loggerFactory, ClaimsPrincipal user) =>
+        group.MapPost("/flag-proof-report", async (HttpRequest http, IFlagProofReportRepository reports, IUsageCounterRepository usage, EvidenceIngestService evidenceIngest, ProjectWritabilityService writability, IOrganizationRepository organizations, INotificationQueue notifications, ReleaseTwin.Hosted.Api.Flags.IFlagService flags, IConfiguration config, ILoggerFactory loggerFactory, ClaimsPrincipal user) =>
         {
             var (request, screenshots, bindError) = await ReadAsync<IngestFlagProofReportRequest>(http);
             if (bindError is not null)
@@ -166,14 +169,31 @@ public static class IngestEndpoints
                     http.HttpContext.RequestAborted);
             }
 
+            var (fpReportUrl, fpRunUrl) = ReportUrls(config, projectId, entity.Id);
+
             if (request.Evidence is null)
             {
-                return Results.Created($"/api/reports/flag-proof/{entity.Id}", new { entity.Id });
+                return Results.Created($"/api/reports/flag-proof/{entity.Id}", new { entity.Id, reportUrl = fpReportUrl, runUrl = fpRunUrl });
             }
 
             var accepted = await evidenceIngest.StoreAsync(organizationId, projectId, entity.Id, "flag-proof", request.Evidence.Value, screenshots, http.HttpContext.RequestAborted);
-            return Results.Created($"/api/reports/flag-proof/{entity.Id}", new { entity.Id, evidenceAccepted = accepted });
+            return Results.Created($"/api/reports/flag-proof/{entity.Id}", new { entity.Id, evidenceAccepted = accepted, reportUrl = fpReportUrl, runUrl = fpRunUrl });
         });
+    }
+
+    /// <summary>
+    /// pr-annotation-evidence-link: the URLs an ingest response hands back so a PR annotation can link
+    /// into the dashboard. <c>reportUrl</c> is this report's own page (the evidence view, which also
+    /// renders a "no evidence" state when none was stored); <c>runUrl</c> is the project dashboard for
+    /// run-level linking. Both are absolute when <c>Web:BaseUrl</c> is configured, and fall back to a
+    /// site-relative path otherwise — same convention as invite and notification links.
+    /// </summary>
+    private static (string ReportUrl, string RunUrl) ReportUrls(IConfiguration config, Guid projectId, Guid reportId)
+    {
+        var baseUrl = config["Web:BaseUrl"]?.TrimEnd('/') ?? string.Empty;
+        return (
+            $"{baseUrl}/dashboard/reports/{reportId}/evidence?projectId={projectId}",
+            $"{baseUrl}/dashboard?projectId={projectId}");
     }
 
     /// <summary>

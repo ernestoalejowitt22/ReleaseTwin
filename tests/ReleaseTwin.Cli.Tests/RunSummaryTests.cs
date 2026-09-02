@@ -14,7 +14,7 @@ public class RunSummaryTests
 
         var summary = b.Build();
 
-        Assert.Equal(1, summary.SchemaVersion);
+        Assert.Equal(2, summary.SchemaVersion);
         Assert.Equal("failed", summary.Overall);
         Assert.Equal(1, summary.Totals.Passed);
         Assert.Equal(1, summary.Totals.Failed);
@@ -75,7 +75,7 @@ public class RunSummaryTests
         RunSummaryWriter.Write(path, b.Build());
 
         var text = File.ReadAllText(path);
-        Assert.Contains("\"schemaVersion\": 1", text);
+        Assert.Contains("\"schemaVersion\": 2", text);
         Assert.EndsWith("\n", text);
     }
 }
