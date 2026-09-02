@@ -34,25 +34,6 @@ back to any default organization.
 - **WHEN** an authenticated user who is not a member of any organization makes a request for organization data
 - **THEN** the request is rejected as unauthorized and no organization is auto-created for that request
 
-### Requirement: Admins can invite teammates by email
-An admin SHALL be able to issue an invitation to an email address for a chosen
-role. Accepting the invitation SHALL create a membership for the accepting user
-in that organization with the invited role. An invitation SHALL be single-use,
-SHALL expire after a bounded time, and SHALL be revocable by an admin before it
-is accepted.
-
-#### Scenario: Invitee accepts and gains access
-- **WHEN** a person signs in (or signs up) using the link from a pending invitation and accepts it
-- **THEN** they become a member of the inviting organization with the role named on the invitation, and the invitation is marked used and cannot be accepted again
-
-#### Scenario: Expired or revoked invitation is rejected
-- **WHEN** a person attempts to accept an invitation that has expired or been revoked
-- **THEN** acceptance is refused, no membership is created, and the response states the invitation is no longer valid
-
-#### Scenario: Invitation email must match is not required, role is fixed
-- **WHEN** an invitation issued for the `member` role is accepted
-- **THEN** the resulting membership has the `member` role and the accepting user cannot elevate it during acceptance
-
 ### Requirement: Membership roles gate organization-level operations
 Each membership SHALL have one of two roles: `admin` or `member`. Managing
 billing, plan tier, API tokens, members, invitations, and notification targets
@@ -71,4 +52,50 @@ organization SHALL NOT be removable or demotable until another admin exists.
 #### Scenario: Last admin is protected
 - **WHEN** an admin attempts to remove or demote the only remaining admin of an organization
 - **THEN** the request is rejected with a reason stating the organization must keep at least one admin
+
+### Requirement: Admins invite teammates by verified email
+
+An admin SHALL be able to issue an invitation to an email address for a chosen
+role. An invitation SHALL be single-use, SHALL expire after a bounded time, and
+SHALL be revocable by an admin before it is accepted.
+
+Accepting the invitation SHALL create a membership for the accepting user in
+that organization with the invited role, and SHALL be permitted only when the
+accepting user's authenticated, provider-verified email address matches the
+address the invitation was issued to. An acceptance attempt by a signed-in user
+whose verified email does not match — or whose session carries no verified email
+at all — SHALL be refused with no membership created, and SHALL be reported the
+same way as an expired or revoked invitation so it discloses nothing about who
+was invited. The accepting user SHALL NOT be able to change the invited role
+during acceptance.
+
+The invitation-preview surface (the data shown on the invitation landing page
+before acceptance) SHALL NOT return the invited email address to a caller who is
+not the invited user; it MAY confirm only the organization name and the offered
+role.
+
+#### Scenario: Invitee with matching verified email accepts and gains access
+
+- **WHEN** a person signs in with a provider-verified email that matches a pending invitation and accepts it
+- **THEN** they become a member of the inviting organization with the role named on the invitation, and the invitation is marked used and cannot be accepted again
+
+#### Scenario: Expired or revoked invitation is rejected
+
+- **WHEN** a person attempts to accept an invitation that has expired or been revoked
+- **THEN** acceptance is refused, no membership is created, and the response states the invitation is no longer valid
+
+#### Scenario: A non-matching or unverified email cannot accept
+
+- **WHEN** a signed-in user whose verified email does not match the invited address (or whose session carries no verified email) opens the invitation link and attempts to accept
+- **THEN** acceptance is refused, no membership is created, and the response is indistinguishable from that for an invalid invitation
+
+#### Scenario: Invited role is fixed during acceptance
+
+- **WHEN** an invitation issued for the `member` role is accepted by the matching user
+- **THEN** the resulting membership has the `member` role and the accepting user cannot elevate it during acceptance
+
+#### Scenario: The invitation preview does not disclose the invited email
+
+- **WHEN** any authenticated user loads the invitation-preview surface for a token
+- **THEN** the response contains the organization name and offered role but not the invited email address
 
