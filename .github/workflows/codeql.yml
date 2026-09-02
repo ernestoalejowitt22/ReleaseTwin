@@ -5,6 +5,11 @@
 # hosted) and the web sources, on every PR, every push to main, and a weekly full sweep. Advanced
 # setup (this file) rather than repo-settings "default setup" so the schedule, query suite, and build
 # steps are reviewable and diffable.
+#
+# Uploading results to the Security tab needs code scanning enabled — GitHub Advanced Security on a
+# private repo, or a public repo. Until then the analysis still RUNS (findings appear in the job log
+# and the SARIF artifact) but the upload step is non-fatal, so this check never blocks a PR. Flip
+# `continue-on-error` on the Analyze step to `false` once code scanning is enabled.
 name: CodeQL
 
 on:
@@ -51,6 +56,18 @@ jobs:
           dotnet build hosted/ReleaseTwin.Hosted.slnx --configuration Release
 
       - name: Analyze
+        id: analyze
+        continue-on-error: true # non-fatal until code scanning is enabled (see header) — flip to false then
         uses: github/codeql-action/analyze@v3
         with:
           category: "/language:${{ matrix.language }}"
+          output: sarif-results
+
+      # So findings are reviewable even without the Security tab.
+      - name: Upload SARIF as an artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: codeql-sarif-${{ matrix.language }}
+          path: sarif-results
+          if-no-files-found: ignore
