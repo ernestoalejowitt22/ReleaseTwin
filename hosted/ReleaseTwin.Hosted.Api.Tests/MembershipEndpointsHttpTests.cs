@@ -35,6 +35,32 @@ public class MembershipEndpointsHttpTests
         Assert.Single(list!);
     }
 
+    // operator setup: GET /api/me reports the resolved identity + whether the caller is an operator.
+    [Fact]
+    public async Task MeReportsResolvedIdentityAndOperatorStatus()
+    {
+        using var factory = new CustomWebApplicationFactory
+        {
+            UseTestClerkAuth = true,
+            ExtraConfiguration = new Dictionary<string, string?> { ["Admin:OperatorUserIds"] = "clerk-op, other" },
+        };
+        var orgId = await SeedOrgAsync(factory);
+
+        var operatorClient = factory.CreateClientForOrg(orgId, MembershipRole.Admin);
+        operatorClient.DefaultRequestHeaders.Add(TestClerkAuthHandler.SubHeader, "clerk-op");
+        var me = await operatorClient.GetFromJsonAsync<Dictionary<string, System.Text.Json.JsonElement>>("/api/me");
+        Assert.Equal("clerk-op", me!["clerkUserId"].GetString());
+        Assert.True(me["isOperator"].GetBoolean());
+        Assert.True(me["operatorAllowlistConfigured"].GetBoolean());
+        Assert.Equal(orgId, me["activeOrganizationId"].GetGuid());
+        Assert.Equal("Admin", me["activeRole"].GetString());
+
+        var plainClient = factory.CreateClientForOrg(orgId, MembershipRole.Member);
+        plainClient.DefaultRequestHeaders.Add(TestClerkAuthHandler.SubHeader, "clerk-nobody");
+        var them = await plainClient.GetFromJsonAsync<Dictionary<string, System.Text.Json.JsonElement>>("/api/me");
+        Assert.False(them!["isOperator"].GetBoolean());
+    }
+
     [Fact]
     public async Task MeOrganizationsListsTheCallersMembershipsWithRoleAndActiveFlag()
     {

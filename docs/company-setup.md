@@ -107,6 +107,7 @@ advice.
 |---|---|---|
 | Legal form | persona física con actividad empresarial (RESICO) | **already registered** |
 | `LEGAL_ENTITY` (`web/src/lib/site.ts`) | `"Ernesto Alejo (persona física con actividad empresarial)"` | **set 2026-09-02** — user to confirm it matches the SAT nombre + RFC |
+| Operator account / `ADMIN_OPERATOR_USER_IDS` | operator's Clerk **prod** user id → repo var | **pending** — sign up on prod Clerk, open `/dashboard/me` for the `clerkUserId`, set the var, redeploy, confirm `isOperator: true` |
 | Contact email | `legal@releasetwin.com` → `LEGAL_CONTACT_EMAIL` | currently `ernestoalejo22@gmail.com` (swaps with the mailbox) |
 | ToS counsel review | governing-law/dispute clause (Mexican law default) + liability wording — `web/src/app/(marketing)/terms/page.tsx` | **pending** — pre-GA gate, not a pilot blocker |
 | Licensing review | AGPL-3.0 + Adapter Linking Exception + BSL 1.1 | **pending** (same counsel engagement) |
