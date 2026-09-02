@@ -119,7 +119,7 @@ public sealed class EvidenceSharingService
             return (null, "");
         }
 
-        return (await blobs.GetAsync(screenshotId, cancellationToken), "image/png");
+        return (await blobs.GetAsync(link.ProjectId, screenshotId, cancellationToken), "image/png");
     }
 
     private async Task<ShareLink> LoadResolvableLinkAsync(string token, CancellationToken cancellationToken)

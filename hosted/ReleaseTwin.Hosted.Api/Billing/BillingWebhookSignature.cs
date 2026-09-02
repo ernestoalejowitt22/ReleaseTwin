@@ -12,12 +12,32 @@ namespace ReleaseTwin.Hosted.Api.Billing;
 /// </summary>
 public static class BillingWebhookSignature
 {
-    public static bool Verify(string? secret, string? webhookId, string? webhookTimestamp, string? webhookSignatureHeader, string body)
+    /// <summary>
+    /// security-hardening-pre-pilot D4: Standard Webhooks mandates a timestamp-freshness window so a
+    /// captured, validly-signed delivery cannot be replayed later. 5 minutes is the scheme's
+    /// recommended default and is well within Polar-vs-us clock skew.
+    /// </summary>
+    public static readonly TimeSpan TimestampTolerance = TimeSpan.FromMinutes(5);
+
+    public static bool Verify(string? secret, string? webhookId, string? webhookTimestamp, string? webhookSignatureHeader, string body, DateTimeOffset? now = null)
     {
         if (string.IsNullOrWhiteSpace(secret)
             || string.IsNullOrWhiteSpace(webhookId)
             || string.IsNullOrWhiteSpace(webhookTimestamp)
             || string.IsNullOrWhiteSpace(webhookSignatureHeader))
+        {
+            return false;
+        }
+
+        // security-hardening-pre-pilot D4: reject a stale (or far-future) timestamp before spending
+        // time on the HMAC. A missing/garbage timestamp already failed the null check above.
+        if (!long.TryParse(webhookTimestamp, out var unixSeconds))
+        {
+            return false;
+        }
+
+        var age = (now ?? DateTimeOffset.UtcNow) - DateTimeOffset.FromUnixTimeSeconds(unixSeconds);
+        if (age > TimestampTolerance || age < -TimestampTolerance)
         {
             return false;
         }

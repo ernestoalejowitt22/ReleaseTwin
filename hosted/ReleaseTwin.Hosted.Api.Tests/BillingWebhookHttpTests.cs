@@ -10,20 +10,24 @@ namespace ReleaseTwin.Hosted.Api.Tests;
 
 public class BillingWebhookHttpTests
 {
-    private static string Sign(string secret, string id, string ts, string body)
+    // security-hardening-pre-pilot D4: the webhook now enforces timestamp freshness, so tests sign
+    // and send with a current timestamp.
+    private static readonly string CurrentTs = DateTimeOffset.UtcNow.ToUnixTimeSeconds().ToString();
+
+    private static string Sign(string secret, string id, string body, string? ts = null)
     {
         using var hmac = new HMACSHA256(Encoding.UTF8.GetBytes(secret));
-        return "v1," + Convert.ToBase64String(hmac.ComputeHash(Encoding.UTF8.GetBytes($"{id}.{ts}.{body}")));
+        return "v1," + Convert.ToBase64String(hmac.ComputeHash(Encoding.UTF8.GetBytes($"{id}.{ts ?? CurrentTs}.{body}")));
     }
 
-    private static HttpRequestMessage Webhook(string id, string sig, string body)
+    private static HttpRequestMessage Webhook(string id, string sig, string body, string? ts = null)
     {
         var req = new HttpRequestMessage(HttpMethod.Post, "/api/billing/webhook")
         {
             Content = new StringContent(body, Encoding.UTF8, "application/json"),
         };
         req.Headers.Add("webhook-id", id);
-        req.Headers.Add("webhook-timestamp", "1700000000");
+        req.Headers.Add("webhook-timestamp", ts ?? CurrentTs);
         req.Headers.Add("webhook-signature", sig);
         return req;
     }
@@ -67,7 +71,7 @@ public class BillingWebhookHttpTests
         var body = "{\"type\":\"subscription.active\",\"data\":{\"id\":\"sub_1\",\"customer_id\":\"cus_1\","
             + "\"status\":\"active\",\"recurring_interval\":\"month\",\"metadata\":{\"organization_id\":\""
             + orgId + "\"}}}";
-        var sig = Sign("test-webhook-secret", "evt_1", "1700000000", body);
+        var sig = Sign("test-webhook-secret", "evt_1", body);
 
         var first = await client.SendAsync(Webhook("evt_1", sig, body));
         Assert.Equal(HttpStatusCode.OK, first.StatusCode);
@@ -81,5 +85,39 @@ public class BillingWebhookHttpTests
         var second = await client.SendAsync(Webhook("evt_1", sig, body));
         Assert.Equal(HttpStatusCode.OK, second.StatusCode);
         Assert.Equal(PlanTier.Free, (await orgs.GetAsync(orgId))!.PlanTier);
+    }
+
+    // security-hardening-pre-pilot D4: a validly-signed but stale delivery is rejected and applies nothing.
+    [Fact]
+    public async Task StaleButValidlySignedWebhookIsRejectedAndNotProcessed()
+    {
+        using var factory = new CustomWebApplicationFactory { ConfigureBilling = true };
+        var table = factory.Services.GetRequiredService<IHostedTable>();
+        var orgs = new OrganizationRepository(table);
+
+        var orgId = Guid.NewGuid();
+        await table.PutItemAsync(OrganizationRepository.ToItem(new Organization
+        {
+            Id = orgId, Name = "Acme", CreatedAt = DateTimeOffset.UtcNow, PlanTier = PlanTier.Free,
+        }));
+
+        var client = factory.CreateClient();
+        var body = "{\"type\":\"subscription.active\",\"data\":{\"id\":\"sub_1\",\"customer_id\":\"cus_1\","
+            + "\"status\":\"active\",\"recurring_interval\":\"month\",\"metadata\":{\"organization_id\":\""
+            + orgId + "\"}}}";
+
+        var oldTs = DateTimeOffset.UtcNow.AddHours(-1).ToUnixTimeSeconds().ToString();
+        var sig = Sign("test-webhook-secret", "evt_stale", body, oldTs);
+
+        var response = await client.SendAsync(Webhook("evt_stale", sig, body, oldTs));
+
+        Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
+        Assert.Equal(PlanTier.Free, (await orgs.GetAsync(orgId))!.PlanTier);
+
+        // Not recorded as processed → a fresh redelivery of the same event id still works.
+        var freshSig = Sign("test-webhook-secret", "evt_stale", body);
+        var redelivery = await client.SendAsync(Webhook("evt_stale", freshSig, body));
+        Assert.Equal(HttpStatusCode.OK, redelivery.StatusCode);
+        Assert.Equal(PlanTier.Team, (await orgs.GetAsync(orgId))!.PlanTier);
     }
 }

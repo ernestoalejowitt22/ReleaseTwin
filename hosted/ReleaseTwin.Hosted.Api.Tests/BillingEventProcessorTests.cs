@@ -144,15 +144,48 @@ public class BillingEventProcessorTests
         const string id = "msg_1";
         const string ts = "1700000000";
         const string body = "{\"hello\":\"world\"}";
+        var at = DateTimeOffset.FromUnixTimeSeconds(1700000000);
 
         // A hand-computed good signature round-trips.
         var key = System.Text.Encoding.UTF8.GetBytes(secret);
         using var hmac = new System.Security.Cryptography.HMACSHA256(key);
         var good = Convert.ToBase64String(hmac.ComputeHash(System.Text.Encoding.UTF8.GetBytes($"{id}.{ts}.{body}")));
 
-        Assert.True(BillingWebhookSignature.Verify(secret, id, ts, $"v1,{good}", body));
-        Assert.False(BillingWebhookSignature.Verify(secret, id, ts, "v1,not-the-signature", body));
-        Assert.False(BillingWebhookSignature.Verify(secret, id, ts, null, body));
-        Assert.False(BillingWebhookSignature.Verify(secret, id, ts, $"v1,{good}", body + "tampered"));
+        Assert.True(BillingWebhookSignature.Verify(secret, id, ts, $"v1,{good}", body, now: at));
+        Assert.False(BillingWebhookSignature.Verify(secret, id, ts, "v1,not-the-signature", body, now: at));
+        Assert.False(BillingWebhookSignature.Verify(secret, id, ts, null, body, now: at));
+        Assert.False(BillingWebhookSignature.Verify(secret, id, ts, $"v1,{good}", body + "tampered", now: at));
+    }
+
+    // security-hardening-pre-pilot D4: timestamp freshness --------------------------------------------
+    [Fact]
+    public void SignatureVerificationRejectsStaleAndFutureTimestamps()
+    {
+        const string secret = "test-secret";
+        const string id = "msg_1";
+        const string body = "{\"hello\":\"world\"}";
+
+        string SignedAt(long unix)
+        {
+            using var hmac = new System.Security.Cryptography.HMACSHA256(System.Text.Encoding.UTF8.GetBytes(secret));
+            return "v1," + Convert.ToBase64String(hmac.ComputeHash(System.Text.Encoding.UTF8.GetBytes($"{id}.{unix}.{body}")));
+        }
+
+        var now = DateTimeOffset.UnixEpoch.AddYears(55); // arbitrary fixed "now"
+        var nowUnix = now.ToUnixTimeSeconds();
+
+        // Fresh: within tolerance.
+        Assert.True(BillingWebhookSignature.Verify(secret, id, nowUnix.ToString(), SignedAt(nowUnix), body, now));
+
+        // Stale: older than the 5-minute tolerance — correct signature, still rejected.
+        var stale = nowUnix - (long)BillingWebhookSignature.TimestampTolerance.TotalSeconds - 60;
+        Assert.False(BillingWebhookSignature.Verify(secret, id, stale.ToString(), SignedAt(stale), body, now));
+
+        // Far future: same.
+        var future = nowUnix + (long)BillingWebhookSignature.TimestampTolerance.TotalSeconds + 60;
+        Assert.False(BillingWebhookSignature.Verify(secret, id, future.ToString(), SignedAt(future), body, now));
+
+        // Garbage timestamp.
+        Assert.False(BillingWebhookSignature.Verify(secret, id, "not-a-number", SignedAt(nowUnix), body, now));
     }
 }

@@ -32,10 +32,23 @@ resource "aws_s3_bucket_server_side_encryption_configuration" "evidence_blobs" {
   }
 }
 
+# security-hardening-pre-pilot D3: defence-in-depth for the "one project can't overwrite another
+# project's screenshot" guarantee. Blob keys are now project-namespaced
+# (screenshots/<projectId>/<id>), so a collision needs a bug rather than a hostile id — versioning
+# makes such an overwrite recoverable instead of silent-and-final. The exports/ lifecycle rule below
+# still expires those objects (noncurrent versions included, added there).
+resource "aws_s3_bucket_versioning" "evidence_blobs" {
+  bucket = aws_s3_bucket.evidence_blobs.id
+
+  versioning_configuration {
+    status = "Enabled"
+  }
+}
+
 # data-export: built export archives are PUT under exports/<orgId>/... and downloaded once via a
 # 1-hour presigned URL — they are transient, not storage. This rule expires ONLY that prefix; the
-# screenshot blobs (bare 32-hex keys, no prefix) are untouched, so the "the app owns deletion
-# timing" contract above still holds.
+# screenshot blobs (under screenshots/<projectId>/, security-hardening-pre-pilot D3) are untouched by
+# the age rule, so the "the app owns deletion timing" contract above still holds.
 resource "aws_s3_bucket_lifecycle_configuration" "evidence_blobs_exports" {
   bucket = aws_s3_bucket.evidence_blobs.id
 
@@ -49,6 +62,27 @@ resource "aws_s3_bucket_lifecycle_configuration" "evidence_blobs_exports" {
 
     expiration {
       days = 7
+    }
+
+    # Versioning (security-hardening-pre-pilot D3) is bucket-wide — keep old export versions from
+    # piling up under the same 7-day clock.
+    noncurrent_version_expiration {
+      noncurrent_days = 7
+    }
+  }
+
+  # Screenshot blobs: bounded cleanup of superseded versions (an overwrite should be rare; keep a
+  # short recovery window, not forever).
+  rule {
+    id     = "expire-noncurrent-screenshot-versions"
+    status = "Enabled"
+
+    filter {
+      prefix = "screenshots/"
+    }
+
+    noncurrent_version_expiration {
+      noncurrent_days = 30
     }
   }
 }

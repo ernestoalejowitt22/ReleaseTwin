@@ -84,7 +84,7 @@ public class ConnectionFlowTests
             new ConfigurationBuilder().Build(),
             new FakeHttpClientFactory(new FakeGitHubHandler()));
 
-        var result = flow.BuildAuthorizeUrl(Guid.NewGuid());
+        var result = flow.BuildAuthorizeUrl(Guid.NewGuid(), Guid.NewGuid());
 
         Assert.False(result.Configured);
         Assert.Null(result.AuthorizeUrl);
@@ -95,7 +95,7 @@ public class ConnectionFlowTests
     {
         var flow = NewFlow(new FakeGitHubHandler());
 
-        var result = flow.BuildAuthorizeUrl(Guid.NewGuid());
+        var result = flow.BuildAuthorizeUrl(Guid.NewGuid(), Guid.NewGuid());
 
         Assert.True(result.Configured);
         Assert.StartsWith("https://github.com/login/oauth/authorize", result.AuthorizeUrl);
@@ -108,11 +108,12 @@ public class ConnectionFlowTests
     {
         var stateService = new ConnectionStateService(new EphemeralDataProtectionProvider());
         var projectId = Guid.NewGuid();
-        var state = stateService.Mint(projectId);
+        var userId = Guid.NewGuid();
+        var state = stateService.Mint(projectId, userId);
         var handler = new FakeGitHubHandler();
         var flow = NewFlow(handler, stateService);
 
-        var result = await flow.ExchangeCodeForRepositoriesAsync("some-code", state);
+        var result = await flow.ExchangeCodeForRepositoriesAsync("some-code", state, userId);
 
         Assert.NotNull(result);
         Assert.Equal(projectId, result!.ProjectId);
@@ -129,11 +130,12 @@ public class ConnectionFlowTests
         var project = await f.Provisioning.CreateProjectAsync(user.OrganizationId, "P");
 
         var stateService = new ConnectionStateService(new EphemeralDataProtectionProvider());
-        var state = stateService.Mint(project.Id);
+        var userId = Guid.NewGuid();
+        var state = stateService.Mint(project.Id, userId);
         var handler = new FakeGitHubHandler();
         var flow = NewFlow(handler, stateService);
 
-        var callbackResult = await flow.ExchangeCodeForRepositoriesAsync("some-code", state);
+        var callbackResult = await flow.ExchangeCodeForRepositoriesAsync("some-code", state, userId);
         Assert.NotNull(callbackResult);
 
         // Only the already-chosen repo name crosses into ConnectionService.ConnectAsync — the token
@@ -154,9 +156,22 @@ public class ConnectionFlowTests
     {
         var flow = NewFlow(new FakeGitHubHandler());
 
-        var result = await flow.ExchangeCodeForRepositoriesAsync("some-code", "not-a-real-state");
+        var result = await flow.ExchangeCodeForRepositoriesAsync("some-code", "not-a-real-state", Guid.NewGuid());
 
         Assert.Null(result);
+    }
+
+    // security-hardening-pre-pilot D6: a state minted for one user cannot be completed by another.
+    [Fact]
+    public async Task StateMintedForAnotherUserIsRejected()
+    {
+        var stateService = new ConnectionStateService(new EphemeralDataProtectionProvider());
+        var state = stateService.Mint(Guid.NewGuid(), userId: Guid.NewGuid());
+        var flow = NewFlow(new FakeGitHubHandler(), stateService);
+
+        var result = await flow.ExchangeCodeForRepositoriesAsync("some-code", state, callerUserId: Guid.NewGuid());
+
+        Assert.Null(result); // same generic "expired or invalid" outcome
     }
 
     // Scenario: A project outside the signed-in organization cannot be connected

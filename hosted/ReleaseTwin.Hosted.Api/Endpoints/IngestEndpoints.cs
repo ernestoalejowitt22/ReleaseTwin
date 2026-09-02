@@ -30,7 +30,10 @@ public static class IngestEndpoints
     public static void MapIngestEndpoints(this IEndpointRouteBuilder app)
     {
         var group = app.MapGroup("/api/ingest")
-            .RequireAuthorization(policy => policy.RequireAuthenticatedUser().AddAuthenticationSchemes(ApiTokenDefaults.Scheme));
+            .RequireAuthorization(policy => policy.RequireAuthenticatedUser().AddAuthenticationSchemes(ApiTokenDefaults.Scheme))
+            // security-hardening-pre-pilot D7: per-token ingest ceiling. A 429 here means the request
+            // is never processed — no report, no evidence, no usage increment.
+            .RequireRateLimiting(RateLimiting.IngestPolicy);
 
         group.MapPost("/case-report", async (HttpRequest http, ICaseReportRepository reports, IUsageCounterRepository usage, EvidenceIngestService evidenceIngest, ProjectWritabilityService writability, IOrganizationRepository organizations, INotificationQueue notifications, ReleaseTwin.Hosted.Api.Flags.IFlagService flags, ILoggerFactory loggerFactory, ClaimsPrincipal user) =>
         {
@@ -235,6 +238,16 @@ public static class IngestEndpoints
                     }
 
                     var id = file.Name["screenshot:".Length..];
+                    // security-hardening-pre-pilot D3: the screenshot id is client-supplied and is used
+                    // to compose a blob-store key — it must be exactly a lowercase 32-hex string
+                    // (what the CLI emits via Guid "N"). Anything else rejects the whole upload; the
+                    // id is opaque data, never a path or key fragment the caller controls.
+                    if (!ScreenshotId.IsValid(id))
+                    {
+                        return (null, Array.Empty<UploadedScreenshot>(),
+                            Results.BadRequest($"screenshot id '{id}' is not a 32-character lowercase hex string."));
+                    }
+
                     using var ms = new MemoryStream();
                     await file.CopyToAsync(ms);
                     screenshots.Add(new UploadedScreenshot(id, ms.ToArray()));
