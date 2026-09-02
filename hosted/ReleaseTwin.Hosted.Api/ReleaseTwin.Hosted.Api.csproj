@@ -34,6 +34,13 @@
          the DynamoDB/SNS packages already pull. -->
     <PackageReference Include="AWSSDK.S3" Version="4.0.6" />
     <PackageReference Include="OpenFeature" Version="2.14.1" />
+    <!-- supply-chain-and-ci-hardening: Amazon.AspNetCore.DataProtection.SSM → Microsoft.AspNetCore.DataProtection
+         10.0.7 pulls System.Security.Cryptography.Xml 10.0.7, which carries High-severity advisories
+         (GHSA-cvvh-rhrc-wg4q and siblings). Pin the transitive dependency forward to the patched
+         line until the SSM package updates its own floor. NU1510: the package is framework-provided
+         and pruned from the shipped output, so the explicit reference only affects restore-graph
+         analysis (which is what the dependency scan reads) — that is exactly what we want here. -->
+    <PackageReference Include="System.Security.Cryptography.Xml" Version="10.0.11" NoWarn="NU1510" />
   </ItemGroup>
 
 </Project>

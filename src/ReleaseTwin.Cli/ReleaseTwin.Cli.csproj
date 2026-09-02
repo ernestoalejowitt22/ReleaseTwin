@@ -16,7 +16,9 @@
   <ItemGroup>
     <PackageReference Include="YamlDotNet" Version="18.1.0" />
     <PackageReference Include="Newtonsoft.Json" Version="13.0.4" />
-    <PackageReference Include="SixLabors.ImageSharp" Version="3.1.5" />
+    <!-- supply-chain-and-ci-hardening: 3.1.5 carries High-severity advisories (e.g. GHSA-2cmq-823j-5qj8);
+         3.1.x patch line is a drop-in. -->
+    <PackageReference Include="SixLabors.ImageSharp" Version="3.1.12" />
   </ItemGroup>
 
   <PropertyGroup>
