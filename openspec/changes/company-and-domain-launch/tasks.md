@@ -5,7 +5,7 @@ them unchecked until the user confirms.
 
 ## 1. Brand & domain
 
-- [ ] 1.1 **Needs the user to run this** — quick USPTO/EUIPO trademark glance for "ReleaseTwin"
+- [ ] 1.1 **Needs the user to run this** — quick IMPI (Mexico) + USPTO/EUIPO trademark glance for "ReleaseTwin" (dedupe with 6.9)
 - [ ] 1.2 **Needs the user to run this** — register `releasetwin.com` at a registrar
 - [x] 1.3 Drop the "provisional brand is Validuo" hedge from `README.md` line 5 and any other doc that repeats it (`git grep -i validuo`)
 - [x] 1.4 Add `docs/company-setup.md` skeleton (domain, email, entity, DNS records — filled in as steps complete)
@@ -53,21 +53,31 @@ them unchecked until the user confirms.
 - [ ] 5.5 **Needs the user to run this** — submit `releasetwin.com` to Google Search Console
 - [x] 5.6 Literal sweep: app code already reads `SITE_URL` / `CLERK_DOMAIN` from env — no hard-coded `vercel.app` / `clerk.accounts.dev` in `web/` app code. Contact emails routed through `web/src/lib/site.ts` constants. Remaining stale refs are `docs/billing-sandbox-runbook.md` + root `SECURITY.md` (both wait on the domain addresses existing)
 
-## 6. Legal entity
+## 6. Legal operator
 
-- [ ] 6.1 **Needs the user to run this** — form the US LLC (Stripe Atlas or registered agent)
-- [ ] 6.2 **Needs the user to run this** — obtain the EIN; record the registered legal name
-- [ ] 6.3 Set `LEGAL_ENTITY` and `LEGAL_CONTACT_EMAIL` in `web/src/lib/site.ts` to the LLC name and `legal@releasetwin.com`
-- [x] 6.4 Security + pricing pages now reference `SECURITY_CONTACT_EMAIL` / `CONTACT_EMAIL` from `web/src/lib/site.ts` instead of a hard-coded `mailto:` — values still the gmail until 6.3
-- [ ] 6.5 `git grep -i ernestoalejo22@gmail.com` returns only `site.ts` (the single `web/` swap point). Also swap when the domain addresses work: root `SECURITY.md`, `SUPPORT.md`, `docs/support.md`, and the `TODO(company-and-domain-launch)` `mailto:` links in `.github/ISSUE_TEMPLATE/config.yml` (all from the `support-intake` change)
-- [ ] 6.6 **Needs the user to run this** — IP ownership doc: assign the codebase/brand to the LLC
-- [ ] 6.7 **Needs the user to run this** — legal review of the AGPL-3.0 + Adapter Linking Exception + BSL 1.1 stack
-- [ ] 6.8 `next build` + `npx eslint` green after the `site.ts` / page edits
+Revised 2026-09-02: the operator is a Mexican tax resident, bootstrapping (no VC),
+already registered as **persona física con actividad empresarial (RESICO)** — a
+real legal operator. **No US LLC.** Incorporation (S.A.S. / S. de R.L. de C.V.)
+is a deferred track keyed to the RESICO revenue ceiling (~3.5M MXN/yr), a
+customer's procurement demand, or legal advice — see `deferred` below.
+
+- [x] 6.3 `LEGAL_ENTITY` in `web/src/lib/site.ts` set to the operator's registered persona-física name (`"Ernesto Alejo (persona física con actividad empresarial)"`). `LEGAL_CONTACT_EMAIL` still the gmail until `legal@releasetwin.com` works (6.5).
+- [ ] 6.3b **Needs the user to confirm** — the `LEGAL_ENTITY` string matches the exact SAT registration (nombre + RFC) as it should read in the Terms / Privacy.
+- [x] 6.4 Security + pricing pages reference `SECURITY_CONTACT_EMAIL` / `CONTACT_EMAIL` from `site.ts` instead of a hard-coded `mailto:`.
+- [ ] 6.5 `git grep -i ernestoalejo22@gmail.com` returns only `site.ts`. Also swap when the domain addresses work: root `SECURITY.md`, `SUPPORT.md`, `docs/support.md`, and the `TODO(company-and-domain-launch)` `mailto:` links in `.github/ISSUE_TEMPLATE/config.yml`.
+- [ ] 6.7 **Needs the user to run this** — engage a Mexican tech lawyer: (a) review the Terms of Service (`web/src/app/(marketing)/terms/page.tsx`) for a **governing-law / dispute clause** (Mexican law is the cheap-to-enforce default) and the liability wording; (b) review the AGPL-3.0 + Adapter Linking Exception + BSL 1.1 licensing stack; (c) produce a **DPA** and a short **design-partner / pilot agreement** from a standardized template (Common Paper / Bonterms). This is the pre-GA legal gate (`go-public-sequence` §2.3); a pilot can run on the current ToS draft + the pilot agreement.
+- [ ] 6.8 `next build` + `npx eslint` green after the `site.ts` / page edits _(done for the 6.3 edit; re-run after the 6.5 email swap)_
+- [ ] 6.9 **Needs the user to run this** — quick IMPI (Mexico) + USPTO/EUIPO trademark glance for "ReleaseTwin" before wider launch.
+
+### Deferred — incorporation track
+
+- [ ] 6.D1 **Deferred** — form a Mexican entity (**S.A.S.** — free, online at tuempresa.gob.mx, single shareholder, limited liability, ~5M MXN cap — or **S. de R.L. de C.V.**). Trigger: nearing the RESICO persona-física ceiling, a customer procurement requirement, or legal advice. Ask a contador + tech lawyer which form fits.
+- [ ] 6.D2 **Deferred** — on incorporation: assign the codebase + brand IP to the entity; re-point `LEGAL_ENTITY` + the Polar payee; update the SPDX copyright line.
 
 ## 7. Billing → production (Polar)
 
 - [ ] 7.1 **Needs the user to run this** — run the Polar sandbox e2e (`docs/billing-sandbox-runbook.md`); confirm a full upgrade + webhook round-trip
-- [ ] 7.2 **Needs the user to run this** — switch the Polar account to production (`api.polar.sh`), create real product/price IDs, set the LLC as Merchant-of-Record payee
+- [ ] 7.2 **Needs the user to run this** — switch the Polar account to production (`api.polar.sh`), create real product/price IDs; Merchant-of-Record payee = the persona física (RFC + CLABE / bank account). Confirm Polar supports individual/sole-proprietor payouts for Mexico.
 - [ ] 7.3 **Needs the user to run this** — set the four `POLAR_*_URL` repo vars + real product/price IDs
 - [ ] 7.4 **Needs the user to run this** — set `POLAR_UPGRADE_ENABLED=true` and take reconciliation out of dry-run (only after 7.1 passes)
 - [x] 7.5 Documented in `docs/company-setup.md` ("Transport security"): the ingest API is served by an AWS Lambda Function URL, which is HTTPS-only (AWS terminates TLS, no HTTP listener) — plus `UseHttpsRedirection()` + HSTS. No plaintext endpoint anywhere

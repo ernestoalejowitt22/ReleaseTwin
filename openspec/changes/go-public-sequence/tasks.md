@@ -1,7 +1,9 @@
 Most tasks here are **"Needs the user to run this"** — repo settings, a GitHub
 Support ticket, vendor dashboards. They are tracked but not performable from the
-repo. This change is downstream of `company-and-domain-launch` (domain, entity,
-billing to production) and does not block a first paid pilot.
+repo. This change is downstream of `company-and-domain-launch` (domain, the ToS +
+licensing counsel review, billing to production) and does not block a first paid
+pilot. It does NOT wait on incorporation — the operator runs as a registered
+persona física.
 
 ## 1. Prod-stack decision
 
