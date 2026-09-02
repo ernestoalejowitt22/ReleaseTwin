@@ -8,9 +8,9 @@ sign-up is not linked or announced anywhere, both repos (`ReleaseTwin` and
 
 These steps have accumulated as scattered "still to do" notes across memory and
 `docs/`. They are not engineering features — they are an ordered operational
-checklist with real external dependencies (a GitHub Support request, DNS,
-vendor dashboards) and a sequencing hazard: flipping a repo public before the
-cached pre-history-rewrite SHAs expire re-exposes purged prior-vendor history.
+checklist with real external dependencies (DNS, vendor dashboards) and a
+sequencing hazard: flipping a repo public before the licensing counsel review
+(from `company-and-domain-launch`) lands.
 
 This change is the single tracked place for that sequence. It is deliberately
 downstream of `company-and-domain-launch` (domain + the ToS/licensing counsel review) and does **not**
@@ -23,12 +23,11 @@ hand-sent invite.
   the `releasetwin-dev-` prefixed stack or a dedicated prod stack is cut via
   `workflow_dispatch` with a prod prefix. Capture the DynamoDB-prefix migration
   cost if deferred.
-- **GitHub cached-ref expiry** — email GitHub Support to expire cached
-  pre-rewrite SHAs on both repos before either goes public; wait for
-  confirmation.
 - **Repo visibility flip** — make `ReleaseTwin` and `NAHA` public once the
-  history checks and licensing review (from `company-and-domain-launch`) are
-  done.
+  licensing review (from `company-and-domain-launch`) is done. (The cached
+  pre-rewrite-SHA concern is closed — NOT PURSUED, decision 2026-09-01: both
+  repos private, 0 forks, no fork network; residual risk accepted. A pre-flip
+  history grep stays as a sanity check.)
 - **Open self-serve sign-up** — link sign-up from the marketing site, verify
   the funnel end to end (sign-up → org provisioned → first project →
   entitlements), and confirm the pricing page CTA points at it.
@@ -49,7 +48,7 @@ and exposes them. `skip_specs: true`.
 - **web/:** sign-up link/CTA wiring on the marketing site (small); no new route.
 - **terraform / CI:** possibly a `workflow_dispatch` prod-stack apply with a new
   `table_prefix` — decision first, work only if chosen.
-- **external:** one GitHub Support ticket; DNS only if a prod subdomain is added.
+- **external:** DNS only if a prod subdomain is added.
 - **docs:** record the prod-stack decision and the go-public runbook in `docs/`.
 - **no** change to the engine, adapters, execution path, or any hosted API contract.
 

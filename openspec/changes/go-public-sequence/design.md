@@ -1,16 +1,15 @@
 ## Context
 
 See proposal.md — Why. This is an operational sequence, not a feature. The only
-real decision is the prod-stack question; the rest is ordering around two
-external dependencies (a GitHub Support ticket, licensing review from
-`company-and-domain-launch`).
+real decision is the prod-stack question; the rest is ordering around the
+licensing review from `company-and-domain-launch`.
 
 ## Goals / Non-Goals
 
 **Goals:**
 - One tracked, ordered checklist for making the platform public.
 - A recorded decision on the prod stack with its deferred-migration cost.
-- No repo flips public before cached pre-rewrite SHAs are confirmed expired.
+- No repo flips public before the licensing counsel review lands.
 
 **Non-Goals:**
 - Marketing launch (Show HN / Product Hunt / marketplaces).
@@ -30,11 +29,14 @@ zero/low volume*, so deferring it costs little and we may skip it entirely if
 the dev-prefixed stack proves fine. Record the migration steps so the option
 stays open.
 
-### Repo flip is gated on an explicit GitHub Support confirmation
+### Cached pre-rewrite SHAs — NOT PURSUED (decision 2026-09-01)
 History was rewritten and force-pushed on both repos (2026-08-30); GitHub caches
-pre-rewrite SHAs until GC. A public repo with a reachable cached SHA re-exposes
-purged prior-vendor history. The flip task is blocked until Support confirms
-expiry in writing — not a timer.
+pre-rewrite SHAs until GC. Originally the flip was to be gated on a GitHub
+Support ticket confirming expiry. Dropped: both repos are private with 0 forks
+and no fork network, so no cross-fork object sharing and no external clone taken
+before the rewrite. A dangling object is only reachable by someone who already
+recorded the exact 40-char SHA from the private repo. Residual risk accepted; a
+fresh-clone history grep stays as a pre-flip sanity check.
 
 ### Sign-up exposure is last
 Linking sign-up from the marketing site is the point of no return for

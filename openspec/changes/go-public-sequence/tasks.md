@@ -11,18 +11,18 @@ persona física.
 - [x] 1.2 `docs/go-public-runbook.md` §1: pilot on the `releasetwin-dev-` stack (prefix is cosmetic, no data bleed — local dev uses DynamoDB Local); cut a real prod stack at customer #2 or a compliance ask.
 - [x] 1.3 `docs/go-public-runbook.md` §1.1 — 7-step migration (workflow_dispatch new prefix, DynamoDB export/import, `s3 sync` the evidence bucket, `Api__PublicUrl` self-heals, bootstrap IAM prefix update, soak, destroy old) + enable PITR on the cut.
 
-## 2. History-cache expiry (prerequisite for any public flip)
+## 2. Repo visibility
 
-- [x] 2.1 NOT PURSUED (decision 2026-09-01) — both repos private, 0 forks, no fork network, no pre-rewrite external clone. No cross-fork object sharing; residual risk accepted. See `docs/go-public-runbook.md` §2.
-- [ ] 2.2 Right before the flip: fresh clone of the about-to-be-public repo, `git rev-list --all | xargs -I{} git grep -i <prior-vendor-term> {}` returns zero on reachable history.
+The history-cache concern is closed — NOT PURSUED (decision 2026-09-01): both
+repos private, 0 forks, no fork network, no pre-rewrite external clone; residual
+risk accepted (`docs/go-public-runbook.md` §2).
+
+- [ ] 2.1 **Needs the user to run this** — polish `ReleaseTwin` repo description + topics; confirm `SECURITY.md` contact is on the company domain
+- [ ] 2.2 Pre-flip sanity: fresh clone of the about-to-be-public repo, `git rev-list --all | xargs -I{} git grep -i <prior-vendor-term> {}` returns zero on reachable history
 - [ ] 2.3 Confirm `company-and-domain-launch` §6.7 (licensing legal review) is complete
-
-## 3. Repo visibility
-
-- [ ] 3.1 **Needs the user to run this** — polish `ReleaseTwin` repo description + topics; confirm `SECURITY.md` contact is on the company domain
-- [ ] 3.2 **Needs the user to run this** — flip `ReleaseTwin` to public (only after 2.2 + 2.3)
-- [ ] 3.3 Decide whether `NAHA` goes public or stays private as the demo target (design Open Question); flip only if decided yes
-- [ ] 3.4 Post-flip: confirm the Vercel Preview demo target still builds and renders
+- [ ] 2.4 **Needs the user to run this** — flip `ReleaseTwin` to public (only after 2.2 + 2.3)
+- [ ] 2.5 Decide whether `NAHA` goes public or stays private as the demo target (design Open Question); flip only if decided yes
+- [ ] 2.6 Post-flip: confirm the Vercel Preview demo target still builds and renders
 
 ## 4. Open self-serve sign-up
 
