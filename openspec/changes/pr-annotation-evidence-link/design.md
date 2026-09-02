@@ -26,11 +26,19 @@ already distinguishes "report stored / evidence not accepted".
 null. **Alternative rejected:** a side-channel file — one summary artifact is the
 contract `render.mjs` consumes; splitting it invites drift.
 
-### The hosted ingest response returns the canonical report URL
+### The hosted ingest response returns the dashboard URLs
 The CLI does not construct dashboard URLs — it echoes what ingest returns. Keeps
 URL shape owned by the hosted app, and means an on-prem/self-host base URL is
 handled server-side. **Alternative rejected:** CLI builds `${API_URL}/...` — bakes
 the dashboard route into the CLI and breaks when the web app's routing changes.
+
+_Implementation note:_ the response returns **two** URLs — `reportUrl` (this
+report's evidence page, which renders a graceful "no evidence" state when none
+was stored) and `runUrl` (the project dashboard, for the summary's run-level
+link). There is no per-invocation "run" entity in the hosted model, so `runUrl`
+is the project dashboard and is identical across an invocation's uploads. Both
+are built from `Web:BaseUrl` (already used for invite / notification links) and
+fall back to a site-relative path when it is unset.
 
 ### `render.mjs`: link the comment header + set `details_url`; link failed rows
 `details_url` on the check run is the native "click through" affordance. The
@@ -61,6 +69,7 @@ links appear.
 ## Open Questions
 
 - Should `runUrl` also be surfaced in the CLI's own stdout at end-of-run (not
-  just the JSON)? Minor, could fold in.
-- One `runUrl` per invocation assumes one hosted run per CLI invocation — confirm
-  the ingest model groups an invocation's uploads under one run page.
+  just the JSON)? Minor, could fold in. _(Deferred — not done.)_
+
+_Resolved during implementation:_ there is no per-invocation run entity in the
+hosted model, so `runUrl` is the project dashboard.
