@@ -57,4 +57,4 @@
 - [x] 5.2 `dotnet test hosted/ReleaseTwin.Hosted.slnx` green — 382 (+3).
 - [x] 5.3 `node --test integrations/github-action/render.test.mjs` — 6/6.
 - [x] 5.4 `openspec validate pr-annotation-evidence-link --strict` passes.
-- [ ] 5.5 Confirm with the user before archiving.
+- [x] 5.5 Confirm with the user before archiving.
