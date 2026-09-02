@@ -39,7 +39,7 @@ jobs:
       - if: matrix.language == 'csharp'
         uses: actions/setup-dotnet@v4
         with:
-          dotnet-version: "10.0.x"
+          dotnet-version: "8.0.x"
 
       - name: Initialize CodeQL
         uses: github/codeql-action/init@v3
@@ -51,9 +51,7 @@ jobs:
       # C# needs a real compile; JS/TS is analysed directly from source (no build step).
       - name: Build C#
         if: matrix.language == 'csharp'
-        run: |
-          dotnet build ReleaseTwin.sln --configuration Release
-          dotnet build hosted/ReleaseTwin.Hosted.slnx --configuration Release
+        run: dotnet build ReleaseTwin.sln --configuration Release
 
       - name: Analyze
         id: analyze

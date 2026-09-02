@@ -20,10 +20,9 @@ ReleaseTwin is open core — see [LICENSING.md](./LICENSING.md).
 - Contributions to the engine (`src/`, `tests/`, repo-root build glue) are
   accepted under **AGPL-3.0** — see `LICENSE` and the Adapter Linking Exception
   in `LICENSE.EXCEPTIONS`.
-- Contributions to `examples/` are accepted under the **Apache License 2.0**
-  (the scaffold copies these into user projects).
-- Contributions to `hosted/` and `web/` are accepted under the **Business
-  Source License 1.1** as stated in that license.
+- Contributions to `examples/` and `integrations/` are accepted under the
+  **Apache License 2.0** (the scaffold copies examples into user projects; the
+  Action is meant to be forked).
 
 By submitting a pull request you certify the [Developer Certificate of
 Origin](https://developercertificate.org/) (DCO) for your contribution — in
@@ -46,11 +45,6 @@ bundled example runs with no credentials:
 dotnet run --project src/ReleaseTwin.Cli -- examples/cases
 ```
 
-### The hosted platform (`hosted/`, `web/`)
-
-See `docs/` and the `web/` and `hosted/` READMEs. The web app talks to the API
-server-side only (BFF); the browser never calls the API directly.
-
 ## Specs and changes
 
 Non-trivial work goes through OpenSpec (`openspec/`). Propose a change under
@@ -64,5 +58,5 @@ implement against its tasks. Pure repo-governance or tooling changes may set
   [SECURITY.md](./SECURITY.md).
 - Generated build output.
 - Changes to `LICENSE`, `LICENSE.EXCEPTIONS`, `examples/LICENSE`,
-  `hosted/LICENSE`, `web/LICENSE`, or `LICENSING.md` without prior agreement
+  `integrations/github-action/LICENSE`, or `LICENSING.md` without prior agreement
   from the maintainer.

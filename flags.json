@@ -1,28 +1,16 @@
 {
-  "$comment": "add-feature-flag-seam: the single registry of ReleaseTwin's own feature flags. Canonical source for web/ (imported directly, like hosted/plans.json), hosted/ and the CLI (embedded resource). See docs/feature-flags.md. NOT LaunchDarkly's product-adapter config — this gates ReleaseTwin itself.",
+  "$comment": "the registry of ReleaseTwin's own feature flags for the engine/CLI. Embedded as a resource in ReleaseTwin.Core. The hosted platform keeps its own copy of the hosted-surface flags.",
   "flags": [
     {
       "key": "flag-seam-smoke",
       "type": "boolean",
       "default": true,
       "description": "Inert end-to-end proof that the feature-flag seam is wired on every surface. Gates nothing user-visible; safe to flip.",
-      "surfaces": ["web", "hosted", "cli"],
-      "owner": "platform"
-    },
-    {
-      "key": "run-notifications",
-      "type": "boolean",
-      "default": false,
-      "description": "commercial-readiness-gaps: master switch for outbound run-failure notifications (Slack / webhook). Off by default — the ingest path skips enqueue and the dispatcher Lambda drops every message while this is false. Independent of the per-org Team entitlement, which still gates configuration and delivery.",
-      "surfaces": ["hosted"],
-      "owner": "platform"
-    },
-    {
-      "key": "evidence-sharing",
-      "type": "boolean",
-      "default": false,
-      "description": "commercial-readiness-gaps: master switch for shareable evidence links. Off by default — every share-link token resolves to 'unavailable' while this is false. Independent of the per-org Team entitlement, which gates link creation and (re-checked at resolve time) delivery.",
-      "surfaces": ["hosted"],
+      "surfaces": [
+        "web",
+        "hosted",
+        "cli"
+      ],
       "owner": "platform"
     }
   ]

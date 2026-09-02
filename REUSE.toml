@@ -22,6 +22,9 @@ path = [
   ".github/**",
   ".gitleaks.toml",
   "REUSE.toml",
+  "nuget.config",
+  "Directory.Build.props",
+  "flags.json",
   "*.md",
 ]
 precedence = "aggregate"
@@ -44,20 +47,6 @@ path = ["integrations/**"]
 precedence = "override"
 SPDX-FileCopyrightText = "2026 Ernesto Alejo and the ReleaseTwin contributors"
 SPDX-License-Identifier = "Apache-2.0"
-
-# --- The hosted platform: Business Source License 1.1 ----------------------------
-[[annotations]]
-path = ["hosted/**", "web/**"]
-precedence = "override"
-SPDX-FileCopyrightText = "2026 Ernesto Alejo and the ReleaseTwin contributors"
-SPDX-License-Identifier = "BUSL-1.1"
-
-# --- Vendored third-party front-end libraries (jQuery, Bootstrap, jQuery Validation) --
-[[annotations]]
-path = ["hosted/**/wwwroot/lib/**"]
-precedence = "override"
-SPDX-FileCopyrightText = "The respective upstream authors (jQuery Foundation, Bootstrap authors, et al.)"
-SPDX-License-Identifier = "MIT"
 
 # --- Editor / agent tooling config, generated or hand-written -----------------------
 [[annotations]]

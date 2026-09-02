@@ -43,8 +43,10 @@ If we make a public decision to cease operating the hosted platform:
    shutdown date.
 2. **Active hosted licenses convert to perpetual** for the remainder of their paid term — no
    further charge, continued access to your data for export throughout the notice period.
-3. **The hosted source (`hosted/` and `web/`) is published** under a permissive or
-   source-available license, so a customer or a third party can self-host the control plane.
+3. **The hosted control-plane source is published** under a permissive or
+   source-available license, so a customer or a third party can self-host it.
+   (The engine — the part that actually runs your tests — is already public and
+   AGPL-3.0; execution never depended on the hosted platform.)
 4. **A final data export** is made available to every account: run history and all stored
    evidence, in the documented format.
 

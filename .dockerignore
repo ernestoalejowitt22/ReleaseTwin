@@ -2,8 +2,6 @@
 **/obj/
 .git/
 .github/
-hosted/
-web/
 tests/
 docs/
 openspec/

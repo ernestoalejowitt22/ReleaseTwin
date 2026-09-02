@@ -8,7 +8,16 @@ As of `hosted-self-serve-platform` (Stage 1), all three installation types below
 
 - **Local CLI**: `ReleaseTwin.Cli` — four ways to run it (see [`docs/install.md`](install.md)): from source (`dotnet run`), the published Docker image (`ghcr.io/ernestoalejowitt22/releasetwin/cli`, no .NET needed — `cli-packaging`), the `releasetwin` .NET global tool on nuget.org (`dotnet tool install -g releasetwin` — `cli-distribution`), or the PR-annotations GitHub Action in `integrations/github-action/` (`ci-pr-integration`). Homebrew and a single-file per-RID binary are still deferred. Loads YAML case files, composes adapters from an optional `releasetwin.yaml` `adapters:` list, or auto-detects them from present credentials, executes them, and exits non-zero on any failure.
 - **CI runner**: the same CLI, scriptable into any CI pipeline — the recommended default (lowest infra cost, fewest security objections).
-- **Hosted control plane**: two services as of `hosted-react-frontend` — `hosted/ReleaseTwin.Hosted.Api` (JSON-only .NET API: self-serve Clerk-backed signup, provider-neutral, not tied to a GitHub account; **team membership** — email invites, `admin`/`member`/`viewer` roles, multi-org; project/token management; ingest; and two opt-in Team-tier extras, outbound run-failure notifications and read-only evidence share links) and `web/` (Next.js/React/Tailwind/shadcn-ui, owning all UI, calling the API server-side only — a BFF, never exposing the API to the browser directly). Per-project pricing bills on the **project count only** — team size is not a billing axis. Execution still happens entirely in the customer's own infra (CLI, local or CI); only report *metadata* is ever uploaded by default (case ID, oracle reference, fixture hash, pass/fail, classification — never fixture content, response bodies, or secrets). A customer **may opt in** (per project, off by default, Paid tier) to also upload a *run evidence document* — per-step request/response summaries, assertion detail, screenshots — but only after it has been **redacted in their own CLI** (built-in stripping of auth headers / credential-shaped fields / resolved secrets, plus their own allowlist/denylist rules, failing closed on any rule it can't evaluate). Raw content never leaves their infra even with evidence upload enabled. Paid Team upgrades go through **Polar (Merchant of Record)** — hosted checkout, a signed subscription webhook, per-project pricing — added in `billing-integration`; see "What stays deferred" below for what billing still does not cover. Absent `Polar__*` config keeps the billing surface closed, so a deployment without it behaves free-only.
+- **Hosted control plane**: the optional SaaS dashboard at
+  [releasetwin.com](https://releasetwin.com) — account/team management, project
+  and token management, an ingest API, and a viewer for uploaded run history and
+  redacted evidence. Its source is a separate, private codebase and is **not
+  part of this repo**; the engine does not depend on it. Execution always happens
+  in the customer's own infra (CLI, local or CI); only report *metadata* is
+  uploaded by default (case ID, oracle reference, fixture hash, pass/fail,
+  classification — never fixture content, response bodies, or secrets), and an
+  optional per-run *evidence document* only after the CLI has redacted it
+  locally. Nothing in this repo requires a hosted account.
 
 ## Three installation types (all real now)
 
