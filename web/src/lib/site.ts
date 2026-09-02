@@ -18,11 +18,13 @@ export const SITE_URL = (() => {
 export const SITE_NAME = "ReleaseTwin";
 
 /**
- * The legal entity named in the Terms and Privacy Policy. TODO: replace with the registered
- * LLC name once formed (see the planning notes' "Company & billing"). Kept in one place so the
- * legal pages don't need editing again.
+ * The legal entity named in the Terms and Privacy Policy. ReleaseTwin operates as a Mexican sole
+ * proprietor (persona física con actividad empresarial, RESICO) — this is the operator's registered
+ * name. Replace with an incorporated entity's name if/when one is formed (S.A.S. / S. de R.L.);
+ * kept in one place so the legal pages don't need editing again. Confirm this matches the exact
+ * name on the SAT registration (nombre + RFC) before general availability.
  */
-export const LEGAL_ENTITY = "the ReleaseTwin project";
+export const LEGAL_ENTITY = "Ernesto Alejo (persona física con actividad empresarial)";
 
 /**
  * Contact addresses. Today all three resolve to the same personal inbox; after

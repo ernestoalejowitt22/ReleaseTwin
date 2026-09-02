@@ -93,17 +93,27 @@ Every hosted surface is HTTPS-only, TLS terminated by the platform:
 
 No plaintext endpoint is exposed anywhere in the deployment.
 
-## Legal entity
+## Legal operator
+
+Revised 2026-09-02 — see `openspec/changes/company-and-domain-launch/design.md`
+("Legal operator"). Operator is a **Mexican tax resident, bootstrapping**,
+**already registered as persona física con actividad empresarial under RESICO**.
+No US LLC (no VC forcing function, no US-procurement requirement, and it would add
+a US Form 5472 filing burden). Incorporation (S.A.S. / S. de R.L. de C.V.) is a
+deferred track — trigger: RESICO ceiling (~3.5M MXN/yr) / customer demand / legal
+advice.
 
 | Item | Value | Status |
 |---|---|---|
-| Entity type | US LLC | |
-| Formation | Stripe Atlas / registered agent | |
-| Registered name | _TBD_ → `LEGAL_ENTITY` in `web/src/lib/site.ts` | currently `"the ReleaseTwin project"` |
-| EIN | | |
-| Contact email | `legal@releasetwin.com` → `LEGAL_CONTACT_EMAIL` | currently `ernestoalejo22@gmail.com` |
-| IP assignment | codebase + brand assigned to the LLC | |
-| Licensing review | AGPL-3.0 + Adapter Linking Exception + BSL 1.1 | |
+| Legal form | persona física con actividad empresarial (RESICO) | **already registered** |
+| `LEGAL_ENTITY` (`web/src/lib/site.ts`) | `"Ernesto Alejo (persona física con actividad empresarial)"` | **set 2026-09-02** — user to confirm it matches the SAT nombre + RFC |
+| Contact email | `legal@releasetwin.com` → `LEGAL_CONTACT_EMAIL` | currently `ernestoalejo22@gmail.com` (swaps with the mailbox) |
+| ToS counsel review | governing-law/dispute clause (Mexican law default) + liability wording — `web/src/app/(marketing)/terms/page.tsx` | **pending** — pre-GA gate, not a pilot blocker |
+| Licensing review | AGPL-3.0 + Adapter Linking Exception + BSL 1.1 | **pending** (same counsel engagement) |
+| DPA + design-partner agreement | from a standardized template (Common Paper / Bonterms) | **pending** |
+| Incorporation | S.A.S. or S. de R.L. de C.V. | **deferred** |
+| IP assignment | codebase + brand → the entity | deferred (on incorporation) |
+| Polar MoR payee | the persona física (RFC + bank/CLABE) | pending Polar production (§7) |
 
 ## Billing (Polar)
 
