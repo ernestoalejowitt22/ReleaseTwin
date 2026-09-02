@@ -121,6 +121,42 @@ feature-flag REST API (LaunchDarkly's) by
 `web/cypress/e2e/launchdarkly-http-flag-control.cy.ts`, run on demand and
 nightly by `.github/workflows/ld-http-flag-control-e2e.yml`.
 
+### Shared control template (`releasetwin.yml`)
+
+When a suite has several flag-proof cases against the *same* flag system, the
+`control` block is the same in every file except `feature_key`. Declare it once in
+a `releasetwin.yml` at the root of your cases directory:
+
+```yaml
+# cases/releasetwin.yml
+flag_proof:
+  control:
+    method: PUT
+    url: ${FLAGS_API}/flags/{{featureKey}}
+    headers:
+      Authorization: "Bearer ${FLAGS_TOKEN}"
+    body: '{ "state": "{{state}}" }'
+```
+
+```yaml
+# cases/checkout-flag.yaml
+flag_proof:
+  feature_key: checkout-v2        # the only per-case difference
+  build_identity: orders@2f9c1a
+```
+
+- A `flag_proof` case with **no** `control` block inherits the manifest's whole.
+- A case that declares a `control` block **merges** it over the manifest: scalar
+  fields and individual `headers` entries override; an `auth` or `verify` block on
+  the case replaces the manifest's entirely.
+- `${VAR}` and `{{...}}` resolve exactly as in an inline block. The manifest must
+  never hold a literal credential.
+- Adding a `releasetwin.yml` only supplies fields a case omits — a case with a
+  complete inline `control` is unaffected. A malformed manifest, an unknown key,
+  or a merged block still missing `url` is a load error before any case runs.
+- The file is `releasetwin.yml` (a `.yaml` spelling also works); it is never
+  loaded as a case itself.
+
 ### Failures
 
 A non-2xx response — or a request that can't be sent — ends the run as
@@ -128,4 +164,6 @@ A non-2xx response — or a request that can't be sent — ends the run as
 that itself errors). No leg executes after a failed control call, so a broken toggle
 can never be misreported as a weak oracle.
 
-See `examples/cases-flag-proof-http/example-flag-proof-http.yaml` for a complete case.
+See `examples/cases-flag-proof-http/example-flag-proof-http.yaml` for a complete
+case, and `examples/cases-flag-proof-shared-control/` for a two-case suite that
+shares one `releasetwin.yml`.

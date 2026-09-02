@@ -1,0 +1,28 @@
+# Same shared `control`, plus a case-specific `verify` read-back merged over it
+# (the manifest's method/url/headers/body are kept).
+id: FLAGPROOF-SHARED-SEARCH
+oracle:
+  locator: tickets/FLAGPROOF-SHARED-SEARCH
+fixture:
+  locator: example-flag-proof-http.json
+  sha256: b31419d04e4f3ec53e22db6da0d7347af49d11bed8efc891754ace6c154d1d27
+requires:
+  - http:generic
+pipeline:
+  - operation: http.request
+    with:
+      method: GET
+      url: ${FLAGS_API}/flags/search-ranking
+  - operation: http.assertJsonPath
+    with:
+      path: $.state
+      expected: enabled
+flag_proof:
+  feature_key: search-ranking
+  build_identity: search@demo-1
+  control:
+    verify:
+      method: GET
+      url: ${FLAGS_API}/flags/{{featureKey}}
+      json_path: $.state
+      expected: "{{state}}"
