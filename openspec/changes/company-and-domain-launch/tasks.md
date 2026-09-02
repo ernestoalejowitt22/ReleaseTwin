@@ -12,10 +12,10 @@ them unchecked until the user confirms.
 
 ## 2. Company email
 
-- [ ] 2.1 **Needs the user to run this** — create Google Workspace (or equivalent) on `releasetwin.com`; `hello@`, `security@`, `billing@`, `legal@` forwarding to one inbox
-- [ ] 2.2 **Needs the user to run this** — add MX + SPF + DKIM + DMARC DNS records for the mailbox provider
-- [ ] 2.3 Verify mail flow: send to each alias from an external address, confirm it lands in the shared inbox
-- [ ] 2.4 Record the final DNS record set in `docs/company-setup.md`
+- [ ] 2.1 **Needs the user to run this** — create the **Google Workspace** account on `releasetwin.com` (chosen 2026-09-02); `hello@`, `security@`, `billing@`, `legal@` → one inbox (group or user); verify the domain.
+- [x] 2.2 MX + apex SPF + `google._domainkey` DKIM Terraformed in `hosted/terraform/dns-and-email.tf` (block "Company mailbox"), gated on `enable_google_workspace_email`; DMARC already live from the SES work. **User:** set repo vars `ENABLE_GOOGLE_WORKSPACE_EMAIL=true`, then `GOOGLE_WORKSPACE_DKIM=<value from Admin console>` (and `GOOGLE_SITE_VERIFICATION` if Workspace asks). Steps in `docs/company-setup.md` §Company email.
+- [ ] 2.3 **Needs the user to run this** — send to each alias from an external address, confirm it lands.
+- [x] 2.4 Record set documented in `docs/company-setup.md` §Company email (Terraform-managed table).
 
 ## 3. Transactional email — SES identity (Terraform, CI-only)
 
