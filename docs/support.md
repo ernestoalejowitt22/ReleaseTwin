@@ -7,7 +7,8 @@ requests get handled.
 
 - **GitHub Issues** — system of record for bugs and feature requests. Public.
 - **Security advisories** — private, per [`SECURITY.md`](../SECURITY.md).
-- **Email** (the support address) — account, billing, legal, sales. Private,
+- **Email** (`support@releasetwin.com`, plus the `security@` and `legal@`
+  aliases on the same mailbox) — account, billing, legal, sales. Private,
   often tied to an org identity. Recorded here as a one-line note in the
   relevant GitHub issue *or* a private tracking doc when there's no public
   issue to attach it to.

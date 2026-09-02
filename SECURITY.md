@@ -5,7 +5,7 @@
 **Do not open a public issue for security problems.**
 
 Report privately via GitHub's **[Report a vulnerability](https://github.com/ernestoalejowitt22/ReleaseTwin/security/advisories/new)**
-(Security → Advisories), or email **ernestoalejo22@gmail.com** with `SECURITY`
+(Security → Advisories), or email **security@releasetwin.com** with `SECURITY`
 in the subject.
 
 Please include: what you found, how to reproduce it, and the impact you

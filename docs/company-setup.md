@@ -50,14 +50,15 @@ física — RFC entered in Admin console → Billing, not the signup wizard, ré
 1. Admin console → Apps → Google Workspace → Gmail → **Authenticate email** →
    **Start authentication** (the `google._domainkey` record is already live).
 2. Admin console → Directory → Users → your account → **Add alternate emails**:
-   `hello`, `security`, `billing`, `legal` (aliases on the one seat).
+   `hello`, `support`, `security`, `billing`, `legal` (aliases on the one seat).
 3. Send a test to each alias from an external address (task 2.3); run a
    deliverability check at mail-tester.com — SPF + DKIM + DMARC all pass (task 4.11).
 4. Once Google mail and SES both pass DMARC cleanly, consider tightening `_dmarc`
    to `p=quarantine` (edit `dns-and-email.tf`).
-5. Then `company-and-domain-launch` task 6.5 — swap `ernestoalejo22@gmail.com` →
-   the `@releasetwin.com` addresses in `SECURITY.md` / `SUPPORT.md` /
-   `docs/support.md` / `.github/ISSUE_TEMPLATE/config.yml` and `LEGAL_CONTACT_EMAIL`.
+
+`company-and-domain-launch` task 6.5 is **done** — `SECURITY.md`, `SUPPORT.md`,
+`docs/support.md`, `.github/ISSUE_TEMPLATE/config.yml`, and the `web/src/lib/site.ts`
+contact constants now use the `@releasetwin.com` addresses.
 
 ## Transactional email (SES)
 
@@ -132,7 +133,7 @@ advice.
 | Legal form | persona física con actividad empresarial (RESICO) | **already registered** |
 | `LEGAL_ENTITY` (`web/src/lib/site.ts`) | `"Ernesto Alejo (persona física con actividad empresarial)"` | **set 2026-09-02** — user to confirm it matches the SAT nombre + RFC |
 | Operator account / `ADMIN_OPERATOR_USER_IDS` | operator's Clerk **prod** user id → repo var | **pending** — sign up on prod Clerk, open `/dashboard/me` for the `clerkUserId`, set the var, redeploy, confirm `isOperator: true` |
-| Contact email | `legal@releasetwin.com` → `LEGAL_CONTACT_EMAIL` | currently `ernestoalejo22@gmail.com` (swaps with the mailbox) |
+| Contact email | `legal@releasetwin.com` → `LEGAL_CONTACT_EMAIL` | done — `support@` / `security@` / `legal@` aliases on the mailbox |
 | ToS counsel review | governing-law/dispute clause (Mexican law default) + liability wording — `web/src/app/(marketing)/terms/page.tsx` | **pending** — pre-GA gate, not a pilot blocker |
 | Licensing review | AGPL-3.0 + Adapter Linking Exception + BSL 1.1 | **pending** (same counsel engagement) |
 | DPA + design-partner agreement | `docs/legal/dpa.md` + `docs/legal/pilot-agreement.md` — drafted from the Common Paper / Bonterms structure with ReleaseTwin facts | **drafts ready 2026-09-02; counsel review pending** |

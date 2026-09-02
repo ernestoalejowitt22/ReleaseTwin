@@ -1,7 +1,7 @@
 version = 1
 
 SPDX-PackageName = "ReleaseTwin"
-SPDX-PackageSupplier = "Ernesto Alejo <ernestoalejo22@gmail.com>"
+SPDX-PackageSupplier = "Ernesto Alejo <hello@releasetwin.com>"
 SPDX-PackageDownloadLocation = "https://github.com/ernestoalejowitt22/ReleaseTwin"
 
 # Declares the license of every file by path, per the REUSE 3.3 spec, so `reuse lint`

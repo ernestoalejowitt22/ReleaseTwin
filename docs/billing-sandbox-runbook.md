@@ -82,13 +82,13 @@ GitHub → repo → **Settings → Secrets and variables → Actions**.
 | `POLAR_API_BASE_URL` | `https://sandbox-api.polar.sh` |
 | `POLAR_TEAM_PRODUCT_MONTHLY` | monthly product id (§1.4) |
 | `POLAR_TEAM_PRODUCT_ANNUAL` | annual product id (§1.4) |
-| `POLAR_CHECKOUT_SUCCESS_URL` | `https://releasetwin.vercel.app/dashboard?upgraded=1` |
-| `POLAR_CHECKOUT_CANCEL_URL` | `https://releasetwin.vercel.app/dashboard` |
-| `POLAR_PORTAL_RETURN_URL` | `https://releasetwin.vercel.app/dashboard` |
+| `POLAR_CHECKOUT_SUCCESS_URL` | `https://releasetwin.com/dashboard?upgraded=1` |
+| `POLAR_CHECKOUT_CANCEL_URL` | `https://releasetwin.com/dashboard` |
+| `POLAR_PORTAL_RETURN_URL` | `https://releasetwin.com/dashboard` |
 | `POLAR_RECONCILIATION_DRY_RUN` | `true` |
 | `POLAR_UPGRADE_ENABLED` | `false` — leave the button hidden for now |
 
-`https://releasetwin.vercel.app` is the `releasetwin` Vercel project's production URL. The
+`https://releasetwin.com` is the `releasetwin` Vercel project's production URL. The
 `?upgraded=1` param is currently cosmetic (the dashboard doesn't read it yet) — a bare
 `/dashboard` is fine.
 
