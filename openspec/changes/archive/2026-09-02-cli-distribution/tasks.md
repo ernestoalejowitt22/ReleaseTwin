@@ -64,7 +64,7 @@
       (no code changed, but the csproj did) — report counts.
 - [x] 5.2 `web/` unaffected — no build needed; confirm no `web/` files touched.
 - [x] 5.3 `openspec validate cli-distribution --strict` passes.
-- [ ] 5.4 Confirm with the user before archiving.
+- [x] 5.4 Confirmed by the user 2026-09-02 (6.1-6.4 left unchecked — user-run).
 
 ## 6. Needs the user to run this
 
