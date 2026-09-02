@@ -104,6 +104,24 @@ public sealed class OrganizationMembersService
     }
 
     /// <summary>
+    /// company-and-domain-launch: re-send the invite email for a still-acceptable invitation. The
+    /// invitation row and token are unchanged — only the email goes out again (same best-effort,
+    /// never-throws contract as <see cref="SendInvitationEmailAsync"/>). Returns the invitation, or
+    /// null when the token does not name an acceptable invitation for this organization.
+    /// </summary>
+    public async Task<Invitation?> ResendInvitationEmailAsync(Guid organizationId, string token, string organizationName, string acceptUrl, CancellationToken cancellationToken = default)
+    {
+        var invitation = await _invitations.GetByTokenAsync(token, cancellationToken);
+        if (invitation is null || invitation.OrganizationId != organizationId || !invitation.IsAcceptable(DateTimeOffset.UtcNow))
+        {
+            return null;
+        }
+
+        await SendInvitationEmailAsync(invitation, organizationName, acceptUrl, cancellationToken);
+        return invitation;
+    }
+
+    /// <summary>
     /// company-and-domain-launch: best-effort invite delivery. The invitation row is already
     /// persisted by <see cref="InviteAsync"/>; a provider error here is logged and swallowed so the
     /// invitation stays valid and its accept link (also returned in the API response) still works.

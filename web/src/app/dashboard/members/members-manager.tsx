@@ -18,6 +18,7 @@ import {
   changeMemberRole,
   inviteMember,
   removeMember,
+  resendInvitation,
   revokeInvitation,
   type InviteState,
 } from "../team-actions";
@@ -65,6 +66,7 @@ export function MembersManager({
     { error: null },
   );
   const [copied, setCopied] = useState<string | null>(null);
+  const [resent, setResent] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
 
   return (
@@ -199,6 +201,19 @@ export function MembersManager({
                         }}
                       >
                         {copied === inv.token ? "Copied" : "Copy link"}
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        disabled={isPending}
+                        onClick={() =>
+                          startTransition(async () => {
+                            await resendInvitation(organizationId, inv.token);
+                            setResent(inv.token);
+                          })
+                        }
+                      >
+                        {resent === inv.token ? "Sent" : "Resend email"}
                       </Button>
                       <Button
                         variant="ghost"

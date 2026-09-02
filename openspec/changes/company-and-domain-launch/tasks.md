@@ -40,7 +40,7 @@ them unchecked until the user confirms.
 - [ ] 4.9 **Needs the user to run this** — set the `NOTIFICATIONS_FROM_ADDRESS` repo var (e.g. `no-reply@releasetwin.com`) once the SES identity from 3.x is verified; `deploy-hosted.yml` passes it to `notifications_from_address` and Program.cs binds `SesInvitationEmailSender`
 - [ ] 4.10 Post-deploy: issue a real invitation to an external address, confirm the email arrives and the link accepts (evidence-quality: note which inbox, paste the rendered email)
 - [ ] 4.11 Deliverability check (mail-tester or equivalent) — SPF/DKIM/DMARC all pass, not flagged as spam
-- [ ] 4.12 (stretch, optional) "Resend invitation" affordance on `/dashboard/members`
+- [x] 4.12 "Resend invitation" affordance on `/dashboard/members` — `POST /api/organizations/{orgId}/invitations/{token}/resend` (`OrganizationMembersService.ResendInvitationEmailAsync`, admin-gated, re-sends only a still-acceptable invite, token unchanged) + `resendInvitation` server action + "Resend email" button. Tests in `MembershipEndpointsHttpTests` + `OrganizationMembersServiceTests`
 
 ## 5. Auth / hosting identity re-pointing
 
@@ -49,7 +49,7 @@ them unchecked until the user confirms.
 - [x] 5.1b Production Clerk instance deployed + verified 2026-09-01. `pk_live_`/`sk_live_` in Vercel env, `CLERK_DOMAIN` = `clerk.releasetwin.com` repo var applied to the Lambda. Verified: `clerk.releasetwin.com` FAPI + JWKS live, sign-in/sign-up widgets render on `releasetwin.com` as the `production` instance, hosted API rejects bad tokens with 401 (not 500). **Left for the user:** sign up once to create the operator login on the fresh prod user pool, then hit an authed endpoint to confirm end to end.
 - [x] 5.2 `NEXT_PUBLIC_SITE_URL` = `https://releasetwin.com` set in Vercel; live site metadata now uses the real domain
 - [x] 5.3 `WEB_BASE_URL` = `https://releasetwin.com` repo var applied to the Lambda
-- [ ] 5.4 Verify `Api__PublicUrl` self-heals from `terraform output function_url` (no manual set needed) — confirm the value post-deploy
+- [x] 5.4 Verified `Api__PublicUrl` self-heals — the 2026-09-02 deploy read `function_url` from state and passed it back as `-var api_public_url=https://aeq4mvkh3n63sqnngc4lp7567y0mqfzr.lambda-url.us-east-1.on.aws/`; no manual set. Recorded in `docs/company-setup.md`
 - [ ] 5.5 **Needs the user to run this** — submit `releasetwin.com` to Google Search Console
 - [x] 5.6 Literal sweep: app code already reads `SITE_URL` / `CLERK_DOMAIN` from env — no hard-coded `vercel.app` / `clerk.accounts.dev` in `web/` app code. Contact emails routed through `web/src/lib/site.ts` constants. Remaining stale refs are `docs/billing-sandbox-runbook.md` + root `SECURITY.md` (both wait on the domain addresses existing)
 
@@ -70,11 +70,11 @@ them unchecked until the user confirms.
 - [ ] 7.2 **Needs the user to run this** — switch the Polar account to production (`api.polar.sh`), create real product/price IDs, set the LLC as Merchant-of-Record payee
 - [ ] 7.3 **Needs the user to run this** — set the four `POLAR_*_URL` repo vars + real product/price IDs
 - [ ] 7.4 **Needs the user to run this** — set `POLAR_UPGRADE_ENABLED=true` and take reconciliation out of dry-run (only after 7.1 passes)
-- [ ] 7.5 Confirm TLS is terminated on the evidence-ingest API endpoint (or document why the Function URL already covers it)
+- [x] 7.5 Documented in `docs/company-setup.md` ("Transport security"): the ingest API is served by an AWS Lambda Function URL, which is HTTPS-only (AWS terminates TLS, no HTTP listener) — plus `UseHttpsRedirection()` + HSTS. No plaintext endpoint anywhere
 
 ## 8. Close-out
 
 - [ ] 8.1 `docs/company-setup.md` complete — domain, email, entity, all DNS records, dashboard locations
-- [ ] 8.2 README brand line + any stale "no entity / provisional" copy updated
+- [x] 8.2 `git grep -i "validuo\|provisional brand\|working name"` is clean (handled in 1.3); root `README.md` brand line is the real tagline. The remaining "solo-maintained" phrasing in CONTRIBUTING/SECURITY/SUPPORT is deliberate and accurate, not provisional-entity copy
 - [ ] 8.3 `openspec validate company-and-domain-launch --strict` passes
 - [ ] 8.4 Confirm with the user before archiving

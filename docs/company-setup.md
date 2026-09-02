@@ -11,6 +11,18 @@ change. Fill each section in as the step completes.
 | Registrar | AWS Route 53 Domains (account `846136340491`) | |
 | DNS host | Route 53 hosted zone (auto-created at registration) | Terraform manages records via `data "aws_route53_zone"` in `hosted/terraform/dns-and-email.tf` |
 
+### DNS records (Terraform-managed)
+
+All in `hosted/terraform/*.tf`, gated on the `domain_name` var, applied by
+`deploy-hosted.yml`. Nothing is entered at a registrar by hand.
+
+| Purpose | File | Records |
+|---|---|---|
+| Web (Vercel) | `web-dns.tf` | apex `A` → `216.198.79.1`; `www` `CNAME` → Vercel |
+| Auth (Clerk prod) | `clerk-dns.tf` | 5 `CNAME`: `clerk`, `accounts`, `clkmail`, `clk._domainkey`, `clk2._domainkey` |
+| Transactional email (SES) | `dns-and-email.tf` | 3 DKIM `CNAME`; `_amazonses` verification `TXT`; MAIL FROM `mail.releasetwin.com` `MX` + SPF `TXT`; `_dmarc` `TXT` (`p=none`) |
+| Company mailbox | _pending_ | MX / SPF / DKIM / DMARC for the mailbox provider — see "Company email" below |
+
 ## Company email
 
 Provider: _TBD_ (Google Workspace or equivalent). Aliases `hello@`, `security@`,
@@ -60,11 +72,26 @@ Remaining user steps:
 
 | Item | Current | Target | Status |
 |---|---|---|---|
-| Clerk domain | `classic-marlin-8065.clerk.accounts.dev` | `clerk.releasetwin.com` | |
-| `NEXT_PUBLIC_SITE_URL` (Vercel) | Vercel prod URL | `https://releasetwin.com` | |
-| `WEB_BASE_URL` repo var | | real domain | |
-| `Api__PublicUrl` | `terraform output function_url` (self-heals) | unchanged — verify post-deploy | |
-| Google Search Console | | domain submitted | |
+| Clerk domain | `classic-marlin-8065.clerk.accounts.dev` | `clerk.releasetwin.com` | **prod instance verified 2026-09-01**; `CLERK_DOMAIN` repo var = `clerk.releasetwin.com` |
+| `NEXT_PUBLIC_SITE_URL` (Vercel) | Vercel prod URL | `https://releasetwin.com` | **set 2026-09-01** |
+| `WEB_BASE_URL` repo var | | `https://releasetwin.com` | **set 2026-09-01** |
+| `Api__PublicUrl` | `terraform output function_url` (self-heals) | unchanged | **confirmed 2026-09-02** — deploy reads `function_url` from state and feeds it back as `-var`; live value `https://aeq4mvkh3n63sqnngc4lp7567y0mqfzr.lambda-url.us-east-1.on.aws/` (will change once a custom API domain is set, still self-heals) |
+| Google Search Console | | domain submitted | pending user |
+
+## Transport security
+
+Every hosted surface is HTTPS-only, TLS terminated by the platform:
+
+- **Hosted API + evidence ingest** — served by an AWS Lambda **Function URL**
+  (`aws_lambda_function_url.hosted_api`). Function URLs accept HTTPS only; there
+  is no HTTP listener to downgrade to, and AWS owns the TLS termination and
+  certificate. The app additionally runs `UseHttpsRedirection()` + HSTS
+  (`Program.cs`), so any proxied `http` is 308'd and browsers pin HTTPS.
+- **Web** — Vercel terminates TLS for `releasetwin.com` (managed cert).
+- **Auth** — Clerk terminates TLS for `clerk.releasetwin.com` (managed cert via
+  the Terraformed CNAMEs).
+
+No plaintext endpoint is exposed anywhere in the deployment.
 
 ## Legal entity
 

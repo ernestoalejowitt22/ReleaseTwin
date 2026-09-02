@@ -67,6 +67,14 @@ export async function revokeInvitation(organizationId: string, token: string) {
   revalidatePath("/dashboard/members");
 }
 
+/** company-and-domain-launch: re-send the invite email for a still-pending invitation. */
+export async function resendInvitation(organizationId: string, token: string) {
+  await api.post<void>(
+    `/api/organizations/${organizationId}/invitations/${encodeURIComponent(token)}/resend`,
+  );
+  revalidatePath("/dashboard/members");
+}
+
 export async function changeMemberRole(organizationId: string, userId: string, formData: FormData) {
   const role = String(formData.get("role") ?? "Member");
   await api.patch<void>(`/api/organizations/${organizationId}/members/${userId}`, { role });

@@ -126,6 +126,18 @@ public static class MembershipEndpoints
             return Results.NoContent();
         });
 
+        // company-and-domain-launch (4.12): re-send the invite email for a still-pending invitation.
+        orgs.MapPost("/{organizationId:guid}/invitations/{token}/resend", async (Guid organizationId, string token, OrganizationMembersService members, IOrganizationRepository organizations, CurrentOrganizationAccessor currentOrg, IConfiguration config) =>
+        {
+            RequireActive(currentOrg, organizationId, OrgCapability.ManageMembers);
+            var acceptUrl = AcceptUrl(config, token);
+            var org = await organizations.GetAsync(organizationId);
+            var invitation = await members.ResendInvitationEmailAsync(organizationId, token, org?.Name ?? "your team", acceptUrl);
+            return invitation is null
+                ? Results.NotFound(new { error = "invitation-not-found" })
+                : Results.Ok(new InvitationView(invitation.Token, invitation.Email, invitation.Role.ToString(), invitation.State.ToString(), invitation.ExpiresAt, acceptUrl));
+        });
+
         var invites = app.MapGroup("/api/invitations")
             .RequireAuthorization(policy => policy.RequireAuthenticatedUser().AddAuthenticationSchemes("ClerkJwt"));
 
