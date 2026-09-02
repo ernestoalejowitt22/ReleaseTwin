@@ -39,20 +39,28 @@ normal human output:
 
 ```jsonc
 {
-  "schemaVersion": 1,
+  "schemaVersion": 2,
   "overall": "failed",
   "totals": { "passed": 12, "failed": 1, "cases": 13 },
   "flagProof": { "proven": 3, "ineligible": 1, "regressed": 0 },
   "cases": [
     { "id": "HTTP-DEMO-1", "outcome": "passed", "classification": null, "flagProof": null, "release": "4.2" },
-    { "id": "CLM-042", "outcome": "failed", "classification": "infrastructure", "flagProof": null, "release": null }
-  ]
+    { "id": "CLM-042", "outcome": "failed", "classification": "infrastructure", "flagProof": null, "release": null,
+      "evidenceUrl": "https://app.releasetwin.com/dashboard/reports/…/evidence?projectId=…" }
+  ],
+  "runUrl": "https://app.releasetwin.com/dashboard?projectId=…"
 }
 ```
 
 It carries only metadata the CLI already prints — ids, outcomes, classifications,
 flag-proof results, and the `release` label. No bodies, no secrets. With no flag set, no
 file is written and behavior is unchanged.
+
+`runUrl` (top level) and a case's `evidenceUrl` are **optional** and appear only when the run
+uploaded to a hosted project (see Credentials) — `runUrl` links the project dashboard;
+`evidenceUrl` is present for a case whose evidence was uploaded and accepted. A consumer
+that ignores unknown fields is unaffected; a run with no upload produces a summary
+identical to `schemaVersion: 1` apart from the version integer.
 
 ## PR annotations
 
@@ -102,4 +110,6 @@ every input. This repo dogfoods the Action in `.github/workflows/pr-annotations.
   (`LAUNCHDARKLY_API_TOKEN`, the `AZDO_*` set, …); pass them via the Action's `env-vars` or
   `env-file` input.
 - To also land run history + evidence on the hosted dashboard, set `RELEASETWIN_API_TOKEN`
-  and `RELEASETWIN_API_URL`.
+  and `RELEASETWIN_API_URL`. This additionally turns the PR annotation into a link into the
+  dashboard — a "View run" link in the comment and check, and a per-case link to the
+  evidence for any case whose evidence was uploaded and accepted.

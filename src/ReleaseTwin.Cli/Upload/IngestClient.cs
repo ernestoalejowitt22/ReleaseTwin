@@ -28,9 +28,14 @@ public sealed class IngestClient : IDisposable
         _client.DefaultRequestHeaders.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", apiToken);
     }
 
-    /// <summary>Uploads a case report. Returns whether an accompanying evidence document was accepted (true when none was sent).</summary>
+    /// <summary>
+    /// Uploads a case report. <see cref="IngestUploadResult.EvidenceAccepted"/> is true when no
+    /// evidence was sent. <see cref="IngestUploadResult.ReportUrl"/> / <see cref="IngestUploadResult.RunUrl"/>
+    /// are the dashboard links the hosted API returns (pr-annotation-evidence-link) — null against an
+    /// older hosted API or an unparseable response.
+    /// </summary>
     /// <param name="release">release-readiness-rollup: the uploaded case's optional <c>release</c> label. Null ⇒ the payload is the pre-release shape.</param>
-    public async Task<bool> UploadCaseReportAsync(CaseReport report, RedactionResult? evidence, CancellationToken cancellationToken, string? release = null)
+    public async Task<IngestUploadResult> UploadCaseReportAsync(CaseReport report, RedactionResult? evidence, CancellationToken cancellationToken, string? release = null)
     {
         var payload = new
         {
@@ -48,7 +53,7 @@ public sealed class IngestClient : IDisposable
         return await SendAsync("/api/ingest/case-report", payload, evidence, cancellationToken);
     }
 
-    public async Task<bool> UploadFlagProofReportAsync(FlagProofResult result, RedactionResult? evidence, CancellationToken cancellationToken, string? release = null)
+    public async Task<IngestUploadResult> UploadFlagProofReportAsync(FlagProofResult result, RedactionResult? evidence, CancellationToken cancellationToken, string? release = null)
     {
         var payload = new
         {
@@ -64,7 +69,7 @@ public sealed class IngestClient : IDisposable
         return await SendAsync("/api/ingest/flag-proof-report", payload, evidence, cancellationToken);
     }
 
-    private async Task<bool> SendAsync(string path, object reportPayload, RedactionResult? evidence, CancellationToken cancellationToken)
+    private async Task<IngestUploadResult> SendAsync(string path, object reportPayload, RedactionResult? evidence, CancellationToken cancellationToken)
     {
         HttpResponseMessage response;
 
@@ -106,19 +111,14 @@ public sealed class IngestClient : IDisposable
         {
             response.EnsureSuccessStatusCode();
 
-            if (evidence is null)
-            {
-                return true;
-            }
-
             try
             {
-                var result = await response.Content.ReadFromJsonAsync<IngestAck>(cancellationToken: cancellationToken);
-                return result?.EvidenceAccepted ?? true;
+                var ack = await response.Content.ReadFromJsonAsync<IngestAck>(cancellationToken: cancellationToken);
+                return new IngestUploadResult(ack?.EvidenceAccepted ?? true, ack?.ReportUrl, ack?.RunUrl);
             }
             catch
             {
-                return true;
+                return new IngestUploadResult(true, null, null);
             }
         }
     }
@@ -134,5 +134,14 @@ public sealed class IngestClient : IDisposable
     private sealed class IngestAck
     {
         public bool EvidenceAccepted { get; set; } = true;
+        public string? ReportUrl { get; set; }
+        public string? RunUrl { get; set; }
     }
 }
+
+/// <summary>
+/// pr-annotation-evidence-link: the outcome of one report upload — whether an accompanying evidence
+/// document was accepted, plus the dashboard links the hosted API returned (null against a hosted API
+/// that predates this, or when the response could not be parsed).
+/// </summary>
+public readonly record struct IngestUploadResult(bool EvidenceAccepted, string? ReportUrl, string? RunUrl);
