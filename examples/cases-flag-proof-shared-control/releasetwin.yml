@@ -1,0 +1,19 @@
+# flag-proof-project-template: one shared control template for every flag-proof
+# case in this directory. Each case then declares only its `feature_key`.
+#
+# A case MAY still add its own `control:` block — scalar fields and individual
+# headers override what's here; an `auth:` or `verify:` block on the case
+# replaces this one entirely.
+#
+# Point ${FLAGS_API} at a REST flag API that accepts
+#   PUT ${FLAGS_API}/flags/<key>   { "state": "enabled" | "disabled" }
+# and set ${FLAGS_TOKEN}. Credentials resolve from the environment (or this
+# project's hosted secrets) only — never inline them.
+flag_proof:
+  control:
+    method: PUT
+    url: ${FLAGS_API}/flags/{{featureKey}}
+    headers:
+      Authorization: "Bearer ${FLAGS_TOKEN}"
+    body: '{ "state": "{{state}}" }'
+    known_bad_when: disabled
