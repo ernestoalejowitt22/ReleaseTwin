@@ -12,8 +12,8 @@ them unchecked until the user confirms.
 
 ## 2. Company email
 
-- [ ] 2.1 **Needs the user to run this** — create the **Google Workspace** account on `releasetwin.com` (chosen 2026-09-02); `hello@`, `security@`, `billing@`, `legal@` → one inbox (group or user); verify the domain.
-- [x] 2.2 MX + apex SPF + `google._domainkey` DKIM Terraformed in `hosted/terraform/dns-and-email.tf` (block "Company mailbox"), gated on `enable_google_workspace_email`; DMARC already live from the SES work. **User:** set repo vars `ENABLE_GOOGLE_WORKSPACE_EMAIL=true`, then `GOOGLE_WORKSPACE_DKIM=<value from Admin console>` (and `GOOGLE_SITE_VERIFICATION` if Workspace asks). Steps in `docs/company-setup.md` §Company email.
+- [x] 2.1 Google Workspace account created 2026-09-02 (Business Starter, MXN, persona física — RFC via Admin console → Billing, régimen 626/RESICO). Domain **verified**. **Left:** Authenticate email → "Start authentication"; add the four aliases (Directory → Users → alternate emails).
+- [x] 2.2 MX + apex SPF + `google._domainkey` DKIM Terraformed in `hosted/terraform/dns-and-email.tf` ("Company mailbox" block), gated on `enable_google_workspace_email`. **All three repo vars set + records live 2026-09-02** (`dig +short TXT google._domainkey.releasetwin.com` returns the split key; MX = `1 smtp.google.com`). DKIM value is split into two 255-char character-strings (PR #102 — the AWS provider does not auto-chunk a >255-byte TXT).
 - [ ] 2.3 **Needs the user to run this** — send to each alias from an external address, confirm it lands.
 - [x] 2.4 Record set documented in `docs/company-setup.md` §Company email (Terraform-managed table).
 

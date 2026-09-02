@@ -34,29 +34,30 @@ send transactional mail from the `mail.releasetwin.com` subdomain. The two don't
 collide: apex SPF authorises Google, the MAIL FROM subdomain SPF authorises SES,
 one `_dmarc` record (already at `p=none`) covers both.
 
-| Record | Type | Value | Managed by |
+| Record | Type | Value | Status |
 |---|---|---|---|
-| apex `MX` | MX | `1 smtp.google.com` | Terraform (`gws_mx`) |
-| apex `SPF` | TXT | `v=spf1 include:_spf.google.com ~all` (+ optional site-verification) | Terraform (`gws_apex_txt`) |
-| `google._domainkey` | TXT | the 2048-bit DKIM value from Google Admin | Terraform (`gws_dkim`), value from `GOOGLE_WORKSPACE_DKIM` repo var |
-| `_dmarc` | TXT | `v=DMARC1; p=none; rua=mailto:security@releasetwin.com` | Terraform (already live from the SES work) |
+| apex `MX` | MX | `1 smtp.google.com` | **live 2026-09-02** (Terraform `gws_mx`) |
+| apex `TXT` | TXT | `v=spf1 include:_spf.google.com ~all` + `google-site-verification=…` | **live 2026-09-02** (Terraform `gws_apex_txt`; `ENABLE_GOOGLE_WORKSPACE_EMAIL` + `GOOGLE_SITE_VERIFICATION` repo vars set) |
+| `google._domainkey` | TXT | the 2048-bit DKIM key, stored as two 255-char character-strings | **live 2026-09-02** (Terraform `gws_dkim`; `GOOGLE_WORKSPACE_DKIM` repo var set) — domain verified; **still to do: "Start authentication" in Admin console** |
+| `_dmarc` | TXT | `v=DMARC1; p=none; rua=mailto:security@releasetwin.com` | live (from the SES work) |
 
-**Operator steps:**
+**Status 2026-09-02:** account created (`Business Starter`, MXN billing, persona
+física — RFC entered in Admin console → Billing, not the signup wizard, régimen
+626/RESICO); domain verified; all DNS live via Terraform.
 
-1. Create the Google Workspace account on `releasetwin.com`; add the aliases /
-   group; verify the domain (Workspace usually verifies via the MX records or an
-   existing Search Console property — if it asks for a TXT token, put it in the
-   `GOOGLE_SITE_VERIFICATION` repo var).
-2. Set repo var `ENABLE_GOOGLE_WORKSPACE_EMAIL` = `true` → next deploy publishes
-   the MX + apex SPF.
-3. In Admin console → Apps → Google Workspace → Gmail → **Authenticate email**,
-   generate the DKIM key (2048-bit); put the TXT value in the
-   `GOOGLE_WORKSPACE_DKIM` repo var → next deploy publishes `google._domainkey`;
-   then click **Start authentication** in the console.
-4. Send a test to each alias from an external address (task 2.3); run a
-   deliverability check (mail-tester) — SPF + DKIM + DMARC all pass (task 4.11).
-5. Once Google mail and SES both pass DMARC, consider tightening `_dmarc` to
-   `p=quarantine` (edit `dns-and-email.tf`).
+**Remaining operator steps:**
+
+1. Admin console → Apps → Google Workspace → Gmail → **Authenticate email** →
+   **Start authentication** (the `google._domainkey` record is already live).
+2. Admin console → Directory → Users → your account → **Add alternate emails**:
+   `hello`, `security`, `billing`, `legal` (aliases on the one seat).
+3. Send a test to each alias from an external address (task 2.3); run a
+   deliverability check at mail-tester.com — SPF + DKIM + DMARC all pass (task 4.11).
+4. Once Google mail and SES both pass DMARC cleanly, consider tightening `_dmarc`
+   to `p=quarantine` (edit `dns-and-email.tf`).
+5. Then `company-and-domain-launch` task 6.5 — swap `ernestoalejo22@gmail.com` →
+   the `@releasetwin.com` addresses in `SECURITY.md` / `SUPPORT.md` /
+   `docs/support.md` / `.github/ISSUE_TEMPLATE/config.yml` and `LEGAL_CONTACT_EMAIL`.
 
 ## Transactional email (SES)
 
