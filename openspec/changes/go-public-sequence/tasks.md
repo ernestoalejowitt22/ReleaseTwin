@@ -18,7 +18,7 @@ repos private, 0 forks, no fork network, no pre-rewrite external clone; residual
 risk accepted (`docs/go-public-runbook.md` §2).
 
 - [x] 2.1 Repo description + topics polished; `SECURITY.md` contact on the company domain (user, 2026-09-02)
-- [ ] 2.2 Pre-flip sanity: fresh clone of the about-to-be-public repo, `git rev-list --all | xargs -I{} git grep -i <prior-vendor-term> {}` returns zero on reachable history
+- [x] 2.2 Done 2026-09-02 — fresh-clone `git rev-list --all | git grep` returns **zero** for prior-vendor terms in tree content AND commit messages. A message-only `git filter-repo` pass (3 pre-public scrub commits #23/#26/#27, force-pushed across all 5 branches + `v0.1.0`) genericised the surviving `quik` / "commercialization assessment" / AWS-slug references; tree hashes unchanged. Stale dependabot branches deleted (dependabot re-opens against new main). Residual: GitHub `refs/pull/*` for merged PRs still cache the old SHAs — same accepted risk as §2 (private repo, 0 forks).
 - [x] 2.3 `company-and-domain-launch` §6.7 counsel review complete 2026-09-02 (ToS governing-law/liability + AGPL/BSL stack + DPA/pilot-agreement drafts). Note: `docs/legal/README.md` placeholders (operator RFC/address, governing-law/venue, liability cap) still need filling before a real pilot signs.
 - [ ] 2.4 **Needs the user to run this** — flip `ReleaseTwin` to public (only after 2.2 + 2.3)
 - [ ] 2.5 Decide whether `NAHA` goes public or stays private as the demo target (design Open Question); flip only if decided yes
