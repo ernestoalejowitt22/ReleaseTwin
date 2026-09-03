@@ -14,6 +14,10 @@ jobs:
       # release commit, and the push targets only those two derived tags.
       contents: write
       packages: write
+      # id-token: write — lets this job request a GitHub OIDC token, which NuGet.org's
+      # Trusted Publishing exchanges for a short-lived (1h) API key. No NUGET_API_KEY
+      # secret to store or rotate; see the "NuGet login" step below.
+      id-token: write
     steps:
       - uses: actions/checkout@v7
 
@@ -40,22 +44,23 @@ jobs:
         run: echo "version=${GITHUB_REF_NAME#v}" >> "$GITHUB_OUTPUT"
 
       # cli-distribution: the CLI as a .NET global tool on nuget.org. Same build+test gate as
-      # the container below. NUGET_API_KEY is a required secret once the account exists — the
-      # step fails loudly (not skips) if it's missing, so a misconfigured release is obvious.
-      - name: Guard NUGET_API_KEY
-        env:
-          NUGET_API_KEY: ${{ secrets.NUGET_API_KEY }}
-        run: |
-          if [ -z "$NUGET_API_KEY" ]; then
-            echo "::error::NUGET_API_KEY secret is not set — the CLI tool cannot be published. Add it (Settings → Secrets and variables → Actions) or remove the pack/push steps."
-            exit 1
-          fi
-
+      # the container below.
       - name: Pack the CLI tool
         run: dotnet pack src/ReleaseTwin.Cli/ReleaseTwin.Cli.csproj --no-build --configuration Release -p:Version=${{ steps.version.outputs.version }} -o ./artifacts
 
+      # NuGet Trusted Publishing (OIDC): requested right before the push per NuGet's own
+      # guidance — the exchanged API key is valid for only 1 hour. NUGET_USER is a plain
+      # repo variable (the nuget.org username on the trusted-publishing policy), not a
+      # secret — nothing here is sensitive, the whole point of Trusted Publishing is that
+      # there is no long-lived key to store.
+      - name: NuGet login (OIDC -> temp API key)
+        uses: NuGet/login@v1
+        id: nuget-login
+        with:
+          user: ${{ vars.NUGET_USER }}
+
       - name: Push to nuget.org
-        run: dotnet nuget push ./artifacts/*.nupkg --api-key ${{ secrets.NUGET_API_KEY }} --source https://api.nuget.org/v3/index.json --skip-duplicate
+        run: dotnet nuget push ./artifacts/*.nupkg --api-key ${{ steps.nuget-login.outputs.NUGET_API_KEY }} --source https://api.nuget.org/v3/index.json --skip-duplicate
 
       - name: Derive lowercase image name
         id: image
