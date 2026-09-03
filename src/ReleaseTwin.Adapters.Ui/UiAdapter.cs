@@ -59,6 +59,7 @@ public sealed class UiAdapter : IAdapterModule, IDisposable
         ["ui.fill"] = "browser:chromium",
         ["ui.waitFor"] = "browser:chromium",
         ["ui.assertVisible"] = "browser:chromium",
+        ["ui.assertText"] = "browser:chromium",
         ["ui.setCookie"] = "browser:chromium",
         ["ui.closePage"] = "browser:chromium",
     };
@@ -71,6 +72,7 @@ public sealed class UiAdapter : IAdapterModule, IDisposable
             .AddOperation("ui.fill", new FillOperation(_browser, _recordVideoDir))
             .AddOperation("ui.waitFor", new WaitForOperation(_browser, _recordVideoDir))
             .AddOperation("ui.assertVisible", new AssertVisibleOperation(_browser, _recordVideoDir))
+            .AddOperation("ui.assertText", new AssertTextOperation(_browser, _recordVideoDir))
             .AddOperation("ui.setCookie", new SetCookieOperation(_browser, _recordVideoDir))
             .AddCleanup("ui.closePage", new ClosePageCleanup())
             .AddCapability("browser:chromium");

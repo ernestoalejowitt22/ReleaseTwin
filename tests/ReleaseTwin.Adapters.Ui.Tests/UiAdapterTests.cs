@@ -235,6 +235,121 @@ public class UiAdapterTests : IClassFixture<UiAdapterFixture>
         Assert.Equal("not-secret", plainStep.Parameters["value"]);
     }
 
+    // ui-adapter delta (spa-ui-adapter-ergonomics): assert an element's text, exact and contains,
+    // with a {{capture}} feeding the expected value.
+    [Fact]
+    public async Task AssertTextChecksExactAndContainsIncludingACapturedValue()
+    {
+        var executor = BuildExecutor();
+
+        var report = await executor.ExecuteAsync(BuildCase("UI-TEXT-1", new[]
+        {
+            new PipelineStep("ui.navigate",
+                With: new Dictionary<string, object?> { ["url"] = _server.Url },
+                Capture: new[] { new CaptureDeclaration("greeting", "text:#greeting") }),
+            new PipelineStep("ui.assertText", With: new Dictionary<string, object?> { ["selector"] = "#greeting", ["equals"] = "hello" }),
+            new PipelineStep("ui.assertText", With: new Dictionary<string, object?> { ["selector"] = "#greeting", ["contains"] = "ell" }),
+            new PipelineStep("ui.assertText", With: new Dictionary<string, object?> { ["selector"] = "#greeting", ["equals"] = "{{greeting}}" }),
+        }, new[] { new CleanupDeclaration("ui.closePage") }));
+
+        Assert.True(report.Passed, report.FailureDetail);
+    }
+
+    [Fact]
+    public async Task AssertTextFailsClearlyOnAMismatch()
+    {
+        var executor = BuildExecutor();
+
+        var report = await executor.ExecuteAsync(BuildCase("UI-TEXT-2", new[]
+        {
+            new PipelineStep("ui.navigate", With: new Dictionary<string, object?> { ["url"] = _server.Url }),
+            new PipelineStep("ui.assertText", With: new Dictionary<string, object?> { ["selector"] = "#greeting", ["equals"] = "goodbye" }),
+        }, new[] { new CleanupDeclaration("ui.closePage") }));
+
+        Assert.False(report.Passed);
+        Assert.Contains("was 'hello'", report.FailureDetail);
+        Assert.Equal(CleanupStatus.AllSucceeded, report.CleanupStatus);
+    }
+
+    [Fact]
+    public async Task AssertTextAgainstAMissingElementFailsWithoutHanging()
+    {
+        var executor = BuildExecutor();
+
+        var report = await executor.ExecuteAsync(BuildCase("UI-TEXT-3", new[]
+        {
+            new PipelineStep("ui.navigate", With: new Dictionary<string, object?> { ["url"] = _server.Url }),
+            new PipelineStep("ui.assertText", With: new Dictionary<string, object?> { ["selector"] = "#nope", ["equals"] = "x", ["timeoutMs"] = 500 }),
+        }, new[] { new CleanupDeclaration("ui.closePage") }));
+
+        Assert.False(report.Passed);
+    }
+
+    [Fact]
+    public async Task AssertTextRequiresExactlyOneOfEqualsOrContains()
+    {
+        var executor = BuildExecutor();
+
+        var report = await executor.ExecuteAsync(BuildCase("UI-TEXT-4", new[]
+        {
+            new PipelineStep("ui.navigate", With: new Dictionary<string, object?> { ["url"] = _server.Url }),
+            new PipelineStep("ui.assertText", With: new Dictionary<string, object?> { ["selector"] = "#greeting", ["equals"] = "hello", ["contains"] = "ell" }),
+        }, new[] { new CleanupDeclaration("ui.closePage") }));
+
+        Assert.False(report.Passed);
+        Assert.Contains("exactly one of 'equals' or 'contains'", report.FailureDetail);
+    }
+
+    // ui-adapter delta (spa-ui-adapter-ergonomics): ui.waitFor can synchronize on a client-side
+    // route change (history.pushState fires no navigation), matched as a glob against the live URL.
+    [Fact]
+    public async Task WaitForResolvesAfterAClientSideRouteChange()
+    {
+        var executor = BuildExecutor();
+
+        var report = await executor.ExecuteAsync(BuildCase("UI-URLWAIT-1", new[]
+        {
+            new PipelineStep("ui.navigate", With: new Dictionary<string, object?> { ["url"] = _server.Url }),
+            new PipelineStep("ui.click", With: new Dictionary<string, object?> { ["selector"] = "#go-detail" }),
+            new PipelineStep("ui.waitFor", With: new Dictionary<string, object?> { ["url"] = "**/detail/*", ["timeoutMs"] = 3000 }),
+            new PipelineStep("ui.assertText", With: new Dictionary<string, object?> { ["selector"] = "#view", ["contains"] = "detail 42" }),
+        }, new[] { new CleanupDeclaration("ui.closePage") }));
+
+        Assert.True(report.Passed, report.FailureDetail);
+    }
+
+    [Fact]
+    public async Task WaitForUrlTimesOutNamingTheExpectedMatchAndLastUrl()
+    {
+        var executor = BuildExecutor();
+
+        var report = await executor.ExecuteAsync(BuildCase("UI-URLWAIT-2", new[]
+        {
+            new PipelineStep("ui.navigate", With: new Dictionary<string, object?> { ["url"] = _server.Url }),
+            new PipelineStep("ui.waitFor", With: new Dictionary<string, object?> { ["url"] = "**/never-here/*", ["timeoutMs"] = 800 }),
+        }, new[] { new CleanupDeclaration("ui.closePage") }));
+
+        Assert.False(report.Passed);
+        Assert.Contains("never-here", report.FailureDetail);
+        Assert.Contains("last URL was", report.FailureDetail);
+    }
+
+    [Fact]
+    public async Task WaitForRejectsDeclaringBothASelectorAndAUrl()
+    {
+        var executor = BuildExecutor();
+
+        var report = await executor.ExecuteAsync(BuildCase("UI-URLWAIT-3", new[]
+        {
+            new PipelineStep("ui.navigate", With: new Dictionary<string, object?> { ["url"] = _server.Url }),
+            new PipelineStep("ui.waitFor", With: new Dictionary<string, object?> { ["selector"] = "#view", ["url"] = "**/detail/*" }),
+        }, new[] { new CleanupDeclaration("ui.closePage") }));
+
+        Assert.False(report.Passed);
+        Assert.Contains("exactly one wait target", report.FailureDetail);
+        Assert.Equal(CleanupStatus.AllSucceeded, report.CleanupStatus);
+    }
+
     [Fact]
     public void KnownOperationCapabilitiesMatchesWhatRegisterContributes()
     {

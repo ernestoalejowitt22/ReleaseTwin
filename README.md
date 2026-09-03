@@ -37,6 +37,7 @@ for the full map and the reasoning.
 | **`ReleaseTwin.Adapters.Http`** | Vendor-neutral, parameterized: `http.request` + `http.assertJsonPath` test *any* REST API from case-file data alone, no adapter code per target. No credentials to install. |
 | **`ReleaseTwin.Adapters.AzureDevOps`** | One fixed-shape real adapter — work items, prerequisites, cleanup, variable-group flag proof. |
 | **`ReleaseTwin.Adapters.LaunchDarkly`** | Feature-state control against LaunchDarkly for flag proof. |
+| **`ReleaseTwin.Adapters.Ui`** | Opt-in browser leg (Playwright/Chromium): `ui.navigate` / `click` / `fill` / `waitFor` (selector **or** SPA URL) / `assertVisible` / `assertText` / `setCookie`, chained to API legs by the same value-capture. Drives React/Angular/any app — see [docs/spa-testing.md](docs/spa-testing.md). |
 | **`ReleaseTwin.Cli`** | Loads YAML case files, composes adapters (from `releasetwin.yml` or auto-detected credentials), reports pass/fail with a CI-usable exit code. Optionally uploads run metadata to the hosted dashboard when an API token is set. |
 | `ToyHttp` / `ToyFile` | Exist only to stress-test the adapter boundary. |
 | **`integrations/github-action/`** | Apache-2.0 GitHub Action — runs the CLI and renders the result onto a pull request as a comment + check run, using only the workflow's `GITHUB_TOKEN`. |
@@ -178,5 +179,5 @@ Deliberately deferred, each a scoped decision:
 - **Azure DevOps operation parameters** — still fixed-shape; only the HTTP adapter is data-driven.
 - **A non-REST adapter** — anything without a REST surface (a message queue, a vendor SDK) still needs bespoke adapter code.
 - **Flag proof against an SDK-only / streaming flag store** — needs a new `IFeatureStateController`.
-- **External-check connector (Playwright)** — visual/browser evidence isn't wired into the pipeline.
+- **External-check connector** — folding an *externally run* Playwright/Cypress suite's results into a case. (The built-in `ui.*` adapter already drives a browser as a pipeline leg and captures per-step screenshots + a session `.webm` under `RELEASETWIN_EVIDENCE=on` — see [docs/spa-testing.md](docs/spa-testing.md).)
 - **Three-state prerequisites elsewhere** — only Azure DevOps's `areaPathExists` uses the inconclusive state; it's available to any adapter.

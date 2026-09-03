@@ -1,0 +1,4 @@
+{
+  "note": "Fixture for the SPA UI-journey examples (examples/cases-spa/). The journey drives a real browser through a client-side route change and bridges a UI-observed value into an API leg; no fixture content is consumed, but every case still needs a verified fixture.",
+  "order_id": 42
+}

@@ -1,0 +1,47 @@
+# SPDX-FileCopyrightText: 2026 Ernesto Alejo and the ReleaseTwin contributors
+# SPDX-License-Identifier: Apache-2.0
+
+# The Angular twin of react-journey.yaml — identical pipeline shape. The demo
+# apps expose the same `data-testid` hooks, so one case shape drives both
+# frameworks; the only real difference is which app SPA_BASE_URL points at.
+#
+# Setup: serve an Angular SPA with
+#   /            a routerLink with [data-testid="open-42"] into /detail/42
+#   /detail/:id  the id rendered inside [data-testid="detail-id"]
+# and set SPA_BASE_URL (e.g. http://localhost:4174) + API_BASE_URL.
+#
+# Runnable app: examples/apps/angular-demo/ in `releasetwin-ci-examples`.
+id: SPA-ANGULAR-JOURNEY-1
+oracle:
+  locator: docs/spa-testing.md
+fixture:
+  locator: spa-journey.json
+  sha256: e371f7155179835ebb879768eb57d205d5ef5ccde64995c83d326d2846534892
+pipeline:
+  - operation: ui.navigate
+    with:
+      url: ${SPA_BASE_URL}/
+  - operation: ui.click
+    with:
+      selector: '[data-testid="open-42"]'
+  - operation: ui.waitFor
+    with:
+      url: '**/detail/*'
+      timeoutMs: 5000
+  - operation: ui.assertText
+    with:
+      selector: '[data-testid="detail-id"]'
+      contains: "42"
+    capture:
+      - name: orderId
+        from: text:[data-testid="detail-id"]
+  - operation: http.request
+    with:
+      method: GET
+      url: ${API_BASE_URL}/get?order={{orderId}}
+  - operation: http.assertJsonPath
+    with:
+      path: $.args.order
+      expected: "{{orderId}}"
+cleanup:
+  - operation: ui.closePage
