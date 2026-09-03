@@ -1,42 +1,72 @@
 ## 1. New repo scaffold
 
-- [ ] 1.1 Create `releasetwin-ci-examples` (public, GitHub, Apache-2.0 LICENSE,
-      same author/supplier metadata pattern as `ReleaseTwin`'s `REUSE.toml`).
-- [ ] 1.2 Top-level `README.md` stub: what the repo proves, one row per demo
-      app / pipeline (fill in badges once each pipeline has a real run).
-- [ ] 1.3 `.gitignore` for Node (`node_modules/`, build output) + CI artifacts.
+- [x] 1.1 Created `releasetwin-ci-examples` (public, GitHub, Apache-2.0
+      LICENSE). REUSE.toml deferred — single-license repo, LICENSE file at
+      root is sufficient; revisit only if per-file license mix is ever needed.
+- [x] 1.2 Top-level `README.md` stub added.
+- [x] 1.3 `.gitignore` added.
 
 ## 2. Express demo app
 
-- [ ] 2.1 `apps/express-demo/` — ~40-line Express app, one real behaviour bug
-      gated behind one feature flag, plus a local flag-toggle endpoint the
-      `flag_proof.control` block can drive (per `express-flag-proof-example`'s
-      original scope).
-- [ ] 2.2 Decide and implement the case-wiring mechanism left open in
-      `design.md` (shallow-clone `ReleaseTwin`'s `examples/cases-express/` at a
-      pinned ref vs. vendoring a copy here) — pick the simplest that keeps the
-      case in sync with the engine repo without manual duplication drift.
-- [ ] 2.3 Verify locally: boot the app, run the CLI (`ghcr.io/…/cli:<pinned>`)
-      against the case, confirm known-bad fails and known-good passes.
+- [x] 2.1 `apps/express-demo/` built — `server.js`, `package.json`,
+      `README.md`. `GET /orders/:id` omits tax unless `orders-v2` is enabled;
+      `GET`/`PUT /admin/flags/:key` toggle it over REST. `npm audit` flagged a
+      moderate `qs` DoS advisory in Express 4.22.2's transitive deps (no fix
+      available on the 4.x line) — accepted for a non-production, local-only
+      demo rather than risking an Express 5 migration for it.
+- [x] 2.2 Case-wiring: the CLI resolves `examples/cases-express/` directly
+      from `ReleaseTwin` (no clone/vendor needed) — verified by running
+      `dotnet run --project src/ReleaseTwin.Cli -- run examples/cases-express`
+      from that repo. Simpler than either option `design.md` posed, since the
+      case files already live there and don't need to travel with this repo.
+      (Along the way, found and fixed a false alarm: I initially thought the
+      cases' fixtures were missing — they're not, they resolve from
+      `examples/fixtures/`, a directory outside `cases-express/`/`cases-spa/`
+      that my first search missed. Reverted that incorrect edit.)
+- [x] 2.3 Verified: booted the app, ran the real cases via `dotnet run`
+      (not yet the packaged CLI image) —
+      `PASS EXPRESS-CONTRACT-1` / `FLAGPROOF EXPRESS-FLAGPROOF-1 (Passed)`,
+      2 passed, 0 failed. Matches `docs/express.md`'s documented output
+      exactly.
 
 ## 3. React + Angular demo apps
 
-- [ ] 3.1 `apps/react-demo/` and `apps/angular-demo/` — one screen, one
-      client-side route change, one rendered value each (per
-      `spa-ui-adapter-ergonomics`'s original scope).
-- [ ] 3.2 Wire `examples/cases-spa/` the same way as 2.2 (shallow-clone or
-      vendored copy — reuse whichever choice 2.2 made for consistency).
-- [ ] 3.3 Verify locally: each demo's route-change → `ui.assertText` → capture
-      → API-leg case passes via `RELEASETWIN_UI_ENABLED=1`.
+- [x] 3.1 `apps/react-demo/` (Vite + React Router 7) and `apps/angular-demo/`
+      (Angular CLI 18, `--minimal`) built — home → route change to
+      `/detail/42` → rendered id, plus a cookie-gated `/admin` route for
+      `admin-cookie.yaml`. `react-router-dom` and Vite's `esbuild` had
+      moderate/high advisories at the versions `npm install` picked; both
+      resolved via `npm audit fix --force` (react-router-dom 6→7, vite 5→8) —
+      verified the app still builds and the real cases still pass after the
+      bump. Angular's own `npm audit` shows many findings, all in
+      `@angular/cli`'s build toolchain (webpack/esbuild/rollup, dev-only,
+      never in the shipped bundle) — accepted, same reasoning as 2.1.
+- [x] 3.2 Case-wiring: same answer as 2.2 — the CLI resolves
+      `examples/cases-spa/` directly from `ReleaseTwin`, no clone/vendor step.
+- [x] 3.3 Verified against real running instances: `SPA-REACT-JOURNEY-1` +
+      `SPA-ADMIN-COOKIE-1` passed against `react-demo`;
+      `SPA-ANGULAR-JOURNEY-1` + `SPA-ADMIN-COOKIE-1` passed against
+      `angular-demo` — all via `RELEASETWIN_UI_ENABLED=1` with a real
+      Playwright browser, `API_BASE_URL=https://postman-echo.com` for the API
+      leg.
 
 ## 4. GitHub Actions (buildable and verifiable now)
 
-- [ ] 4.1 `.github/workflows/express.yml` — boot `apps/express-demo/`, run its
-      case, fail the job on a case failure or adverse flag-proof verdict.
-- [ ] 4.2 `.github/workflows/react.yml` + `.github/workflows/angular.yml` (or
-      one matrixed workflow) — same shape for the SPA demos.
-- [ ] 4.3 Push, confirm all GitHub Actions jobs green. This is the first real
-      proof point and needs no new account.
+- [x] 4.1 `.github/workflows/express.yml` — boots `apps/express-demo/`, runs
+      its cases via the published `ghcr.io/…/releasetwin/cli:0.2.0` image.
+      First run failed: mounted only `cases-express/`, but fixtures resolve
+      from a sibling `fixtures/` dir next to the cases root — fixed by
+      mounting the whole `examples/` dir instead.
+- [x] 4.2 `.github/workflows/react.yml` + `.github/workflows/angular.yml` —
+      the published CLI image has the UI adapter compiled in but no Chromium
+      (see the Dockerfile's own comment), so these two build the engine from
+      source and install Playwright's Chromium instead, same as
+      `ReleaseTwin`'s own `ci.yml` does for `ReleaseTwin.Adapters.Ui.Tests`.
+- [x] 4.3 Pushed, all three green after one fix round: Express's mount (4.1)
+      and a react-demo `npm ci` failure — `vite@8` + `@vitejs/plugin-react@4`
+      (only supports vite up to ^7) peer conflict, bumped plugin-react to
+      `^6.1.1`. Angular was green on the first push. Confirmed via
+      `gh run list --repo ernestoalejowitt22/releasetwin-ci-examples`.
 
 ## 5. Bitbucket mirror + pipeline (blocked on a Bitbucket account)
 
