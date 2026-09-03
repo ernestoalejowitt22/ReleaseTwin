@@ -38,10 +38,10 @@ precedence = "override"
 SPDX-FileCopyrightText = "2026 Ernesto Alejo and the ReleaseTwin contributors"
 SPDX-License-Identifier = "Apache-2.0"
 
-# --- Integrations (the GitHub Action): Apache-2.0 --------------------------------
-# ci-pr-integration: the PR-annotations Action is deliberately permissive, independent of
-# the engine's copyleft, so it can be forked and adapted freely. It runs the published CLI
-# container and talks only to GitHub's own APIs — it links nothing from src/.
+# --- Integrations (the GitHub Action, the GitLab CI/CD Component): Apache-2.0 ------
+# ci-pr-integration: the CI integrations are deliberately permissive, independent of the
+# engine's copyleft, so they can be forked and adapted freely. They run the published CLI
+# container and talk only to the CI platform's own surfaces — they link nothing from src/.
 [[annotations]]
 path = ["integrations/**"]
 precedence = "override"

@@ -421,10 +421,13 @@ public sealed class CliRunner
                 return 1;
             }
 
-            // ci-pr-integration: build the JSON run summary from the same per-case results printed
-            // below, when --summary-json / RELEASETWIN_SUMMARY_JSON is set (design.md D-A).
+            // ci-pr-integration / ci-report-formats: build the per-case summary from the same results
+            // printed below whenever a machine-readable report was requested — the JSON summary
+            // (--summary-json) and/or the JUnit report (--junit-xml). The JUnit report is projected
+            // from the same rows at write time. design.md D2.
             var summaryPath = Get("RELEASETWIN_SUMMARY_JSON") is { Length: > 0 } sp ? sp : null;
-            var summary = summaryPath is null ? null : new RunSummaryBuilder();
+            var junitPath = Get("RELEASETWIN_JUNIT_XML") is { Length: > 0 } jp ? jp : null;
+            var summary = summaryPath is null && junitPath is null ? null : new RunSummaryBuilder();
             // pr-annotation-evidence-link: the project-dashboard URL, taken from the first successful
             // upload's response. Stays null when nothing was uploaded.
             string? runUrl = null;
@@ -563,17 +566,34 @@ public sealed class CliRunner
 
             output.WriteLine($"{passed} passed, {failed} failed");
 
-            if (summaryPath is not null && summary is not null)
+            if (summary is not null && (summaryPath is not null || junitPath is not null))
             {
-                // Written on pass or fail (design.md D-A). The destination directory was validated
-                // up front in CliEntrypoint, so this only fails on a genuine I/O fault.
-                try
+                // Written on pass or fail (design.md D-A / D2). The destination directories were
+                // validated up front in CliEntrypoint, so these only fail on a genuine I/O fault.
+                var built = summary.Build(runUrl);
+
+                if (summaryPath is not null)
                 {
-                    RunSummaryWriter.Write(summaryPath, summary.Build(runUrl));
+                    try
+                    {
+                        RunSummaryWriter.Write(summaryPath, built);
+                    }
+                    catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+                    {
+                        output.WriteLine($"WARN: failed to write run summary to {summaryPath}: {ex.Message}");
+                    }
                 }
-                catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+
+                if (junitPath is not null)
                 {
-                    output.WriteLine($"WARN: failed to write run summary to {summaryPath}: {ex.Message}");
+                    try
+                    {
+                        JUnitReportWriter.Write(junitPath, built);
+                    }
+                    catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+                    {
+                        output.WriteLine($"WARN: failed to write JUnit report to {junitPath}: {ex.Message}");
+                    }
                 }
             }
 

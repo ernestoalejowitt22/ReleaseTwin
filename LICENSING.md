@@ -5,7 +5,7 @@ This repository is the **ReleaseTwin engine**. Two licenses apply, by directory.
 | Path | License | |
 |---|---|---|
 | `src/**`, `tests/**`, `docs/**`, `openspec/**`, repo-root build glue (`ReleaseTwin.sln`, `Dockerfile`, CI) | **AGPL-3.0** (`LICENSE`) + the **Adapter Linking Exception** (`LICENSE.EXCEPTIONS`) | the engine |
-| `examples/**`, `integrations/**` | **Apache-2.0** (`examples/LICENSE`, `integrations/github-action/LICENSE`) | starter cases/fixtures (meant to be copied) + the GitHub Action |
+| `examples/**`, `integrations/**` | **Apache-2.0** (`examples/LICENSE`, `integrations/github-action/LICENSE`, `integrations/gitlab-component/LICENSE`) | starter cases/fixtures (meant to be copied) + the GitHub Action + the GitLab CI/CD Component |
 
 The hosted platform (the SaaS dashboard at [releasetwin.com](https://releasetwin.com))
 is a separate, private codebase under the Business Source License 1.1. It is not
@@ -41,13 +41,14 @@ it, stay AGPL-3.0.
 `src/ReleaseTwin.AdapterSdk/` — the exception, not a conflicting license on a
 project that links AGPL code, is what keeps adapter authors free.)
 
-## The examples and the Action — Apache-2.0
+## The examples and the CI integrations — Apache-2.0
 
 `examples/` is [Apache-2.0](./examples/LICENSE) so that `releasetwin init` can
 copy a starter case and fixture into **your** project without attaching a
-copyleft license to your test suite. `integrations/github-action/` is
-Apache-2.0 too — it runs the published CLI container and talks only to GitHub's
-own APIs, links nothing from `src/`, and is meant to be forked and adapted.
+copyleft license to your test suite. `integrations/github-action/` and
+`integrations/gitlab-component/` are Apache-2.0 too — they run the published CLI
+container and talk only to the CI platform's own surfaces, link nothing from
+`src/`, and are meant to be forked and adapted.
 
 ## Why AGPL for the engine
 

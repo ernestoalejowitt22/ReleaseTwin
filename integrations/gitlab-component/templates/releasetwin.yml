@@ -1,0 +1,44 @@
+# SPDX-FileCopyrightText: 2026 Ernesto Alejo and the ReleaseTwin contributors
+# SPDX-License-Identifier: Apache-2.0
+#
+# ReleaseTwin GitLab CI/CD Component — runs the ReleaseTwin CLI over a case suite and
+# feeds the result into GitLab's native merge-request test widget and pipeline Tests tab
+# via a JUnit report. No ReleaseTwin account and no GitLab API token are involved:
+# execution stays entirely in your CI, and the widget is populated by the JUnit artifact
+# alone. See ../README.md.
+
+spec:
+  inputs:
+    cases-path:
+      default: cases
+      description: Path (relative to the project root) to the directory of case files to run.
+    image:
+      # Immutable pin, advanced to a fresh digest on each tagged engine release — the same
+      # default the GitHub Action carries. Override with your own released version
+      # (…/cli:0.3.0) or a digest (…/cli@sha256:…); a mutable tag still runs.
+      default: ghcr.io/ernestoalejowitt22/releasetwin/cli:0.2.0
+      description: ReleaseTwin CLI container image. Must be publicly pullable.
+    stage:
+      default: test
+      description: Pipeline stage the ReleaseTwin job runs in.
+    job-name:
+      default: releasetwin
+      description: Name of the generated job.
+---
+"$[[ inputs.job-name ]]":
+  stage: $[[ inputs.stage ]]
+  image:
+    name: $[[ inputs.image ]]
+    # GitLab runs the job script through a shell, so the image's own ENTRYPOINT
+    # (dotnet ReleaseTwin.Cli.dll) must be cleared and the CLI invoked explicitly.
+    entrypoint: [""]
+  script:
+    # /app is the engine Dockerfile's publish location (WORKDIR /app, publish -o /app).
+    - dotnet /app/ReleaseTwin.Cli.dll "$[[ inputs.cases-path ]]" --junit-xml junit.xml --summary-json summary.json
+  artifacts:
+    when: always
+    paths:
+      - junit.xml
+      - summary.json
+    reports:
+      junit: junit.xml

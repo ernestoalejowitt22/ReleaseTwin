@@ -103,6 +103,108 @@ and that's your merge gate, no comment noise.
 See [`integrations/github-action/README.md`](../integrations/github-action/README.md) for
 every input. This repo dogfoods the Action in `.github/workflows/pr-annotations.yml`.
 
+## Other CI platforms
+
+The GitHub Action's PR comment + check run are GitHub-specific. Every other major CI
+platform ingests **JUnit XML** natively, so `--junit-xml <path>` (or
+`RELEASETWIN_JUNIT_XML`) gives you a native test view — a per-case table, history, and
+merge-request annotations — with no ReleaseTwin package to install on those platforms.
+
+```bash
+releasetwin ./cases --junit-xml junit.xml
+```
+
+The report carries only what the CLI already prints — case ids, outcomes, failure
+classifications, and flag-proof verdict names. No bodies, no headers, no secrets, even
+when evidence capture is on. Written on pass or fail; nothing is written without the flag.
+
+### Outcome mapping
+
+| Run result | JUnit `<testcase>` |
+|---|---|
+| case passed · flag proof `Passed` | pass |
+| case failed | `<failure>` (message = the failure classification) |
+| flag proof `WeakOracle` / `BothFailed` / `Inverted` | `<failure>` (message = the verdict) |
+| flag proof `Ineligible` / `ControlFailed` / `ControlUnverified` | `<failure>` (message = the verdict) |
+
+There is no `skipped` state. A flag-proof case that asked for a paired run and did not
+get one — `Ineligible` (no toggle mechanism), `ControlFailed`, `ControlUnverified` —
+shows as a **failure** in the widget. This is deliberately stricter than the CLI's own
+exit code, which does not fail a run on `Ineligible`: the widget answers "is this build
+release-proven?", and a `flag_proof` case that never ran paired is not evidence. The full
+nuance stays in `--summary-json` and the CLI's own output. If an environment legitimately
+cannot perform flag proof, don't declare `flag_proof` on the cases that run there, or run
+them in a separate job.
+
+### GitLab
+
+`integrations/gitlab-component/` is an Apache-2.0 GitLab CI/CD Component. Include it and
+the merge-request test widget and pipeline **Tests** tab populate automatically from the
+run — no GitLab API token, no ReleaseTwin account.
+
+```yaml
+include:
+  - component: $CI_SERVER_FQDN/releasetwin/releasetwin/releasetwin@0.2.0
+    inputs:
+      cases-path: cases
+
+stages:
+  - test
+```
+
+The job exits non-zero on any case failure or adverse flag-proof verdict — make it a
+required check on the protected branch. See
+[`integrations/gitlab-component/README.md`](../integrations/gitlab-component/README.md)
+for every input and the `remote:` include form for instances without the CI/CD Catalog.
+
+### Bitbucket Pipelines
+
+Bitbucket collects test results from any `**/test-results/*.xml` (or `**/junit.xml`) it
+finds after a step — no configuration key needed.
+
+```yaml
+pipelines:
+  pull-requests:
+    '**':
+      - step:
+          name: Release-proof gate
+          image: ghcr.io/ernestoalejowitt22/releasetwin/cli:0.2.0
+          script:
+            - dotnet /app/ReleaseTwin.Cli.dll ./cases --junit-xml test-results/junit.xml
+```
+
+### CircleCI
+
+```yaml
+jobs:
+  release-proof:
+    docker:
+      - image: ghcr.io/ernestoalejowitt22/releasetwin/cli:0.2.0
+    steps:
+      - checkout
+      - run: dotnet /app/ReleaseTwin.Cli.dll ./cases --junit-xml /tmp/test-results/junit.xml
+      - store_test_results:
+          path: /tmp/test-results
+```
+
+### Azure Pipelines
+
+```yaml
+steps:
+  - script: dotnet /app/ReleaseTwin.Cli.dll ./cases --junit-xml $(Build.ArtifactStagingDirectory)/junit.xml
+    displayName: Release-proof gate
+  - task: PublishTestResults@2
+    condition: always()
+    inputs:
+      testResultsFormat: JUnit
+      testResultsFiles: '$(Build.ArtifactStagingDirectory)/junit.xml'
+```
+
+(Run the `script` step inside a container job with the CLI image, or install the CLI as a
+`dotnet` global tool first — see options B/C above.)
+
+Jenkins consumes the same file with the built-in `junit 'junit.xml'` step.
+
 ## Credentials
 
 - HTTP-only cases need nothing.
