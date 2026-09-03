@@ -16,6 +16,7 @@ path = [
   "src/**",
   "tests/**",
   "docs/**",
+  "demo/**",
   "openspec/**",
   "ReleaseTwin.sln",
   "Dockerfile",
