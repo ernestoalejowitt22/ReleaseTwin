@@ -119,7 +119,8 @@ service that takes a moment to propagate a change can report a false
 The `control` + `verify` path is exercised end-to-end against a real
 feature-flag REST API (LaunchDarkly's) by
 `web/cypress/e2e/launchdarkly-http-flag-control.cy.ts`, run on demand and
-nightly by `.github/workflows/ld-http-flag-control-e2e.yml`.
+nightly by `.github/workflows/ld-http-flag-control-e2e.yml` — both in the
+private `releasetwin-platform` repo, not here.
 
 ### Shared control template (`releasetwin.yml`)
 

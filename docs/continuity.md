@@ -5,7 +5,8 @@ to your ability to work if we slow down, get acquired, or shut down entirely. It
 commitment, not a side effect of open-sourcing the core.
 
 The public version of this lives as a section on the marketing security page
-(`web/src/app/(marketing)/docs/security/page.tsx`); keep the two in sync.
+(`web/src/app/(marketing)/docs/security/page.tsx`, private `releasetwin-platform` repo);
+keep the two in sync.
 
 ---
 
