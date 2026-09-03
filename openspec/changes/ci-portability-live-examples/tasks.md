@@ -70,27 +70,44 @@
 
 ## 5. Bitbucket mirror + pipeline (blocked on a Bitbucket account)
 
-- [ ] 5.1 **Needs the user to create a Bitbucket Cloud account/workspace** —
-      not performable by an agent.
-- [ ] 5.2 Add a GitHub Actions job that push-mirrors `main` to the Bitbucket
-      Cloud repo on every push to `main`, using a Bitbucket app password or
-      access token stored as a GitHub secret. Fail visibly (not silently) if
-      the mirror push fails, per `design.md`'s risk mitigation.
-- [ ] 5.3 `bitbucket-pipelines.yml` at repo root — boot each demo app, run its
-      case via the CLI image, same behavior as the GitHub Actions jobs.
-- [ ] 5.4 **Needs the user to connect the mirrored Bitbucket repo to Bitbucket
-      Pipelines** (enable Pipelines in repo settings) and confirm one real
-      green run.
+- [x] 5.1 User confirmed the Bitbucket workspace already exists:
+      https://bitbucket.org/releasetwin/workspace/overview/ (2026-09-03).
+- [x] 5.2 `.github/workflows/mirror-to-bitbucket.yml` added — force-pushes
+      `main` to `bitbucket.org/releasetwin/releasetwin-ci-examples.git` using
+      `BITBUCKET_USERNAME`/`BITBUCKET_APP_PASSWORD` secrets (not yet set — see
+      credential-preflight output). Fails visibly on push failure (no `||
+      true`), per `design.md`.
+- [x] 5.3 `bitbucket-pipelines.yml` at repo root — written, **not using the
+      CLI image** as originally scoped: Bitbucket's Docker-in-Docker doesn't
+      cleanly reach a service the same step just booted on localhost, so
+      (like react.yml/angular.yml) it builds the engine from source and
+      installs Playwright directly. All three demos run this way for
+      consistency. Not yet verified against a real Bitbucket Pipeline (needs
+      5.4's credentials + the mirror to actually run first).
+- [ ] 5.4 **Blocked on credentials, not the account**: a Bitbucket App
+      Password (Repositories: Admin, Pipelines: Write) + username, to (a)
+      create the mirror repo, (b) enable Pipelines via API, (c) let the
+      mirror job push. Requested from the user via credential-preflight
+      (2026-09-03) — not yet provided.
 
 ## 6. Azure Pipelines (blocked on an Azure DevOps account)
 
-- [ ] 6.1 **Needs the user to create an Azure DevOps organization/project** —
-      not performable by an agent.
-- [ ] 6.2 `azure-pipelines.yml` at repo root, platform-agnostic (no hardcoded
-      org/project name) — same boot-and-run shape as the other two.
-- [ ] 6.3 **Needs the user to create an Azure Pipeline pointed at the
-      `releasetwin-ci-examples` GitHub repo** (external Git source — no mirror
-      needed, per `design.md`) and confirm one real green run.
+- [x] 6.1 User confirmed the org/project already exist:
+      https://ernestotesting.visualstudio.com/My%20First%20Project
+      (2026-09-03).
+- [x] 6.2 `azure-pipelines.yml` at repo root — platform-agnostic (no
+      hardcoded org/project name), three jobs (one per demo), same
+      build-from-source + Playwright approach as react.yml/angular.yml/
+      bitbucket-pipelines.yml, for the same reason (published CLI image has
+      no Chromium).
+- [ ] 6.3 **Blocked on credentials, not the account**: an Azure DevOps PAT
+      (Build: Read & execute; Service Connections: Read, query & manage;
+      Project and Team: Read) to create the pipeline + a GitHub service
+      connection via REST API, and a GitHub PAT (repo/contents:read on
+      `releasetwin-ci-examples`) for that service connection to authenticate
+      with. Requested from the user via credential-preflight (2026-09-03) —
+      not yet provided. (No mirror needed here — Azure Pipelines builds the
+      GitHub repo directly.)
 
 ## 7. Close the loop in the engine repo
 
