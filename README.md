@@ -10,7 +10,8 @@ The engine runs entirely in your own infrastructure — your laptop or your CI
 runner. It needs no account and makes no network call to any ReleaseTwin service
 to run a case. A hosted dashboard for run history and evidence is available at
 [releasetwin.com](https://releasetwin.com); it is optional and this repo does not
-depend on it.
+depend on it. See [releasetwin.com/pricing](https://releasetwin.com/pricing) for
+what the free CLI vs. paid hosted tiers each include.
 
 **New here?** [docs/quickstart.md](docs/quickstart.md) — test your first API in
 10 minutes with `docker run`, no account, no clone.
