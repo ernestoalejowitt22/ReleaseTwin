@@ -1,0 +1,30 @@
+# SPDX-FileCopyrightText: 2026 Ernesto Alejo and the ReleaseTwin contributors
+# SPDX-License-Identifier: Apache-2.0
+
+# Shared flag-proof control template for every case in this directory. Each case
+# then declares only its `feature_key`.
+#
+# The target is the express-demo app (releasetwin-ci-examples/apps/express-demo).
+# Its flag endpoints are unauthenticated, so there is no `${FLAGS_TOKEN}` here —
+# point ${API_BASE_URL} at the running demo (e.g. http://localhost:4599) and that
+# is the whole setup.
+#
+#   PUT ${API_BASE_URL}/admin/flags/<key>   { "state": "enabled" | "disabled" }
+#   GET ${API_BASE_URL}/admin/flags/<key>   -> { "key": "<key>", "state": ... }
+#
+# `${API_BASE_URL}` resolves at case-load time from the environment (or this
+# project's hosted secrets); it is never inlined.
+flag_proof:
+  control:
+    method: PUT
+    url: ${API_BASE_URL}/admin/flags/{{featureKey}}
+    body: '{ "state": "{{state}}" }'
+    known_bad_when: disabled
+    # The demo holds flag state in one process and is read-your-writes, so the
+    # read-back below is safe. Drop `verify` against an eventually-consistent
+    # flag service.
+    verify:
+      method: GET
+      url: ${API_BASE_URL}/admin/flags/{{featureKey}}
+      json_path: $.state
+      expected: "{{state}}"

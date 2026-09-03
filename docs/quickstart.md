@@ -100,6 +100,9 @@ mistake, not a silent skip. Credentials themselves never go in this file.
 - The bundled example cases and the [README](../README.md) cover flag proof (the paired
   known-bad / known-good run that tells a broken build from a fixed one) and the hosted
   dashboard.
+- [Release-proof your Express API](express.md) — a runnable Node/Express demo with a bug
+  behind a feature flag, and the flag proof that catches it. The same `http` case works
+  unchanged for Fastify, Nest, and Next.js route handlers.
 - [Testing a React or Angular app](spa-testing.md) — drive a SPA through a real browser as
   one leg of a journey: wait on a client-side route, assert rendered text, bridge a
   UI-observed value into an API leg.
