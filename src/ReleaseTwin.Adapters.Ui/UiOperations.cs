@@ -97,11 +97,41 @@ internal sealed class WaitForOperation : UiOperationBase
 
     protected override async Task<OperationResult> RunAsync(CaseExecutionContext context, IReadOnlyDictionary<string, object?> parameters, IReadOnlyList<CaptureDeclaration> captures, CancellationToken cancellationToken)
     {
-        if (!parameters.TryGetValue("selector", out var selectorObj) || selectorObj is not string selector || string.IsNullOrWhiteSpace(selector))
+        var hasSelector = parameters.TryGetValue("selector", out var selectorObj) && selectorObj is string selector && !string.IsNullOrWhiteSpace(selector);
+        var hasUrl = parameters.TryGetValue("url", out var urlObj) && urlObj is string url && !string.IsNullOrWhiteSpace(url);
+
+        if (hasSelector && hasUrl)
         {
-            return OperationResult.Fail("ui.waitFor requires a 'selector' parameter");
+            return OperationResult.Fail("ui.waitFor takes exactly one wait target — a 'selector' or a 'url', not both");
         }
 
+        if (!hasSelector && !hasUrl)
+        {
+            return OperationResult.Fail("ui.waitFor requires a 'selector' or a 'url' parameter");
+        }
+
+        // ui-adapter (spa-ui-adapter-ergonomics): wait for a client-side route change, so a case can
+        // synchronize on a single-page-app navigation that fires no full page load. `url` is matched
+        // as a substring, or as a glob when it contains '*' ('*' -> any run of characters).
+        if (hasUrl)
+        {
+            var pattern = (string)urlObj!;
+            try
+            {
+                var page = await UiOperationSupport.GetOrCreatePageAsync(context, Browser, RecordVideoDir);
+                await page.WaitForURLAsync(
+                    current => UrlMatches(current, pattern),
+                    new PageWaitForURLOptions { Timeout = ClickOperation.TimeoutMs(parameters) });
+                return await UiOperationSupport.CompleteAsync(page, captures);
+            }
+            catch (Exception ex) when (ex is PlaywrightException or TimeoutException)
+            {
+                var page = await UiOperationSupport.GetOrCreatePageAsync(context, Browser, RecordVideoDir);
+                return OperationResult.Fail($"ui.waitFor timed out waiting for the URL to match '{pattern}'; last URL was '{page.Url}'");
+            }
+        }
+
+        var selectorValue = (string)selectorObj!;
         var state = parameters.TryGetValue("state", out var stateObj) && stateObj is string stateName
             ? ParseState(stateName)
             : WaitForSelectorState.Visible;
@@ -114,13 +144,24 @@ internal sealed class WaitForOperation : UiOperationBase
         try
         {
             var page = await UiOperationSupport.GetOrCreatePageAsync(context, Browser, RecordVideoDir);
-            await page.WaitForSelectorAsync(selector, new PageWaitForSelectorOptions { State = state, Timeout = ClickOperation.TimeoutMs(parameters) });
+            await page.WaitForSelectorAsync(selectorValue, new PageWaitForSelectorOptions { State = state, Timeout = ClickOperation.TimeoutMs(parameters) });
             return await UiOperationSupport.CompleteAsync(page, captures);
         }
         catch (Exception ex) when (ex is PlaywrightException or TimeoutException)
         {
             return OperationResult.Fail(ex.Message);
         }
+    }
+
+    internal static bool UrlMatches(string current, string pattern)
+    {
+        if (!pattern.Contains('*'))
+        {
+            return current.Contains(pattern, StringComparison.Ordinal);
+        }
+
+        var regex = "^" + string.Join(".*", pattern.Split('*').Select(System.Text.RegularExpressions.Regex.Escape)) + "$";
+        return System.Text.RegularExpressions.Regex.IsMatch(current, regex);
     }
 
     private static WaitForSelectorState? ParseState(string name) => name switch
@@ -131,6 +172,59 @@ internal sealed class WaitForOperation : UiOperationBase
         "detached" => WaitForSelectorState.Detached,
         _ => null,
     };
+}
+
+/// <summary>
+/// ui-adapter (spa-ui-adapter-ergonomics): asserts an element's rendered text, so a case can check
+/// *what* a component rendered, not just that it is present (which is <c>ui.assertVisible</c>).
+/// Exactly one of <c>equals</c> / <c>contains</c> is required; its value has already had
+/// <c>${VAR}</c> (load time) and <c>{{capture}}</c> (per run) substitution applied by the core.
+/// </summary>
+internal sealed class AssertTextOperation : UiOperationBase
+{
+    public AssertTextOperation(IBrowser browser, string? recordVideoDir = null) : base(browser, recordVideoDir) { }
+
+    protected override string ActionName => "ui.assertText";
+
+    protected override async Task<OperationResult> RunAsync(CaseExecutionContext context, IReadOnlyDictionary<string, object?> parameters, IReadOnlyList<CaptureDeclaration> captures, CancellationToken cancellationToken)
+    {
+        if (!parameters.TryGetValue("selector", out var selectorObj) || selectorObj is not string selector || string.IsNullOrWhiteSpace(selector))
+        {
+            return OperationResult.Fail("ui.assertText requires a 'selector' parameter");
+        }
+
+        var hasEquals = parameters.TryGetValue("equals", out var equalsObj) && equalsObj is string;
+        var hasContains = parameters.TryGetValue("contains", out var containsObj) && containsObj is string;
+
+        if (hasEquals == hasContains)
+        {
+            return OperationResult.Fail("ui.assertText requires exactly one of 'equals' or 'contains'");
+        }
+
+        try
+        {
+            var page = await UiOperationSupport.GetOrCreatePageAsync(context, Browser, RecordVideoDir);
+            var actual = await page.InnerTextAsync(selector, new PageInnerTextOptions { Timeout = ClickOperation.TimeoutMs(parameters) });
+            var trimmed = actual.Trim();
+
+            if (hasEquals)
+            {
+                var expected = (string)equalsObj!;
+                return trimmed == expected
+                    ? await UiOperationSupport.CompleteAsync(page, captures)
+                    : OperationResult.Fail($"element '{selector}' text was '{trimmed}', expected exactly '{expected}'");
+            }
+
+            var needle = (string)containsObj!;
+            return trimmed.Contains(needle, StringComparison.Ordinal)
+                ? await UiOperationSupport.CompleteAsync(page, captures)
+                : OperationResult.Fail($"element '{selector}' text was '{trimmed}', expected it to contain '{needle}'");
+        }
+        catch (Exception ex) when (ex is PlaywrightException or TimeoutException)
+        {
+            return OperationResult.Fail(ex.Message);
+        }
+    }
 }
 
 internal sealed class AssertVisibleOperation : UiOperationBase

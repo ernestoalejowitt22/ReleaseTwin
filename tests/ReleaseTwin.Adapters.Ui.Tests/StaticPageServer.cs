@@ -25,6 +25,11 @@ public sealed class StaticPageServer : IDisposable
           <pre id="cookies">__COOKIES__</pre>
           <div id="delayed" style="display:none">now visible</div>
           <script>setTimeout(function () { document.getElementById('delayed').style.display = 'block'; }, 1400);</script>
+          <div id="view">list</div>
+          <button id="go-detail" onclick="
+            history.pushState({}, '', '/detail/42');
+            document.getElementById('view').innerText = 'detail 42';
+          ">Detail</button>
         </body>
         </html>
         """;
