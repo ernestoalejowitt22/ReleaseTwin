@@ -24,6 +24,8 @@ jobs:
           node-version: "20"
       - name: Unit-test the summary renderer
         run: node --test integrations/github-action/render.test.mjs
+      - name: Lint the GitLab CI/CD Component template
+        run: node --test integrations/gitlab-component/templates/releasetwin.test.mjs
 
   annotate:
     runs-on: ubuntu-latest

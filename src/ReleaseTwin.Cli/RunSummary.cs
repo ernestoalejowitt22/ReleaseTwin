@@ -95,14 +95,9 @@ public static class RunSummaryWriter
     /// <summary>
     /// ci-pr-integration design.md D-B: the destination's parent directory must already exist.
     /// Returns a one-line error message for the caller to print, or null when the path is usable.
+    /// Shares <see cref="ReportDestination"/> with the JUnit report writer (ci-report-formats).
     /// </summary>
-    public static string? ValidateDestination(string path)
-    {
-        var directory = Path.GetDirectoryName(Path.GetFullPath(path));
-        return !string.IsNullOrEmpty(directory) && !Directory.Exists(directory)
-            ? $"--summary-json: directory does not exist: {directory}"
-            : null;
-    }
+    public static string? ValidateDestination(string path) => ReportDestination.Validate(path, "--summary-json");
 
     public static void Write(string path, RunSummary summary) =>
         File.WriteAllText(path, JsonSerializer.Serialize(summary, Options) + Environment.NewLine);

@@ -57,58 +57,83 @@ public static class CliEntrypoint
         // `run` — same behaviour as no subcommand, just with the leading `run` stripped.
         var runArgs = head == "run" ? args.Skip(1).ToArray() : args;
 
-        // ci-pr-integration: `--summary-json <path>` (flag wins over RELEASETWIN_SUMMARY_JSON) is
-        // lifted out of the args here and threaded to the run loop as an environment value, so no
-        // run-path plumbing changes. design.md D-A / D-B.
-        var (cleanedArgs, summaryPath, summaryError) = ExtractSummaryJson(runArgs, environment);
+        // ci-pr-integration / ci-report-formats: `--summary-json <path>` and `--junit-xml <path>`
+        // (flag wins over the matching env var) are lifted out of the args here and threaded to the
+        // run loop as environment values, so no run-path plumbing changes. design.md D-A / D-B.
+        var (cleanedArgs, summaryPath, summaryError) = ExtractReportPath(
+            runArgs, environment, "--summary-json", "summary.json", "RELEASETWIN_SUMMARY_JSON", RunSummaryWriter.ValidateDestination);
         if (summaryError is not null)
         {
             output.WriteLine(summaryError);
             return Task.FromResult(1);
         }
 
-        var effectiveEnvironment = summaryPath is null
-            ? environment
-            : new Dictionary<string, string?>(environment.ToDictionary(kv => kv.Key, kv => kv.Value))
-            {
-                ["RELEASETWIN_SUMMARY_JSON"] = summaryPath,
-            };
+        var (finalArgs, junitPath, junitError) = ExtractReportPath(
+            cleanedArgs, environment, "--junit-xml", "junit.xml", "RELEASETWIN_JUNIT_XML", JUnitReportWriter.ValidateDestination);
+        if (junitError is not null)
+        {
+            output.WriteLine(junitError);
+            return Task.FromResult(1);
+        }
 
-        return ExecuteAsync(cleanedArgs, effectiveEnvironment, output, runner);
+        IReadOnlyDictionary<string, string?> effectiveEnvironment = environment;
+        if (summaryPath is not null || junitPath is not null)
+        {
+            var mutable = new Dictionary<string, string?>(environment.ToDictionary(kv => kv.Key, kv => kv.Value));
+            if (summaryPath is not null)
+            {
+                mutable["RELEASETWIN_SUMMARY_JSON"] = summaryPath;
+            }
+
+            if (junitPath is not null)
+            {
+                mutable["RELEASETWIN_JUNIT_XML"] = junitPath;
+            }
+
+            effectiveEnvironment = mutable;
+        }
+
+        return ExecuteAsync(finalArgs, effectiveEnvironment, output, runner);
     }
 
-    private static (string[] Args, string? SummaryPath, string? Error) ExtractSummaryJson(
-        string[] args, IReadOnlyDictionary<string, string?> environment)
+    private static (string[] Args, string? Path, string? Error) ExtractReportPath(
+        string[] args,
+        IReadOnlyDictionary<string, string?> environment,
+        string optionName,
+        string exampleFileName,
+        string environmentVariable,
+        Func<string, string?> validateDestination)
     {
+        var prefix = optionName + "=";
         string? path = null;
         var cleaned = new List<string>(args.Length);
         for (var i = 0; i < args.Length; i++)
         {
-            if (args[i] == "--summary-json")
+            if (args[i] == optionName)
             {
                 if (i + 1 >= args.Length || args[i + 1].StartsWith('-'))
                 {
-                    return (args, null, "--summary-json expects a file path, e.g. --summary-json summary.json");
+                    return (args, null, $"{optionName} expects a file path, e.g. {optionName} {exampleFileName}");
                 }
 
                 path = args[++i];
                 continue;
             }
 
-            if (args[i].StartsWith("--summary-json=", StringComparison.Ordinal))
+            if (args[i].StartsWith(prefix, StringComparison.Ordinal))
             {
-                path = args[i]["--summary-json=".Length..];
+                path = args[i][prefix.Length..];
                 continue;
             }
 
             cleaned.Add(args[i]);
         }
 
-        path ??= environment.TryGetValue("RELEASETWIN_SUMMARY_JSON", out var fromEnv) && !string.IsNullOrWhiteSpace(fromEnv)
+        path ??= environment.TryGetValue(environmentVariable, out var fromEnv) && !string.IsNullOrWhiteSpace(fromEnv)
             ? fromEnv
             : null;
 
-        if (path is not null && RunSummaryWriter.ValidateDestination(path) is { } error)
+        if (path is not null && validateDestination(path) is { } error)
         {
             return (args, null, error);
         }
@@ -151,6 +176,8 @@ public static class CliEntrypoint
             run options:
               --summary-json <path>               also write a machine-readable JSON run summary
                                                   (or set RELEASETWIN_SUMMARY_JSON)
+              --junit-xml <path>                  also write a JUnit XML test report for CI test
+                                                  widgets (or set RELEASETWIN_JUNIT_XML)
 
             `releasetwin <dir>` and `releasetwin --journey <id>@<v>` still work without `run`.
             """);
