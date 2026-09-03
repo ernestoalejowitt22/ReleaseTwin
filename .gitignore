@@ -36,3 +36,7 @@ web/.env*.local
 /demo/.bin/
 /demo/.env.local
 
+
+
+#Ignore vscode AI rules
+.github/instructions/codacy.instructions.md
