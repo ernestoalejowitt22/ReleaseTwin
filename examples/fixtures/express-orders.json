@@ -1,0 +1,4 @@
+{
+  "note": "Fixture for the Express flag-proof example. The cases toggle the demo's `orders-v2` flag over REST and assert on GET /orders/:id; no fixture content is consumed, but every case still needs a verified fixture.",
+  "order_id": 42
+}

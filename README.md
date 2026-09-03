@@ -66,6 +66,12 @@ JSONPath assertions — against the live internet, no fake handler, no credentia
 `Ineligible`) rather than crashing. A non-zero exit code means at least one case
 failed — wire it straight into a CI step.
 
+For a **flag proof against a plain Node/Express API** — `examples/cases-express/`
+holds the case files; [docs/express.md](docs/express.md) walks them against a
+runnable ~60-line demo app in the
+[`releasetwin-ci-examples`](https://github.com/ernestoalejowitt22/releasetwin-ci-examples)
+repo, which runs the same cases on Bitbucket, Azure Pipelines, and GitHub Actions.
+
 ### Via Docker (no .NET SDK)
 
 ```bash

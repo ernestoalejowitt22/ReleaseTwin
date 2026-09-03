@@ -1,0 +1,36 @@
+# SPDX-FileCopyrightText: 2026 Ernesto Alejo and the ReleaseTwin contributors
+# SPDX-License-Identifier: Apache-2.0
+
+# Flag proof against a plain Node/Express API — no adapter, no plugin. The
+# always-present HTTP adapter flips the demo's `orders-v2` flag over REST
+# (control template in releasetwin.yml) and the pipeline reads the *behaviour*
+# that flag gates:
+#
+#   known-bad leg  (orders-v2 disabled) -> total omits tax, `taxed` is false -> assertion FAILS
+#   known-good leg (orders-v2 enabled)  -> tax applied,      `taxed` is true  -> assertion PASSES
+#
+# One leg fails, the other passes => `Passed`: the oracle genuinely tells the
+# broken build from the fixed one.
+#
+# Setup: run the express-demo app (releasetwin-ci-examples/apps/express-demo:
+#   `npm ci && npm start`) and set API_BASE_URL=http://localhost:4599
+id: EXPRESS-FLAGPROOF-1
+oracle:
+  locator: docs/express.md
+fixture:
+  locator: express-orders.json
+  sha256: 2e719aca76eee32d96693974b5092a74a701ca05c35382faffbefbe95dc0c9d0
+requires:
+  - http:generic
+pipeline:
+  - operation: http.request
+    with:
+      method: GET
+      url: ${API_BASE_URL}/orders/42
+  - operation: http.assertJsonPath
+    with:
+      path: $.taxed
+      expected: true
+flag_proof:
+  feature_key: orders-v2
+  build_identity: express-demo@1
