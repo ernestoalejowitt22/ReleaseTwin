@@ -1,9 +1,11 @@
 ## 1. Engine-repo reconciliation (unblocks the release)
 
-- [ ] 1.1 `ci-report-portability`: rebase/verify PR #121, merge to `main`
-- [ ] 1.2 `spa-ui-adapter-ergonomics`: commit the implemented operations + tests + delta spec + `examples/cases-spa/` YAML; remove demo-app tasks (4, 5, 7) from its `tasks.md`; write `docs/spa-testing.md`; do the README / `docs/flag-proof.md` evidence-doc reconciliation; merge
-- [ ] 1.3 `express-flag-proof-example`: follow-up commit removing `examples/express-demo/` and the `express-example` job from `ci.yml`; repoint `docs/express.md` "run it" at the examples repo; keep `examples/cases-express/`; merge
-- [ ] 1.4 Move the uncommitted `examples/react-demo/` + `examples/angular-demo/` out of the engine working tree (into the new repo in group 3)
+- [x] 1.1 `ci-report-portability` merged — PR #121 → `main` (cd373c5)
+- [x] 1.2 `spa-ui-adapter-ergonomics` merged — PR #122 → `main` (9f2db0f): `ui.assertText` + `ui.waitFor` URL mode + 7 tests, `examples/cases-spa/` reference YAML, `docs/spa-testing.md`, README `Adapters.Ui` row + evidence-bullet fix. Demo apps + CI dropped.
+- [x] 1.3 `express-flag-proof-example` merged — PR #123 → `main` (29a9865): `examples/cases-express/` + `docs/express.md` kept, pointing at the examples repo; `examples/express-demo/` + the `express-example` job removed.
+- [x] 1.4 `examples/react-demo/` + `examples/angular-demo/` parked in the scratchpad (`demo-apps/`) for group 3; never landed in `main`.
+
+_Main verified green after all three merges: `dotnet test` 294 passed / 0 failed (7 assemblies), Action tests 6/6._
 
 ## 2. Release the CLI with the new flags
 
