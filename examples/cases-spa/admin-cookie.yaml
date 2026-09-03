@@ -1,0 +1,30 @@
+# SPDX-FileCopyrightText: 2026 Ernesto Alejo and the ReleaseTwin contributors
+# SPDX-License-Identifier: Apache-2.0
+
+# Testing a gated view: seed the app's auth-bypass cookie before the first
+# navigation, then assert the authenticated content rendered. The demo apps show
+# [data-testid="admin"] when `demo_role=admin` is set and [data-testid="denied"]
+# otherwise — stand in for whatever cookie your app's E2E mode checks.
+#
+# Setup: SPA_BASE_URL points at either demo app.
+id: SPA-ADMIN-COOKIE-1
+oracle:
+  locator: docs/spa-testing.md
+fixture:
+  locator: spa-journey.json
+  sha256: e371f7155179835ebb879768eb57d205d5ef5ccde64995c83d326d2846534892
+pipeline:
+  - operation: ui.setCookie
+    with:
+      name: demo_role
+      value: admin
+      url: ${SPA_BASE_URL}
+  - operation: ui.navigate
+    with:
+      url: ${SPA_BASE_URL}/admin
+  - operation: ui.assertText
+    with:
+      selector: '[data-testid="admin"]'
+      contains: "Admin area"
+cleanup:
+  - operation: ui.closePage

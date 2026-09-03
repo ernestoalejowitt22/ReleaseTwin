@@ -100,5 +100,8 @@ mistake, not a silent skip. Credentials themselves never go in this file.
 - The bundled example cases and the [README](../README.md) cover flag proof (the paired
   known-bad / known-good run that tells a broken build from a fixed one) and the hosted
   dashboard.
+- [Testing a React or Angular app](spa-testing.md) — drive a SPA through a real browser as
+  one leg of a journey: wait on a client-side route, assert rendered text, bridge a
+  UI-observed value into an API leg.
 - [Enterprise access](enterprise-access.md) — running against a VPN-isolated target and
   authenticating to an API or flag system gated by Microsoft Entra ID / organization OAuth.

@@ -1,3 +1,11 @@
+> **Scope reduced 2026-09-03.** The bundled React/Angular demo apps and the CI
+> job listed below moved to the separate `ci-portability-live-examples` change
+> (a `releasetwin-ci-examples` repo running them through Bitbucket, Azure
+> Pipelines, and GitHub Actions). This change now delivers: the two engine
+> operations (`ui.assertText`, `ui.waitFor` URL mode — implemented), the
+> `ui-adapter` delta spec, the `examples/cases-spa/` reference YAML, and the
+> docs (`docs/spa-testing.md` + the visual-evidence reconciliation).
+
 ## Why
 
 The UI adapter runs on Playwright/Chromium, which auto-waits for selectors, so a

@@ -4,6 +4,10 @@
 journey, then bridges a UI-observed value into API legs — the "log in through the UI, verify
 through the API" pattern as one case.
 
+For a SPA-focused walkthrough — waiting on a client-side route, `ui.assertText`, cookie
+auth-bypass — see [docs/spa-testing.md](../../docs/spa-testing.md) and
+[examples/cases-spa/](../cases-spa/).
+
 ## Running it
 
 The UI adapter is opt-in (launching a browser is expensive and needs browser binaries):

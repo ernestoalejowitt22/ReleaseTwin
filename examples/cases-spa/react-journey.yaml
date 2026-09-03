@@ -1,0 +1,52 @@
+# SPDX-FileCopyrightText: 2026 Ernesto Alejo and the ReleaseTwin contributors
+# SPDX-License-Identifier: Apache-2.0
+
+# A UI journey against a React single-page app: drive a client-side route change,
+# assert what the component rendered, capture that value, and carry it into an
+# API leg — all as one case.
+#
+# Setup: serve a React SPA that has
+#   /            a link with [data-testid="open-42"] into /detail/42
+#   /detail/:id  the id rendered inside [data-testid="detail-id"]
+# and set:
+#   SPA_BASE_URL   e.g. http://localhost:4173   (the built React app)
+#   API_BASE_URL   e.g. https://postman-echo.com
+#
+# The runnable React app is examples/apps/react-demo/ in the
+# `releasetwin-ci-examples` repo; this file is the copy-paste reference.
+id: SPA-REACT-JOURNEY-1
+oracle:
+  locator: docs/spa-testing.md
+fixture:
+  locator: spa-journey.json
+  sha256: e371f7155179835ebb879768eb57d205d5ef5ccde64995c83d326d2846534892
+pipeline:
+  - operation: ui.navigate
+    with:
+      url: ${SPA_BASE_URL}/
+  - operation: ui.click
+    with:
+      selector: '[data-testid="open-42"]'
+  # history.pushState fires no page load — wait on the URL, not a load event.
+  - operation: ui.waitFor
+    with:
+      url: '**/detail/*'
+      timeoutMs: 5000
+  - operation: ui.assertText
+    with:
+      selector: '[data-testid="detail-id"]'
+      contains: "42"
+    capture:
+      - name: orderId
+        from: text:[data-testid="detail-id"]
+  # The UI-observed id reaches a real backend leg.
+  - operation: http.request
+    with:
+      method: GET
+      url: ${API_BASE_URL}/get?order={{orderId}}
+  - operation: http.assertJsonPath
+    with:
+      path: $.args.order
+      expected: "{{orderId}}"
+cleanup:
+  - operation: ui.closePage
