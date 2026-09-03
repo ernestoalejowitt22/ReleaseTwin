@@ -1,17 +1,21 @@
 # Feature flags
 
-ReleaseTwin gates its own functionality through a **vendor-neutral feature-flag seam**
-built on [OpenFeature](https://openfeature.dev). Today every surface resolves flags from
-local sources only — no account, no network, no cost. Adopting a real provider
-(LaunchDarkly or anything else) later is a one-file change per surface; no call site
-moves.
+ReleaseTwin gates its own functionality (not customers' — see the note below) through a
+**vendor-neutral feature-flag seam** built on [OpenFeature](https://openfeature.dev). The
+CLI/engine resolves flags from local sources only — no account, no network, no cost.
+Adopting a real provider (LaunchDarkly or anything else) later is a one-file change; no
+call site moves.
 
 > Not to be confused with `src/ReleaseTwin.Adapters.LaunchDarkly` — that adapter tests
 > *customers'* LaunchDarkly flags and is unrelated to this.
 
+This repo covers the CLI/engine surface only. The hosted dashboard (`web/` and `hosted/`,
+private repo `releasetwin-platform`) keeps its **own separate registry** of hosted-surface
+flags, following the same pattern documented here; it is not covered by this doc.
+
 ## The registry: `flags.json`
 
-One file at the repo root is the source of truth for every flag:
+One file at this repo's root is the source of truth for the engine/CLI's own flags:
 
 ```jsonc
 {
@@ -21,22 +25,20 @@ One file at the repo root is the source of truth for every flag:
       "type": "boolean",                  // boolean | string | number | object
       "default": true,                    // must match `type`
       "description": "…",                 // what it gates, and the safe state
-      "surfaces": ["web", "hosted", "cli"],
+      "surfaces": ["cli"],
       "owner": "platform"
     }
   ]
 }
 ```
 
-- `web/` imports `flags.json` directly (same cross-root import as `hosted/plans.json`).
-- `hosted/` and the CLI embed it as a compiled resource.
-- A malformed registry fails `next build`, the hosted build's `FlagRegistryTests`, and
-  the CLI build's `FlagRegistryTests`.
+- The CLI embeds it as a compiled resource.
+- A malformed registry fails the CLI build's `FlagRegistryTests`.
 
 ### Adding a flag
 
 1. Add an entry to `flags.json`.
-2. Read it where you need it (see per-surface APIs below). Reference the key through the
+2. Read it where you need it (see "Reading a flag" below). Reference the key through the
    generated/typed accessor so a typo is a compile error.
 3. Ship. The flag resolves to its `default` everywhere until you override it.
 
@@ -47,30 +49,28 @@ One file at the repo root is the source of truth for every flag:
 
 ## Reading a flag
 
-| Surface | API |
-|---|---|
-| `web/` server (RSC, route handlers, actions) | `await getFlag("flag-seam-smoke", ctx)` from `@/lib/flags` |
-| `web/` client components | `useFlag("flag-seam-smoke")` from `@/lib/flags-client` |
-| `hosted/` | inject `IFlagService`, `await flags.GetBooleanAsync("flag-seam-smoke", ctx)` |
-| CLI / engine | `IFlagService` from `ReleaseTwin.Core`, same API |
+CLI / engine: inject `IFlagService` from `ReleaseTwin.Core`,
+`await flags.GetBooleanAsync("flag-seam-smoke", ctx)`.
 
-All accessors **fail open**: a provider error, a missing key, or a wrong-typed value
+The accessor **fails open**: a provider error, a missing key, or a wrong-typed value
 returns the caller's coded default. Flag evaluation never throws.
+
+(The hosted dashboard's `web/`/`hosted/` surfaces have their own accessors in
+`releasetwin-platform` — `getFlag`/`useFlag` and an injected `IFlagService` respectively —
+following the same fail-open contract. See that repo's own copy of this doc.)
 
 ## Flipping a flag today (local-only, Phase 1)
 
-| Surface | Mechanism | Takes effect |
-|---|---|---|
-| `web/` | env var `FLAG_<KEY_UPPER_SNAKE>` (e.g. `FLAG_FLAG_SEAM_SMOKE=false`), set in Vercel or `.env` | next deploy / restart |
-| `hosted/` | config `FeatureFlags:<key>` in `appsettings*.json`, or env `FEATUREFLAGS__<key>` | next deploy |
-| CLI | `featureFlags:` map in `releasetwin.yaml` (`featureFlags: { "flag-seam-smoke": false }`) | next run |
+CLI: `featureFlags:` map in `releasetwin.yaml` (`featureFlags: { "flag-seam-smoke": false }`),
+takes effect next run.
 
 There is **no runtime flip without a deploy** in Phase 1. That is the first thing a real
 provider buys you.
 
 ## Evaluation context
 
-Every surface builds the same shape so targeting rules authored later work unchanged:
+Every surface (including the hosted ones in `releasetwin-platform`) builds the same shape
+so targeting rules authored later work unchanged:
 
 ```
 targetingKey : <organization id>   (absent for anonymous marketing / unconfigured CLI)
@@ -97,16 +97,15 @@ plan-gated feature is denied, and enabling a flag never grants an entitlement.
 
 ## Adopting an external provider later
 
-Per surface, in a separate change:
+For the CLI, in a separate change:
 
-1. Add the provider package
-   (`@launchdarkly/openfeature-server-provider` / `@launchdarkly/openfeature-web-browser` for
-   `web/`; `LaunchDarkly.OpenFeature.ServerProvider` for `hosted/` and — via a hosted
-   `GET /flags` endpoint, not a direct SDK — the CLI).
+1. Add the provider package (`LaunchDarkly.OpenFeature.ServerProvider`) — via a hosted
+   `GET /flags` endpoint, not a direct SDK.
 2. At startup, register that provider **only when its SDK key env var is present**,
-   otherwise keep the static provider. `web/src/lib/flags.ts`, `hosted/Program.cs`, the
-   CLI composition root — one registration point each.
-3. Load SDK keys from AWS Secrets Manager (`hosted/`) / Vercel env (`web/`).
-4. Author targeting rules against the evaluation-context attributes above.
+   otherwise keep the static provider. One registration point in the CLI composition root.
+3. Author targeting rules against the evaluation-context attributes above.
 
-No code that calls `getFlag` / `IFlagService` changes.
+No code that calls `IFlagService` changes.
+
+(`web/`/`hosted/` follow the equivalent sequence against their own provider packages and
+config sources — see the doc in `releasetwin-platform`.)
