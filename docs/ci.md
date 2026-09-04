@@ -206,8 +206,10 @@ steps:
 **These aren't just typed — Bitbucket is proven live.**
 [`releasetwin-ci-examples`](https://github.com/ernestoalejowitt22/releasetwin-ci-examples)
 runs three real demo apps (Express, React, Angular) through real CI platforms on every
-push. **Bitbucket Pipelines**: verified green —
-[build #3](https://bitbucket.org/releasetwin/releasetwin-ci-examples/pipelines/results/3).
+push, mirrored to
+[`releasetwin-ci-example-projects`](https://bitbucket.org/releasetwin/releasetwin-ci-example-projects)
+on Bitbucket. **Bitbucket Pipelines**: verified green —
+[build #1](https://bitbucket.org/releasetwin/releasetwin-ci-example-projects/pipelines/results/1).
 Azure Pipelines is wired up next; this note updates once it has its own real run.
 
 Jenkins consumes the same file with the built-in `junit 'junit.xml'` step.
