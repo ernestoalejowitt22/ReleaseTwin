@@ -88,14 +88,16 @@
       publishing after 1.2.3).
 - [x] 5.4 Bitbucket Pipelines enabled (user did this manually — the
       repository-access-token auth doesn't carry a full user session, and
-      the enable-pipelines API endpoint requires one). Mirror repo created
-      by the user (workspace access tokens need Premium; repository access
-      tokens don't, but need the repo to exist first). **Real green run
-      confirmed**: build #3
-      (https://bitbucket.org/releasetwin/releasetwin-ci-examples/pipelines/results/3)
+      the enable-pipelines API endpoint requires one). First mirror repo
+      (`releasetwin-ci-examples`) turned out to live in a private Bitbucket
+      project with no API path to make it public (needs a workspace token,
+      which needs Premium) — moved to a new public repo,
+      `releasetwin-ci-example-projects`. **Real green run confirmed**:
+      build #1
+      (https://bitbucket.org/releasetwin/releasetwin-ci-example-projects/pipelines/results/1)
       — all three steps (Express/React/Angular demo) passed, after fixing a
-      `bash -qq` typo (build #1) and the deprecated-CLI Playwright mistake
-      (build #2).
+      `bash -qq` typo and the deprecated `Microsoft.Playwright.CLI` mistake
+      on the original repo's builds #1–#2.
 
 ## 6. Azure Pipelines (blocked on an Azure DevOps account)
 
@@ -118,7 +120,10 @@
 
 ## 7. Close the loop in the engine repo
 
-- [ ] 7.1 Once at least one of Bitbucket/Azure has a real green run, add a
-      one-line pointer in `ReleaseTwin`'s `docs/ci.md` ("these are proven, not
-      just typed — see `releasetwin-ci-examples`") near the relevant snippet.
+- [x] 7.1 Pointer added in `docs/ci.md` linking the real, verified Bitbucket
+      build (updated once more when the mirror moved repos, 7efaf77); notes
+      Azure is still pending its own real run. Also updated the private
+      `releasetwin-platform` landing page + `/docs/ci` docs page with the
+      same real-proof link (out of this repo's scope, but the user asked
+      for it alongside this task).
 - [ ] 7.2 Confirm with the user before archiving.
