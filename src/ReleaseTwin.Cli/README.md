@@ -10,6 +10,9 @@ HTTP and UI journeys, run them from your own machine or CI, and prove a fix
 works by running the same case known-bad and known-good ("flag proof"). Test
 data never leaves your infrastructure.
 
+**[releasetwin.com](https://releasetwin.com)** has the pitch, a live demo, and
+the self-serve dashboard sign-up.
+
 ## Install
 
 ```

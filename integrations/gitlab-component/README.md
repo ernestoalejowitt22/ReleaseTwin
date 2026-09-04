@@ -5,6 +5,9 @@ SPDX-License-Identifier: Apache-2.0
 
 # ReleaseTwin — GitLab CI/CD Component
 
+**[releasetwin.com](https://releasetwin.com)** — release-proof testing for
+integration-heavy, feature-flagged systems.
+
 Runs your ReleaseTwin case suite in a GitLab pipeline and feeds the result into
 GitLab's **native test surfaces**:
 
