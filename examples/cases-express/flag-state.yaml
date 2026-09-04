@@ -1,0 +1,35 @@
+# SPDX-FileCopyrightText: 2026 Ernesto Alejo and the ReleaseTwin contributors
+# SPDX-License-Identifier: Apache-2.0
+
+# A free contract case against a different part of the Express API's surface:
+# the flag-introspection endpoint every flag already shares. Targets
+# `maintenance-mode`, not `orders-v2`/`currency-normalization` — those two are
+# mutated by the flag-proof cases in this same directory (one shared,
+# long-lived app process per CI job), so their state at any given point
+# depends on case run order. `maintenance-mode` is never toggled by anything,
+# so its state is a stable, real boot-time default to assert on. No
+# flag_proof block, no toggle — just two JSONPath assertions.
+#
+# Setup: run the express-demo app (releasetwin-ci-examples/apps/express-demo)
+# and set API_BASE_URL=http://localhost:4599.
+id: EXPRESS-CONTRACT-FLAGSTATE-1
+oracle:
+  locator: docs/express.md
+fixture:
+  locator: express-orders.json
+  sha256: 2e719aca76eee32d96693974b5092a74a701ca05c35382faffbefbe95dc0c9d0
+requires:
+  - http:generic
+pipeline:
+  - operation: http.request
+    with:
+      method: GET
+      url: ${API_BASE_URL}/admin/flags/maintenance-mode
+  - operation: http.assertJsonPath
+    with:
+      path: $.key
+      expected: maintenance-mode
+  - operation: http.assertJsonPath
+    with:
+      path: $.state
+      expected: disabled
