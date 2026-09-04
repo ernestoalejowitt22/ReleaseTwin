@@ -128,4 +128,4 @@
       `/docs/ci` docs page with the same real-proof link (out of this repo's
       scope, but the user asked for it alongside this task) — Azure line
       still needs the same follow-up there.
-- [ ] 7.2 Confirm with the user before archiving.
+- [x] 7.2 User confirmed archiving (2026-09-03).
