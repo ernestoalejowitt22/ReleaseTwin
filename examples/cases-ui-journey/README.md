@@ -16,8 +16,24 @@ The UI adapter is opt-in (launching a browser is expensive and needs browser bin
 RELEASETWIN_UI_ENABLED=1 dotnet run --project src/ReleaseTwin.Cli -- examples/cases-ui-journey/cases
 ```
 
-Add `RELEASETWIN_EVIDENCE=on` (with an API token, on a Paid-tier project) to capture a screenshot
-after every `ui.*` step — redacted in your CLI, then rendered on the dashboard as visual evidence.
+Add `RELEASETWIN_EVIDENCE=on` to capture a screenshot after every `ui.*` step, redacted in your
+CLI before it goes anywhere. Where it ends up depends on what else you configure — set either or
+both:
+
+- `RELEASETWIN_EVIDENCE_DIR=<path>` — writes each case's redacted evidence document and
+  screenshots to `<path>/<case-id>/`, fully locally, no account or network access required.
+- `RELEASETWIN_API_TOKEN` (on a Paid-tier project) — uploads the same redacted evidence to your
+  hosted dashboard instead of (or alongside) the local directory.
+
+## The failure demo case
+
+`cases/example-ui-journey-demo-failure.yaml` is an **intentional, permanent failure** —
+not a flaky test, not a bug to fix. It runs the same real login as
+`example-ui-journey.yaml` above, then asserts the post-login message equals text the
+page never shows. It exists purely to produce a real `FAIL` line and a real attached
+screenshot for [docs/ci.md](../../docs/ci.md)'s "What a failure looks like" section — see
+that doc for the captured evidence. It is not part of this repo's own CI gate
+(`.github/workflows/pr-annotations.yml` only scans `examples/cases-http-only`).
 
 ## Testing a gated app: `ui.setCookie`
 

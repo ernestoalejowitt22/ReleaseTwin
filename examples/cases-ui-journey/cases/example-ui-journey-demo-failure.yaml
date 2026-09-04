@@ -1,0 +1,40 @@
+# demo-case-with-attached-evidence: this case is an INTENTIONAL, PERMANENT demo failure —
+# not a flaky test or a bug to fix. It exists to show what a real failure looks like with
+# real attached evidence (see docs/ci.md). The login flow below genuinely succeeds; the
+# final ui.assertText step deliberately asserts text the real page never shows, so the
+# assertion genuinely — and permanently — fails. See examples/cases-ui-journey/README.md.
+id: UI-JOURNEY-DEMO-FAILURE-1
+oracle:
+  locator: docs/customer-pilot-guide.md
+fixture:
+  locator: example-ui-journey.json
+  sha256: 3dc8d04d9c601b33302d854488cf58c8f5deddff02b4851c070f579ed52b9cd3
+pipeline:
+  - operation: ui.navigate
+    with:
+      url: https://the-internet.herokuapp.com/login
+  - operation: ui.fill
+    with:
+      selector: "#username"
+      value: tomsmith
+  - operation: ui.fill
+    with:
+      selector: "#password"
+      value: SuperSecretPassword!
+  - operation: ui.click
+    with:
+      selector: "button[type='submit']"
+  - operation: ui.waitFor
+    with:
+      selector: "#flash"
+      state: visible
+  - operation: ui.assertVisible
+    with:
+      selector: "#flash"
+  # Deliberately wrong expected value — the real page shows "You logged into a secure
+  # area!". This is the one intentional part of this case: everything up to here is a
+  # real, successful login.
+  - operation: ui.assertText
+    with:
+      selector: "#flash"
+      equals: "Welcome back, valid user!"

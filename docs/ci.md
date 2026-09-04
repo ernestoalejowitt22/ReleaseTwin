@@ -31,6 +31,13 @@ jobs:
 Pin a released version (`cli:0.2.0`, `--version 0.2.0`, `@v0.2.0`) in CI. A non-zero exit
 fails the job, fails the check, blocks the merge — the same gate you trust for unit tests.
 
+Both packages are real and publicly pullable — screenshots below, captured
+2026-09-03, are one-time snapshots; the linked pages are the current source of truth.
+
+| A — the container image | B — the .NET global tool |
+| --- | --- |
+| [![The GHCR package page for ghcr.io/ernestoalejowitt22/releasetwin/cli, showing the docker pull command and recent tagged versions](assets/ci/ghcr-package.png)](https://github.com/ernestoalejowitt22/releasetwin/pkgs/container/releasetwin%2Fcli) | [![The NuGet package page for the releasetwin .NET tool, showing the dotnet tool install command](assets/ci/nuget-package.png)](https://www.nuget.org/packages/releasetwin) |
+
 ## Machine-readable run summary
 
 Pass `--summary-json <path>` (or set `RELEASETWIN_SUMMARY_JSON`) and the CLI writes a
@@ -75,6 +82,11 @@ CLI with `--summary-json` and renders the summary onto the pull request:
 It uses only the workflow's `GITHUB_TOKEN` and GitHub's REST API — no ReleaseTwin account,
 no hosted call.
 
+A real one, from this repo's own dogfooded run
+(`.github/workflows/pr-annotations.yml`, [PR #124](https://github.com/ernestoalejowitt22/ReleaseTwin/pull/124#issuecomment-5529871690)):
+
+![The ReleaseTwin PR-annotation comment on a passing run: "ReleaseTwin — passed", 1 passed, 0 failed, 1 case, flag proof 0 proven / 0 ineligible / 0 regressed](assets/ci/pr-annotation-comment.png)
+
 ```yaml
 permissions:
   contents: read
@@ -102,6 +114,28 @@ and that's your merge gate, no comment noise.
 
 See [`integrations/github-action/README.md`](../integrations/github-action/README.md) for
 every input. This repo dogfoods the Action in `.github/workflows/pr-annotations.yml`.
+
+## What a failure looks like
+
+Every screenshot on this page so far shows a pass. Here's a real failure, with real
+evidence attached — not just text.
+[`examples/cases-ui-journey/cases/example-ui-journey-demo-failure.yaml`](../examples/cases-ui-journey/cases/example-ui-journey-demo-failure.yaml)
+is a permanent, intentional demo case: it logs into a real public test site (the same
+one [`example-ui-journey.yaml`](../examples/cases-ui-journey/cases/example-ui-journey.yaml)
+uses successfully), then asserts the post-login message equals text the page never
+shows. The login is real; only the expected value is deliberately wrong — the same way a
+regression test is deliberately written to fail until a fix lands.
+
+```text
+FAIL UI-JOURNEY-DEMO-FAILURE-1 (Product): element '#flash' text was 'You logged into a secure area!
+×', expected exactly 'Welcome back, valid user!'
+```
+
+![The-internet.herokuapp.com's Secure Area page after a successful login: a green banner reading "You logged into a secure area!", the heading "Secure Area", welcome text, and a Logout button — the real page state the failed assertion evaluated against](assets/ci/ui-failure-evidence.png)
+
+No hosted account was used to capture this — just `RELEASETWIN_EVIDENCE=on` and
+`RELEASETWIN_EVIDENCE_DIR=<path>` (see Credentials, below), which writes each case's
+redacted evidence document and screenshots straight to disk.
 
 ## Other CI platforms
 
@@ -215,6 +249,14 @@ on Bitbucket. **Bitbucket Pipelines**: verified green —
 (all three jobs — Express, React, Angular — passed), built directly from the GitHub repo via
 a service connection, no mirror needed.
 
+<!-- feature-proof-showcase / ci-docs-portability-screenshots: screenshots below are
+     point-in-time captures from 2026-09-03 — the linked build pages above stay the
+     source of truth if they ever disagree. -->
+
+| Bitbucket Pipelines — build #1 | Azure Pipelines — build #239 |
+| --- | --- |
+| [![Bitbucket Pipelines build #1: green, all three jobs (Express demo, React demo, Angular demo) passed, with the build log visible](assets/ci/bitbucket-build-1.png)](https://bitbucket.org/releasetwin/releasetwin-ci-example-projects/pipelines/results/1) | [![Azure Pipelines build #239, Express demo job log: the "Run release-proof cases" step running `dotnet run --project src/ReleaseTwin.Cli -- run examples/cases-express`, output "PASS EXPRESS-CONTRACT-1", "FLAGPROOF EXPRESS-FLAGPROOF-1 (Passed)", "2 passed, 0 failed"](assets/ci/azure-build-239.png)](https://ernestotesting.visualstudio.com/My%20First%20Project/_build/results?buildId=239) |
+
 Jenkins consumes the same file with the built-in `junit 'junit.xml'` step.
 
 ## Credentials
@@ -227,3 +269,8 @@ Jenkins consumes the same file with the built-in `junit 'junit.xml'` step.
   and `RELEASETWIN_API_URL`. This additionally turns the PR annotation into a link into the
   dashboard — a "View run" link in the comment and check, and a per-case link to the
   evidence for any case whose evidence was uploaded and accepted.
+- No hosted account needed to get evidence at all: set `RELEASETWIN_EVIDENCE=on` and
+  `RELEASETWIN_EVIDENCE_DIR=<path>` and each case's redacted evidence (screenshots and
+  action log, from any `ui.*` steps) is written to `<path>/<case-id>/` — a CI artifact you
+  can upload with the platform's own artifact-upload step. Works with or without
+  `RELEASETWIN_API_TOKEN`; set both to get evidence in both places.
