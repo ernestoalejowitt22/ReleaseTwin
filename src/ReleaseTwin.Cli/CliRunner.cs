@@ -207,31 +207,30 @@ public sealed class CliRunner
             : null;
 
         // evidence-capture (cli-runner delta): capture is opt-in and off by default. An explicit
-        // RELEASETWIN_EVIDENCE=on|off wins over the hosted per-project default; the hosted default is
-        // only consulted when a token is configured and the env var did not decide. Capture only
-        // actually runs when there is also a token to upload through.
+        // RELEASETWIN_EVIDENCE=on|off wins over the hosted per-project default and applies regardless
+        // of whether a token is configured (local-evidence-artifacts: capture no longer implies a
+        // hosted destination — see the "Evidence capture is a resolved opt-in" requirement). The
+        // hosted per-project default is only consulted, as a fallback, when a token is configured and
+        // the env var did not decide, since fetching it requires the hosted API.
         var envEvidenceToggle = ParseToggle(Get("RELEASETWIN_EVIDENCE"));
         var captureEvidence = false;
         // The hosted per-project default is only consulted against a real hosted platform — i.e.
         // when RELEASETWIN_API_URL is explicitly configured (or a test supplies a handler).
         var hostedConfigReachable = evidenceConfigHandlerForTesting is not null || Get("RELEASETWIN_API_URL") is { Length: > 0 };
-        if (ingestClient is not null)
+        if (envEvidenceToggle is { } explicitChoice)
         {
-            if (envEvidenceToggle is { } explicitChoice)
+            captureEvidence = explicitChoice;
+        }
+        else if (ingestClient is not null && hostedConfigReachable)
+        {
+            using var evidenceConfigClient = new EvidenceConfigClient(apiUrl, apiToken!, evidenceConfigHandlerForTesting);
+            try
             {
-                captureEvidence = explicitChoice;
+                captureEvidence = (await evidenceConfigClient.FetchAsync(cancellationToken)).CaptureDefault;
             }
-            else if (hostedConfigReachable)
+            catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException or EvidenceConfigFetchException)
             {
-                using var evidenceConfigClient = new EvidenceConfigClient(apiUrl, apiToken!, evidenceConfigHandlerForTesting);
-                try
-                {
-                    captureEvidence = (await evidenceConfigClient.FetchAsync(cancellationToken)).CaptureDefault;
-                }
-                catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException or EvidenceConfigFetchException)
-                {
-                    output.WriteLine($"WARN: failed to fetch hosted evidence config: {ex.Message}");
-                }
+                output.WriteLine($"WARN: failed to fetch hosted evidence config: {ex.Message}");
             }
         }
 
@@ -337,6 +336,9 @@ public sealed class CliRunner
             || config.Requires("ui");
         // ui-session-video: opt-in browser-session recording, same shape as RELEASETWIN_UI_ENABLED.
         var uiVideoDir = Get("RELEASETWIN_UI_VIDEO_DIR") is { Length: > 0 } dir ? dir : null;
+        // local-evidence-artifacts: a local, hosted-independent evidence destination — same
+        // RELEASETWIN_<THING>_DIR naming convention as the video path above.
+        var localEvidenceDir = Get("RELEASETWIN_EVIDENCE_DIR") is { Length: > 0 } evidenceDir ? evidenceDir : null;
         UiAdapter? uiAdapter = null;
         if (uiEnabled)
         {
@@ -412,7 +414,11 @@ public sealed class CliRunner
                 .Select(v => v!)
                 .ToList();
             var redactor = new EvidenceRedactor(secretsToMask);
-            var executionOptions = new ExecutionOptions { CaptureEvidence = captureEvidence && ingestClient is not null };
+            // local-evidence-artifacts: capture no longer implies a hosted token — it runs whenever
+            // opted in, matching the cli-runner spec's "resolved opt-in" requirement; whether there's
+            // anywhere to put the result (upload, local write, both, or neither) is decided per-case
+            // below, independently, at each of the two destinations.
+            var executionOptions = new ExecutionOptions { CaptureEvidence = captureEvidence };
 
             var (cases, loadError) = await loadCasesAsync(ResolveEnvironmentVariable);
             if (cases is null)
@@ -484,25 +490,28 @@ public sealed class CliRunner
                         ? $"FLAGPROOF {result.CaseId} ({result.Outcome}): {flagProofMessage}"
                         : $"FLAGPROOF {result.CaseId} ({result.Outcome})");
 
+                    // local-evidence-artifacts: redaction runs whenever evidence exists, independent of
+                    // whether ingestClient is configured — upload and local write are then two
+                    // independently-gated destinations for the same redacted result.
+                    RedactionResult? flagProofEvidence = null;
+                    if (flagProofExecution.KnownBadEvidence is not null || flagProofExecution.KnownGoodEvidence is not null)
+                    {
+                        var seed = flagProofExecution.KnownBadEvidence ?? flagProofExecution.KnownGoodEvidence!;
+                        flagProofEvidence = redactor.Redact(seed, flagProofExecution.KnownBadEvidence, flagProofExecution.KnownGoodEvidence, loadedCase.Evidence);
+                    }
+
                     string? flagProofEvidenceUrl = null;
                     if (ingestClient is not null)
                     {
                         try
                         {
-                            RedactionResult? evidence = null;
-                            if (flagProofExecution.KnownBadEvidence is not null || flagProofExecution.KnownGoodEvidence is not null)
-                            {
-                                var seed = flagProofExecution.KnownBadEvidence ?? flagProofExecution.KnownGoodEvidence!;
-                                evidence = redactor.Redact(seed, flagProofExecution.KnownBadEvidence, flagProofExecution.KnownGoodEvidence, loadedCase.Evidence);
-                            }
-
-                            var upload = await ingestClient.UploadFlagProofReportAsync(result, evidence, cancellationToken, testCase.Release);
+                            var upload = await ingestClient.UploadFlagProofReportAsync(result, flagProofEvidence, cancellationToken, testCase.Release);
                             runUrl ??= upload.RunUrl;
-                            if (evidence is not null && upload.EvidenceAccepted)
+                            if (flagProofEvidence is not null && upload.EvidenceAccepted)
                             {
                                 flagProofEvidenceUrl = upload.ReportUrl;
                             }
-                            else if (evidence is not null && !upload.EvidenceAccepted)
+                            else if (flagProofEvidence is not null && !upload.EvidenceAccepted)
                             {
                                 output.WriteLine($"WARN evidence not accepted for {result.CaseId} (report uploaded; check your plan tier)");
                             }
@@ -512,6 +521,20 @@ public sealed class CliRunner
                             // Upload failure never changes the case's own outcome or the exit code
                             // (cli-runner spec: "Upload failure is a warning, not a case failure").
                             output.WriteLine($"WARN upload failed for {result.CaseId}: {ex.Message}");
+                        }
+                    }
+
+                    if (flagProofEvidence is not null && localEvidenceDir is not null)
+                    {
+                        try
+                        {
+                            await LocalEvidenceWriter.WriteAsync(localEvidenceDir, result.CaseId, flagProofEvidence, cancellationToken);
+                        }
+                        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+                        {
+                            // Local write failure never changes the case's own outcome, the exit code,
+                            // or a concurrently configured upload (cli-runner spec).
+                            output.WriteLine($"WARN local evidence write failed for {result.CaseId}: {ex.Message}");
                         }
                     }
 
@@ -533,22 +556,24 @@ public sealed class CliRunner
                     output.WriteLine($"FAIL {report.CaseId} ({report.Classification}): {report.FailureDetail}");
                 }
 
+                // local-evidence-artifacts: same decoupling as the flag-proof branch above — redaction
+                // runs whenever there's evidence to redact, independent of ingestClient.
+                var caseEvidence = execution.Evidence is null
+                    ? null
+                    : redactor.Redact(execution.Evidence, null, null, loadedCase.Evidence);
+
                 string? caseEvidenceUrl = null;
                 if (ingestClient is not null)
                 {
                     try
                     {
-                        var evidence = execution.Evidence is null
-                            ? null
-                            : redactor.Redact(execution.Evidence, null, null, loadedCase.Evidence);
-
-                        var upload = await ingestClient.UploadCaseReportAsync(report, evidence, cancellationToken, testCase.Release);
+                        var upload = await ingestClient.UploadCaseReportAsync(report, caseEvidence, cancellationToken, testCase.Release);
                         runUrl ??= upload.RunUrl;
-                        if (evidence is not null && upload.EvidenceAccepted)
+                        if (caseEvidence is not null && upload.EvidenceAccepted)
                         {
                             caseEvidenceUrl = upload.ReportUrl;
                         }
-                        else if (evidence is not null && !upload.EvidenceAccepted)
+                        else if (caseEvidence is not null && !upload.EvidenceAccepted)
                         {
                             output.WriteLine($"WARN evidence not accepted for {report.CaseId} (report uploaded; check your plan tier)");
                         }
@@ -558,6 +583,20 @@ public sealed class CliRunner
                         // Upload failure never changes the case's own outcome or the exit code
                         // (cli-runner spec: "Upload failure is a warning, not a case failure").
                         output.WriteLine($"WARN upload failed for {report.CaseId}: {ex.Message}");
+                    }
+                }
+
+                if (caseEvidence is not null && localEvidenceDir is not null)
+                {
+                    try
+                    {
+                        await LocalEvidenceWriter.WriteAsync(localEvidenceDir, report.CaseId, caseEvidence, cancellationToken);
+                    }
+                    catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+                    {
+                        // Local write failure never changes the case's own outcome, the exit code,
+                        // or a concurrently configured upload (cli-runner spec).
+                        output.WriteLine($"WARN local evidence write failed for {report.CaseId}: {ex.Message}");
                     }
                 }
 

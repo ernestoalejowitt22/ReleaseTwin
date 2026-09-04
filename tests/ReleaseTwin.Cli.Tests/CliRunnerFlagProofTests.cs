@@ -203,6 +203,33 @@ public class CliRunnerFlagProofTests
         Assert.Contains("flag-proof-report", uploadHandler.LastRequest!.RequestUri!.ToString());
     }
 
+    // local-evidence-artifacts: a flag-proof case's evidence.json covers both legs in one document,
+    // written locally with no upload configured.
+    [Fact]
+    public async Task FlagProofCase_WritesLocalEvidenceCoveringBothLegs()
+    {
+        var root = CreateWorkspace();
+        WriteFlagProofCase(root, "FP-EV");
+        var evidenceDir = Directory.CreateTempSubdirectory("releasetwin-flag-proof-evidence-").FullName;
+        var output = new StringWriter();
+
+        var exitCode = await new CliRunner().RunAsync(
+            Path.Combine(root, "cases"),
+            new Dictionary<string, string?>(ValidEnvironment())
+            {
+                ["RELEASETWIN_EVIDENCE"] = "on",
+                ["RELEASETWIN_EVIDENCE_DIR"] = evidenceDir,
+            },
+            output,
+            azureDevOpsHandlerForTesting: new FakeAzureDevOpsHandler());
+
+        Assert.Equal(0, exitCode);
+        var documentPath = Path.Combine(evidenceDir, "FP-EV", "evidence.json");
+        Assert.True(File.Exists(documentPath));
+        var json = File.ReadAllText(documentPath);
+        Assert.Contains("\"leg\"", json, StringComparison.OrdinalIgnoreCase);
+    }
+
     // http-flag-control: a case whose flag_proof.control block toggles a flag system nothing
     // installed knows about — the always-present HTTP adapter flips it and the legs discriminate.
     [Fact]
