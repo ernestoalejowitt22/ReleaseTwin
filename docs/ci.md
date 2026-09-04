@@ -203,6 +203,13 @@ steps:
 (Run the `script` step inside a container job with the CLI image, or install the CLI as a
 `dotnet` global tool first — see options B/C above.)
 
+**These aren't just typed — Bitbucket is proven live.**
+[`releasetwin-ci-examples`](https://github.com/ernestoalejowitt22/releasetwin-ci-examples)
+runs three real demo apps (Express, React, Angular) through real CI platforms on every
+push. **Bitbucket Pipelines**: verified green —
+[build #3](https://bitbucket.org/releasetwin/releasetwin-ci-examples/pipelines/results/3).
+Azure Pipelines is wired up next; this note updates once it has its own real run.
+
 Jenkins consumes the same file with the built-in `junit 'junit.xml'` step.
 
 ## Credentials
