@@ -73,22 +73,29 @@
 - [x] 5.1 User confirmed the Bitbucket workspace already exists:
       https://bitbucket.org/releasetwin/workspace/overview/ (2026-09-03).
 - [x] 5.2 `.github/workflows/mirror-to-bitbucket.yml` added — force-pushes
-      `main` to `bitbucket.org/releasetwin/releasetwin-ci-examples.git` using
-      `BITBUCKET_USERNAME`/`BITBUCKET_APP_PASSWORD` secrets (not yet set — see
-      credential-preflight output). Fails visibly on push failure (no `||
-      true`), per `design.md`.
-- [x] 5.3 `bitbucket-pipelines.yml` at repo root — written, **not using the
-      CLI image** as originally scoped: Bitbucket's Docker-in-Docker doesn't
+      `main` to `bitbucket.org/releasetwin/releasetwin-ci-examples.git`.
+      Bitbucket app passwords turned out to be deprecated; switched to a
+      **repository access token** (`BITBUCKET_REPO_TOKEN` secret), which
+      authenticates over git+https as username `x-token-auth`. Verified
+      working: mirror job pushes successfully on every push to `main`.
+- [x] 5.3 `bitbucket-pipelines.yml` at repo root — **not using the CLI
+      image** as originally scoped: Bitbucket's Docker-in-Docker doesn't
       cleanly reach a service the same step just booted on localhost, so
       (like react.yml/angular.yml) it builds the engine from source and
-      installs Playwright directly. All three demos run this way for
-      consistency. Not yet verified against a real Bitbucket Pipeline (needs
-      5.4's credentials + the mirror to actually run first).
-- [ ] 5.4 **Blocked on credentials, not the account**: a Bitbucket App
-      Password (Repositories: Admin, Pipelines: Write) + username, to (a)
-      create the mirror repo, (b) enable Pipelines via API, (c) let the
-      mirror job push. Requested from the user via credential-preflight
-      (2026-09-03) — not yet provided.
+      installs Playwright directly (PowerShell + the `playwright.ps1` script
+      the `Microsoft.Playwright` package generates at build time —
+      `Microsoft.Playwright.CLI` turned out to be deprecated, stopped
+      publishing after 1.2.3).
+- [x] 5.4 Bitbucket Pipelines enabled (user did this manually — the
+      repository-access-token auth doesn't carry a full user session, and
+      the enable-pipelines API endpoint requires one). Mirror repo created
+      by the user (workspace access tokens need Premium; repository access
+      tokens don't, but need the repo to exist first). **Real green run
+      confirmed**: build #3
+      (https://bitbucket.org/releasetwin/releasetwin-ci-examples/pipelines/results/3)
+      — all three steps (Express/React/Angular demo) passed, after fixing a
+      `bash -qq` typo (build #1) and the deprecated-CLI Playwright mistake
+      (build #2).
 
 ## 6. Azure Pipelines (blocked on an Azure DevOps account)
 
