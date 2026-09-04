@@ -210,7 +210,10 @@ push, mirrored to
 [`releasetwin-ci-example-projects`](https://bitbucket.org/releasetwin/releasetwin-ci-example-projects)
 on Bitbucket. **Bitbucket Pipelines**: verified green —
 [build #1](https://bitbucket.org/releasetwin/releasetwin-ci-example-projects/pipelines/results/1).
-Azure Pipelines is wired up next; this note updates once it has its own real run.
+**Azure Pipelines**: also verified green —
+[build #239](https://ernestotesting.visualstudio.com/My%20First%20Project/_build/results?buildId=239)
+(all three jobs — Express, React, Angular — passed), built directly from the GitHub repo via
+a service connection, no mirror needed.
 
 Jenkins consumes the same file with the built-in `junit 'junit.xml'` step.
 

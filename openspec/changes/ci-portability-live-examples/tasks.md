@@ -109,21 +109,23 @@
       build-from-source + Playwright approach as react.yml/angular.yml/
       bitbucket-pipelines.yml, for the same reason (published CLI image has
       no Chromium).
-- [ ] 6.3 **Blocked on credentials, not the account**: an Azure DevOps PAT
-      (Build: Read & execute; Service Connections: Read, query & manage;
-      Project and Team: Read) to create the pipeline + a GitHub service
-      connection via REST API, and a GitHub PAT (repo/contents:read on
-      `releasetwin-ci-examples`) for that service connection to authenticate
-      with. Requested from the user via credential-preflight (2026-09-03) —
-      not yet provided. (No mirror needed here — Azure Pipelines builds the
-      GitHub repo directly.)
+- [x] 6.3 User provided both PATs (Azure DevOps + GitHub) 2026-09-03. Created
+      the GitHub service connection (`github-releasetwin-ci-examples`, PAT
+      auth) and the pipeline (id 7, `releasetwin-ci-examples`, pointed at
+      `ernestoalejowitt22/releasetwin-ci-examples`@main) via the Azure DevOps
+      REST API — no manual OAuth click needed, the PAT-based GitHub
+      connection worked directly. **Real green run confirmed**: build #239
+      (https://ernestotesting.visualstudio.com/My%20First%20Project/_build/results?buildId=239)
+      — all three jobs (Express/React/Angular demo) passed. No mirror needed
+      — Azure Pipelines builds the GitHub repo directly.
 
 ## 7. Close the loop in the engine repo
 
 - [x] 7.1 Pointer added in `docs/ci.md` linking the real, verified Bitbucket
-      build (updated once more when the mirror moved repos, 7efaf77); notes
-      Azure is still pending its own real run. Also updated the private
-      `releasetwin-platform` landing page + `/docs/ci` docs page with the
-      same real-proof link (out of this repo's scope, but the user asked
-      for it alongside this task).
+      build (updated once more when the mirror moved repos, 7efaf77); updated
+      again with the real, verified Azure Pipelines build #239 once 6.3
+      landed. Also updated the private `releasetwin-platform` landing page +
+      `/docs/ci` docs page with the same real-proof link (out of this repo's
+      scope, but the user asked for it alongside this task) — Azure line
+      still needs the same follow-up there.
 - [ ] 7.2 Confirm with the user before archiving.
