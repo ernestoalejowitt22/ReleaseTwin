@@ -46,12 +46,13 @@ normal human output:
 
 ```jsonc
 {
-  "schemaVersion": 2,
+  "schemaVersion": 3,
   "overall": "failed",
   "totals": { "passed": 12, "failed": 1, "cases": 13 },
   "flagProof": { "proven": 3, "ineligible": 1, "regressed": 0 },
   "cases": [
-    { "id": "HTTP-DEMO-1", "outcome": "passed", "classification": null, "flagProof": null, "release": "4.2" },
+    { "id": "HTTP-DEMO-1", "outcome": "passed", "classification": null, "flagProof": null, "release": "4.2",
+      "oracleLocator": "#42" },
     { "id": "CLM-042", "outcome": "failed", "classification": "infrastructure", "flagProof": null, "release": null,
       "evidenceUrl": "https://app.releasetwin.com/dashboard/reports/…/evidence?projectId=…" }
   ],
@@ -60,14 +61,16 @@ normal human output:
 ```
 
 It carries only metadata the CLI already prints — ids, outcomes, classifications,
-flag-proof results, and the `release` label. No bodies, no secrets. With no flag set, no
-file is written and behavior is unchanged.
+flag-proof results, the `release` label, and each case's oracle locator. No bodies, no
+secrets. With no flag set, no file is written and behavior is unchanged.
 
 `runUrl` (top level) and a case's `evidenceUrl` are **optional** and appear only when the run
 uploaded to a hosted project (see Credentials) — `runUrl` links the project dashboard;
-`evidenceUrl` is present for a case whose evidence was uploaded and accepted. A consumer
-that ignores unknown fields is unaffected; a run with no upload produces a summary
-identical to `schemaVersion: 1` apart from the version integer.
+`evidenceUrl` is present for a case whose evidence was uploaded and accepted. A case's
+`oracleLocator` is carried straight through from its case file's `oracle.locator` whenever
+one is declared, independent of any upload — see "Ticket write-back" below. A consumer
+that ignores unknown fields is unaffected; a run with no upload and no declared locators
+produces a summary identical to `schemaVersion: 1` apart from the version integer.
 
 ## PR annotations
 
@@ -117,6 +120,34 @@ and that's your merge gate, no comment noise.
 
 See [`integrations/github-action/README.md`](../integrations/github-action/README.md) for
 every input. This repo dogfoods the Action in `.github/workflows/pr-annotations.yml`.
+
+## Ticket write-back
+
+For a ticket-centric review process — where a reviewer closes out a GitHub Issue rather
+than watching the PR — the Action can also post evidence directly onto the ticket a case
+is meant to prove, using that case's `oracle.locator`:
+
+```yaml
+- uses: ernestoalejowitt22/releasetwin-action@v0.2.0
+  with:
+    cases-path: cases
+    ticket-write-back: "true"
+```
+
+A case whose `oracle.locator` is a bare `#123` gets a comment on issue 123 **in this same
+repository** naming the case, its pass/fail outcome, and a link to its evidence (falling
+back to the run's dashboard link if the case has none). This is additive to the PR
+comment/check run, not a replacement, and it's disabled by default. A locator that isn't a
+bare issue number (a Jira-style key, free text, or no locator at all) is left alone — no
+attempt is made, and it's never treated as an error. If posting fails (the issue doesn't
+exist, the token lacks permission), the job logs a warning and the run's own pass/fail
+outcome is unaffected — write-back only ever adds evidence, it never gates anything.
+
+Verified against a real GitHub repo/issue, not just the test suite. Bitbucket issues and
+Azure Boards work items are tracked as follow-on work — each needs its own real-API
+verification (Bitbucket's App-password scope, Azure's work-item comment endpoint) before
+shipping, following this project's usual "verified, not just typed" standard — and aren't
+supported yet.
 
 ## What a failure looks like
 

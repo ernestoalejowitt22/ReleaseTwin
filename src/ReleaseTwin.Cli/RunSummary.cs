@@ -21,7 +21,7 @@ public sealed record RunSummary(
     [property: JsonPropertyName("runUrl")]
     [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] string? RunUrl = null)
 {
-    public const int CurrentSchemaVersion = 2;
+    public const int CurrentSchemaVersion = 3;
 }
 
 public sealed record RunSummaryTotals(
@@ -43,14 +43,19 @@ public sealed record RunSummaryCase(
     // pr-annotation-evidence-link: the dashboard evidence-view URL for this case's uploaded report,
     // set only when evidence was uploaded and accepted. Omitted (not null) otherwise.
     [property: JsonPropertyName("evidenceUrl")]
-    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] string? EvidenceUrl = null);
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] string? EvidenceUrl = null,
+    // ticket-evidence-write-back: the case's oracle.locator, carried through so a CI integration can
+    // resolve a ticket to post evidence to without re-parsing case files. Omitted (not null) when the
+    // case declared no locator.
+    [property: JsonPropertyName("oracleLocator")]
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] string? OracleLocator = null);
 
 /// <summary>Accumulates per-case rows during the run, then produces the versioned <see cref="RunSummary"/>.</summary>
 public sealed class RunSummaryBuilder
 {
     private readonly List<RunSummaryCase> _cases = new();
 
-    public void AddCase(string id, bool passed, string? classification, string? flagProofOutcome, string? release, string? evidenceUrl = null)
+    public void AddCase(string id, bool passed, string? classification, string? flagProofOutcome, string? release, string? evidenceUrl = null, string? oracleLocator = null)
     {
         _cases.Add(new RunSummaryCase(
             id,
@@ -58,7 +63,8 @@ public sealed class RunSummaryBuilder
             classification?.ToLowerInvariant(),
             flagProofOutcome,
             string.IsNullOrWhiteSpace(release) ? null : release,
-            string.IsNullOrWhiteSpace(evidenceUrl) ? null : evidenceUrl));
+            string.IsNullOrWhiteSpace(evidenceUrl) ? null : evidenceUrl,
+            string.IsNullOrWhiteSpace(oracleLocator) ? null : oracleLocator));
     }
 
     /// <param name="runUrl">
