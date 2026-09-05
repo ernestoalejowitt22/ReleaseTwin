@@ -194,7 +194,23 @@ for every input and the `remote:` include form for instances without the CI/CD C
 ### Bitbucket Pipelines
 
 Bitbucket collects test results from any `**/test-results/*.xml` (or `**/junit.xml`) it
-finds after a step — no configuration key needed.
+finds after a step — no configuration key needed. A packaged
+[Bitbucket Pipe](../integrations/bitbucket-pipe/) wraps the CLI image so the step is
+declarative:
+
+```yaml
+pipelines:
+  pull-requests:
+    '**':
+      - step:
+          name: Release-proof gate
+          script:
+            - pipe: docker://ghcr.io/ernestoalejowitt22/releasetwin/bitbucket-pipe:0.2.0
+              variables:
+                CASES_PATH: 'cases'
+```
+
+Or, without pulling the extra wrapper image, the raw form:
 
 ```yaml
 pipelines:

@@ -91,17 +91,44 @@ jobs:
             ${{ steps.image.outputs.name }}:${{ steps.version.outputs.version }}
             ${{ steps.image.outputs.name }}:latest
 
+      # bitbucket-custom-pipe: built FROM the CLI image digest just pushed above, so it can
+      # never reference a stale base — same freshness guarantee as the Action pin below.
+      - name: Derive lowercase pipe image name
+        id: pipe-image
+        run: |
+          echo "name=$(echo 'ghcr.io/${{ github.repository }}/bitbucket-pipe' | tr '[:upper:]' '[:lower:]')" >> "$GITHUB_OUTPUT"
+
+      - name: Build and push the Bitbucket Pipe wrapper image
+        id: build-pipe
+        uses: docker/build-push-action@v6
+        with:
+          context: integrations/bitbucket-pipe
+          platforms: linux/amd64,linux/arm64
+          push: true
+          build-args: |
+            BASE_IMAGE=${{ steps.image.outputs.name }}@${{ steps.build.outputs.digest }}
+          tags: |
+            ${{ steps.pipe-image.outputs.name }}:${{ steps.version.outputs.version }}
+            ${{ steps.pipe-image.outputs.name }}:latest
+
       # supply-chain-and-ci-hardening: advance the published Action's default image to the digest
       # just built, committed to main, so `uses: <repo>/integrations/github-action@v0` runs an
       # immutable image. Only reached after build+test+tool-push+image-push all succeeded. `:latest`
       # is still pushed above for human convenience, but the Action never references it.
-      - name: Pin the Action default image to the new digest
+      #
+      # bitbucket-custom-pipe: the same commit also pins pipe.yml's image reference and the
+      # wrapper Dockerfile's default BASE_IMAGE arg to their own just-built digest/version.
+      - name: Pin the Action default image and the Bitbucket Pipe references to the new build
         id: pin
         run: |
           set -euo pipefail
           digest='${{ steps.build.outputs.digest }}'
           name='${{ steps.image.outputs.name }}'
+          pipe_digest='${{ steps.build-pipe.outputs.digest }}'
+          pipe_name='${{ steps.pipe-image.outputs.name }}'
+          version='${{ steps.version.outputs.version }}'
           [ -n "$digest" ] || { echo "::error::build-push-action produced no digest"; exit 1; }
+          [ -n "$pipe_digest" ] || { echo "::error::bitbucket-pipe build-push-action produced no digest"; exit 1; }
 
           git config user.name  "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
@@ -110,12 +137,19 @@ jobs:
 
           file=integrations/github-action/action.yml
           sed -i -E "s#(^    default: )ghcr\.io/.*/cli[:@].*#\1${name}@${digest}#" "$file"
-          git add "$file"
+
+          pipe_yml=integrations/bitbucket-pipe/pipe.yml
+          sed -i -E "s#(^image: )ghcr\.io/.*/bitbucket-pipe[:@].*#\1${pipe_name}@${pipe_digest}#" "$pipe_yml"
+
+          dockerfile=integrations/bitbucket-pipe/Dockerfile
+          sed -i -E "s#(^ARG BASE_IMAGE=)ghcr\.io/.*/cli[:@].*#\1${name}:${version}#" "$dockerfile"
+
+          git add "$file" "$pipe_yml" "$dockerfile"
           if git diff --cached --quiet; then
-            echo "Action default image already current."
+            echo "Action/pipe references already current."
             echo "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
           else
-            git commit -m "release: pin github-action default image to ${name}@${digest}"
+            git commit -m "release: pin github-action + bitbucket-pipe image references to ${version}"
             git push origin main
             echo "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
           fi
