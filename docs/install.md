@@ -49,7 +49,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: ernestoalejowitt22/ReleaseTwin/integrations/github-action@v0.2.0
+      - uses: ernestoalejowitt22/releasetwin-action@v0.2.0
         with:
           cases-path: cases
 ```

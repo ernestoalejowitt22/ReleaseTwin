@@ -98,7 +98,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: ernestoalejowitt22/ReleaseTwin/integrations/github-action@v0.2.0
+      - uses: ernestoalejowitt22/releasetwin-action@v0.2.0
         with:
           cases-path: cases
           image: ghcr.io/ernestoalejowitt22/releasetwin/cli:0.2.0
@@ -106,7 +106,10 @@ jobs:
 
 Pin a full version (`@v0.2.0`) in CI. `@v0` is a floating tag that tracks the latest 0.x
 release if you want patches automatically. The `image` input must be a publicly pullable
-tag.
+tag. `releasetwin-action` is a release-time mirror of
+[`integrations/github-action/`](../integrations/github-action/) published at a repo root
+so it's Marketplace-eligible — same code, same versioning; the subdirectory form
+(`ernestoalejowitt22/ReleaseTwin/integrations/github-action@v0.2.0`) still works too.
 
 **Run-only gate** (no PR comment, just the check): pass `comment: false`. The `ReleaseTwin`
 check run still reports pass/fail — make it a required status check on the protected branch

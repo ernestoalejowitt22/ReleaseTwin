@@ -19,7 +19,12 @@ jobs:
       # secret to store or rotate; see the "NuGet login" step below.
       id-token: write
     steps:
+      # github-marketplace-listing: full history is needed for `git subtree split`
+      # (the mirroring step, near the end of this job) to work correctly — a shallow
+      # clone would silently produce an incomplete or incorrect split.
       - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
 
       - uses: actions/setup-dotnet@v4
         with:
@@ -172,3 +177,37 @@ jobs:
             git push -f origin "refs/tags/$t"
             echo "moved $t -> $target"
           done
+
+      # github-marketplace-listing: GitHub only allows a Marketplace listing when
+      # action.yml sits at a repo's root, and this repo's own root license (AGPL-3.0)
+      # would otherwise misrepresent the Action's actual Apache-2.0 license on that
+      # listing (see design.md). `releasetwin-action` is a pure mirror of
+      # integrations/github-action/ — it is never edited directly, so a force-push
+      # here loses no independent history. Skipped (not failed) until the user has
+      # created the repo and secret (openspec/changes onward:
+      # archive/2026-09-04-github-marketplace-listing/tasks.md 1.1-1.2).
+      - name: Mirror the Action to the dedicated Marketplace-eligible repository
+        if: ${{ secrets.RELEASETWIN_ACTION_MIRROR_TOKEN != '' }}
+        run: |
+          set -euo pipefail
+          version="${{ steps.version.outputs.version }}"
+          major="v${version%%.*}"
+          minor="v${version%.*}"
+          target="${{ steps.pin.outputs.sha || github.sha }}"
+          mirror_repo="ernestoalejowitt22/releasetwin-action"
+          mirror_url="https://x-access-token:${{ secrets.RELEASETWIN_ACTION_MIRROR_TOKEN }}@github.com/${mirror_repo}.git"
+
+          git config user.name  "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+          git checkout "$target"
+          git subtree split --prefix=integrations/github-action -b action-mirror
+          git checkout -
+
+          git push --force "$mirror_url" action-mirror:main
+          git push --force "$mirror_url" "action-mirror:refs/tags/${version}"
+          for t in "$major" "$minor"; do
+            git push --force "$mirror_url" "action-mirror:refs/tags/${t}"
+            echo "mirrored -> ${mirror_repo}@${t}"
+          done
+          git branch -D action-mirror
