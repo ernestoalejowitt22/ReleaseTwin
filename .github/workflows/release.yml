@@ -187,7 +187,13 @@ jobs:
       # created the repo and secret (openspec/changes onward:
       # archive/2026-09-04-github-marketplace-listing/tasks.md 1.1-1.2).
       - name: Mirror the Action to the dedicated Marketplace-eligible repository
-        if: ${{ secrets.RELEASETWIN_ACTION_MIRROR_TOKEN != '' }}
+        # Secrets cannot be referenced directly in an `if:` conditional (GitHub rejects the
+        # whole workflow file at registration time if you try) — the presence check is done
+        # via `env:` instead, which is the documented workaround.
+        if: ${{ env.HAS_MIRROR_TOKEN == 'true' }}
+        env:
+          HAS_MIRROR_TOKEN: ${{ secrets.RELEASETWIN_ACTION_MIRROR_TOKEN != '' }}
+          MIRROR_TOKEN: ${{ secrets.RELEASETWIN_ACTION_MIRROR_TOKEN }}
         run: |
           set -euo pipefail
           version="${{ steps.version.outputs.version }}"
@@ -195,7 +201,7 @@ jobs:
           minor="v${version%.*}"
           target="${{ steps.pin.outputs.sha || github.sha }}"
           mirror_repo="ernestoalejowitt22/releasetwin-action"
-          mirror_url="https://x-access-token:${{ secrets.RELEASETWIN_ACTION_MIRROR_TOKEN }}@github.com/${mirror_repo}.git"
+          mirror_url="https://x-access-token:${MIRROR_TOKEN}@github.com/${mirror_repo}.git"
 
           git config user.name  "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
