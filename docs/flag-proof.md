@@ -168,3 +168,56 @@ can never be misreported as a weak oracle.
 See `examples/cases-flag-proof-http/example-flag-proof-http.yaml` for a complete
 case, and `examples/cases-flag-proof-shared-control/` for a two-case suite that
 shares one `releasetwin.yml`.
+
+## Vendor cookbook
+
+`control` works against any HTTP-reachable flag system — you don't need a named vendor
+at all. The most common real case is a flag that lives in **your own database**, flipped
+by a small internal admin endpoint your team already has: see
+[`docs/express.md`](express.md), where `PUT /admin/flags/orders-v2 {"state":"enabled"}`
+is exactly that — no vendor, no adapter, just a REST endpoint the `control` block drives
+directly. If that's your setup, you already have everything you need; the recipes below
+are for teams running a specific open-source flag platform instead.
+
+These are real, runnable recipes, each verified against that vendor's own Docker image
+before being written down here. `${VAR}` placeholders resolve as described above; none
+of these examples contain a literal credential.
+
+### GrowthBook (open source, self-hosted)
+
+GrowthBook's REST API updates a boolean flag's value with one field on one fixed URL —
+`defaultValue` is a JSON **string**, so `{{enabled}}` sits inside quotes:
+
+```yaml
+flag_proof:
+  feature_key: <your-flag-id>
+  control:
+    method: POST
+    url: ${GROWTHBOOK_URL}/api/v1/features/{{featureKey}}
+    headers:
+      Authorization: "Bearer ${GROWTHBOOK_API_KEY}"
+      Content-Type: application/json
+    body: '{ "defaultValue": "{{enabled}}" }'
+    verify:
+      method: GET
+      url: ${GROWTHBOOK_URL}/api/v1/features/{{featureKey}}
+      headers:
+        Authorization: "Bearer ${GROWTHBOOK_API_KEY}"
+      json_path: $.feature.defaultValue
+      expected: "{{enabled}}"
+```
+
+Runnable end-to-end example, including a `docker compose` to get a real local
+GrowthBook instance: `examples/cases-flag-proof-growthbook/`.
+
+### A note on vendors with action-style toggle APIs
+
+Not every vendor fits this pattern cleanly. [Unleash](https://www.getunleash.io/) (also
+open source and self-hosted) was tried for this cookbook and dropped: its Admin API has
+no body-based way to set a flag's enabled state — only two dedicated action endpoints,
+`POST .../environments/<env>/on` and `.../off` (confirmed against Unleash's own live
+OpenAPI spec). `control`'s token vocabulary (`{{state}}` → `enabled`/`disabled`,
+`{{enabled}}` → `true`/`false`) can't select between two different URLs, so one shared
+`control` block can't drive Unleash today. Supporting vendors shaped like this would need
+a real engine change (e.g. a configurable state-to-URL-segment mapping) — a separate,
+larger piece of work, not a docs addition.
