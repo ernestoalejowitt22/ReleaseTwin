@@ -1,0 +1,34 @@
+# SPDX-FileCopyrightText: 2026 Ernesto Alejo and the ReleaseTwin contributors
+# SPDX-License-Identifier: Apache-2.0
+#
+# Bitbucket Pipe metadata (https://support.atlassian.com/bitbucket-cloud/docs/write-a-pipe/).
+# Usable today via a direct `pipe: docker://<image>` reference (see README.md); this file's
+# catalog-oriented fields (category, vendor) are populated for a possible future submission
+# to Atlassian's official-pipes catalog, which is not required for the pipe to work.
+name: ReleaseTwin
+# Advanced to the freshly built digest by .github/workflows/release.yml on each tagged
+# release, the same pattern integrations/github-action/action.yml uses for its default image.
+image: ghcr.io/ernestoalejowitt22/releasetwin/bitbucket-pipe:0.2.0
+description: >-
+  Run ReleaseTwin release-proof cases and write a JUnit XML report that Bitbucket
+  Pipelines collects automatically — no ReleaseTwin account or hosted call involved.
+category: TEST
+repository: https://github.com/ernestoalejowitt22/ReleaseTwin
+maintainer: ReleaseTwin contributors
+vendor:
+  name: ReleaseTwin contributors
+  link: https://releasetwin.com
+
+variables:
+  - name: CASES_PATH
+    default: cases
+    description: Path (relative to the workspace) to the directory of case files to run.
+  - name: RELEASETWIN_JUNIT_XML
+    default: test-results/junit.xml
+    description: >-
+      Where to write the JUnit XML report. The default sits inside the
+      `**/test-results/*.xml` glob Bitbucket Pipelines already scans with no
+      further configuration.
+  - name: RELEASETWIN_SUMMARY_JSON
+    default: ""
+    description: Optional path to also write a machine-readable JSON run summary.
