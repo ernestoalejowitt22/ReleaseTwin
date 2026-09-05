@@ -1,0 +1,58 @@
+# SPDX-FileCopyrightText: 2026 Ernesto Alejo and the ReleaseTwin contributors
+# SPDX-License-Identifier: Apache-2.0
+
+# flag-vendor-cookbook: flag proof against a real, self-hosted GrowthBook instance — no
+# adapter, no plugin, the always-present HTTP adapter drives GrowthBook's own REST API.
+#
+# Setup: `docker compose up -d` in this directory, sign up once at http://localhost:3000
+# (no headless seed exists for GrowthBook's org/API-key setup, unlike Unleash), create an
+# Admin secret API key, then:
+#   GROWTHBOOK_URL=http://localhost:3100 GROWTHBOOK_API_KEY=<your secret key>
+#
+# GrowthBook's REST API updates a boolean flag's value with one field on one fixed URL —
+# `defaultValue` is a JSON *string* ("true"/"false"), which is why the token sits inside
+# quotes in the body below:
+#   POST ${GROWTHBOOK_URL}/api/v1/features/<id>   { "defaultValue": "true" | "false" }
+#   GET  ${GROWTHBOOK_URL}/api/v1/features/<id>   -> { "feature": { "defaultValue": "true" | "false", ... } }
+#
+# The feature itself must already exist (create once via the API — see README.md).
+#
+#   known-bad leg  (checkout-v2 -> "false") -> $.feature.defaultValue "false" -> assertion FAILS
+#   known-good leg (checkout-v2 -> "true")  -> $.feature.defaultValue "true"  -> assertion PASSES
+id: FLAGPROOF-GROWTHBOOK-DEMO-1
+oracle:
+  locator: examples/cases-flag-proof-growthbook/README.md
+fixture:
+  locator: example-flag-proof-growthbook.json
+  sha256: da517392b26502bd6bb4e7d2fd1bfc6a46d7bc925206ebdf1a583ba5959998aa
+requires:
+  - http:generic
+pipeline:
+  - operation: http.request
+    with:
+      method: GET
+      url: ${GROWTHBOOK_URL}/api/v1/features/checkout-v2
+      headers:
+        Authorization: "Bearer ${GROWTHBOOK_API_KEY}"
+  - operation: http.assertJsonPath
+    with:
+      path: $.feature.defaultValue
+      expected: "true"
+flag_proof:
+  feature_key: checkout-v2
+  build_identity: growthbook-demo@1
+  control:
+    method: POST
+    url: ${GROWTHBOOK_URL}/api/v1/features/{{featureKey}}
+    headers:
+      Authorization: "Bearer ${GROWTHBOOK_API_KEY}"
+      Content-Type: application/json
+    body: '{ "defaultValue": "{{enabled}}" }'
+    known_bad_when: disabled
+    verify:
+      method: GET
+      url: ${GROWTHBOOK_URL}/api/v1/features/{{featureKey}}
+      headers:
+        Authorization: "Bearer ${GROWTHBOOK_API_KEY}"
+      json_path: $.feature.defaultValue
+      expected: "{{enabled}}"

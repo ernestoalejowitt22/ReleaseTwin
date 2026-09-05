@@ -1,0 +1,20 @@
+# SPDX-FileCopyrightText: 2026 Ernesto Alejo and the ReleaseTwin contributors
+# SPDX-License-Identifier: Apache-2.0
+#
+# Self-hosted GrowthBook (open source) for the flag-vendor-cookbook example.
+# `docker compose up -d` gives a real GrowthBook instance: the app at
+# http://localhost:3000 (one-time sign-up — GrowthBook has no headless account/API-key
+# seed) and its REST API at http://localhost:3100.
+services:
+  mongo:
+    image: mongo:6
+
+  growthbook:
+    image: growthbook/growthbook:latest
+    ports:
+      - "3000:3000"
+      - "3100:3100"
+    depends_on:
+      - mongo
+    environment:
+      MONGODB_URI: mongodb://mongo:27017/growthbook

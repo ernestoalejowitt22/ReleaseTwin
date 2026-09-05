@@ -74,6 +74,13 @@ runnable ~60-line demo app in the
 [`releasetwin-ci-examples`](https://github.com/ernestoalejowitt22/releasetwin-ci-examples)
 repo, which runs the same cases on Bitbucket, Azure Pipelines, and GitHub Actions.
 
+For a **flag proof against a real, self-hosted [GrowthBook](https://www.growthbook.io/)
+instance** (no adapter — the same generic HTTP mechanism as above, driving GrowthBook's
+own REST API) — `examples/cases-flag-proof-growthbook/` includes a `docker compose` to
+run it end to end locally; see [docs/flag-proof.md](docs/flag-proof.md#vendor-cookbook)
+for the recipe against your own instance, or against a flag stored in your **own
+database** via a plain internal endpoint (no vendor needed at all).
+
 ### Via Docker (no .NET SDK)
 
 ```bash

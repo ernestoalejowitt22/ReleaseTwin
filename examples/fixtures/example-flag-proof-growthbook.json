@@ -1,0 +1,3 @@
+{
+  "note": "GrowthBook flag-vendor-cookbook fixture. The case toggles a real self-hosted GrowthBook instance over its REST API (flag_proof.control) and reads that same flag back; no fixture content is consumed, but every case still needs a verified fixture."
+}
