@@ -14,7 +14,7 @@ public class RunSummaryTests
 
         var summary = b.Build();
 
-        Assert.Equal(2, summary.SchemaVersion);
+        Assert.Equal(3, summary.SchemaVersion);
         Assert.Equal("failed", summary.Overall);
         Assert.Equal(1, summary.Totals.Passed);
         Assert.Equal(1, summary.Totals.Failed);
@@ -75,7 +75,25 @@ public class RunSummaryTests
         RunSummaryWriter.Write(path, b.Build());
 
         var text = File.ReadAllText(path);
-        Assert.Contains("\"schemaVersion\": 2", text);
+        Assert.Contains("\"schemaVersion\": 3", text);
         Assert.EndsWith("\n", text);
+    }
+
+    [Fact]
+    public void OracleLocatorIsCarriedThroughWhenDeclared()
+    {
+        var b = new RunSummaryBuilder();
+        b.AddCase("A", passed: true, classification: null, flagProofOutcome: null, release: null, oracleLocator: "#42");
+
+        Assert.Equal("#42", b.Build().Cases[0].OracleLocator);
+    }
+
+    [Fact]
+    public void OracleLocatorIsNullWhenNotDeclared()
+    {
+        var b = new RunSummaryBuilder();
+        b.AddCase("A", passed: true, classification: null, flagProofOutcome: null, release: null);
+
+        Assert.Null(b.Build().Cases[0].OracleLocator);
     }
 }

@@ -116,7 +116,7 @@ public class CliRunnerSummaryEvidenceLinkTests
             httpAdapterHandlerForTesting: new OkHttp());
 
         var s = Read(summaryPath);
-        Assert.Equal(2, s.GetProperty("schemaVersion").GetInt32());
+        Assert.Equal(3, s.GetProperty("schemaVersion").GetInt32());
         Assert.False(s.TryGetProperty("runUrl", out _));
         Assert.False(s.GetProperty("cases")[0].TryGetProperty("evidenceUrl", out _));
     }

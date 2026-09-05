@@ -468,7 +468,7 @@ public sealed class CliRunner
                     if (controller is null)
                     {
                         failed++;
-                        summary?.AddCase(testCase.CaseId, passed: false, classification: null, flagProofOutcome: "Ineligible", release: testCase.Release);
+                        summary?.AddCase(testCase.CaseId, passed: false, classification: null, flagProofOutcome: "Ineligible", release: testCase.Release, oracleLocator: testCase.Oracle.Locator);
                         output.WriteLine($"FLAGPROOF {testCase.CaseId} (Ineligible): no installed adapter exposes feature-state control and the case declares no flag_proof.control");
                         continue;
                     }
@@ -538,7 +538,7 @@ public sealed class CliRunner
                         }
                     }
 
-                    summary?.AddCase(result.CaseId, result.Outcome == FlagProofOutcome.Passed, classification: null, flagProofOutcome: result.Outcome.ToString(), release: testCase.Release, evidenceUrl: flagProofEvidenceUrl);
+                    summary?.AddCase(result.CaseId, result.Outcome == FlagProofOutcome.Passed, classification: null, flagProofOutcome: result.Outcome.ToString(), release: testCase.Release, evidenceUrl: flagProofEvidenceUrl, oracleLocator: testCase.Oracle.Locator);
 
                     continue;
                 }
@@ -600,7 +600,7 @@ public sealed class CliRunner
                     }
                 }
 
-                summary?.AddCase(report.CaseId, report.Passed, report.Classification?.ToString(), flagProofOutcome: null, release: testCase.Release, evidenceUrl: caseEvidenceUrl);
+                summary?.AddCase(report.CaseId, report.Passed, report.Classification?.ToString(), flagProofOutcome: null, release: testCase.Release, evidenceUrl: caseEvidenceUrl, oracleLocator: testCase.Oracle.Locator);
             }
 
             output.WriteLine($"{passed} passed, {failed} failed");
