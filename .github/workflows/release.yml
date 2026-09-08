@@ -210,10 +210,19 @@ jobs:
           git subtree split --prefix=integrations/github-action -b action-mirror
           git checkout -
 
-          git push --force "$mirror_url" action-mirror:main
-          git push --force "$mirror_url" "action-mirror:refs/tags/${version}"
+          # actions/checkout persists the job's own GITHUB_TOKEN as a global
+          # http.https://github.com/.extraheader credential, which otherwise
+          # overrides the mirror_url's embedded PAT on every push below (git
+          # sends the extraheader's Authorization, not the URL's) — the push
+          # then authenticates as github-actions[bot] against a repo it has
+          # no access to and fails with a 403, not as the intended PAT.
+          # Clearing it for just these invocations (via `-c`, not a global
+          # unset) restores the URL-embedded credential without touching any
+          # other step's use of the ambient token.
+          git -c http.https://github.com/.extraheader= push --force "$mirror_url" action-mirror:main
+          git -c http.https://github.com/.extraheader= push --force "$mirror_url" "action-mirror:refs/tags/${version}"
           for t in "$major" "$minor"; do
-            git push --force "$mirror_url" "action-mirror:refs/tags/${t}"
+            git -c http.https://github.com/.extraheader= push --force "$mirror_url" "action-mirror:refs/tags/${t}"
             echo "mirrored -> ${mirror_repo}@${t}"
           done
           git branch -D action-mirror
