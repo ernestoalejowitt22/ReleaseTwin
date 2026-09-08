@@ -13,7 +13,7 @@
 # this is always built from that exact release's image, never a stale tag. The default
 # below is only for a local `docker build` with no build-arg (see README.md / tasks.md 5.1)
 # and is advanced to the latest released version tag alongside each release.
-ARG BASE_IMAGE=ghcr.io/ernestoalejowitt22/releasetwin/cli:0.2.0
+ARG BASE_IMAGE=ghcr.io/ernestoalejowitt22/releasetwin/cli:0.3.0
 FROM ${BASE_IMAGE}
 
 COPY entrypoint.sh /entrypoint.sh

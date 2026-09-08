@@ -8,7 +8,7 @@
 name: ReleaseTwin
 # Advanced to the freshly built digest by .github/workflows/release.yml on each tagged
 # release, the same pattern integrations/github-action/action.yml uses for its default image.
-image: ghcr.io/ernestoalejowitt22/releasetwin/bitbucket-pipe:0.2.0
+image: ghcr.io/ernestoalejowitt22/releasetwin/bitbucket-pipe@sha256:f7e785c829eceeb4b54dcf087333fffed5bdf62e1c4b4efbafc88f25cf8aae57
 description: >-
   Run ReleaseTwin release-proof cases and write a JUnit XML report that Bitbucket
   Pipelines collects automatically — no ReleaseTwin account or hosted call involved.
