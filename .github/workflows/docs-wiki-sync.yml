@@ -1,0 +1,84 @@
+name: Docs wiki sync
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "docs/**"
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          path: repo
+
+      # add-engineering-flow-docs: the wiki is a one-directional, generated mirror of docs/ —
+      # docs/ (reviewed via PR) is the source of truth, never the other way around. A wiki repo
+      # does not exist until at least one page has been created once through the GitHub UI; that
+      # one-time step is manual (see openspec/changes/add-engineering-flow-docs/proposal.md) and
+      # this step fails with a clear message rather than a generic git error if it hasn't happened.
+      - name: Clone wiki
+        run: |
+          set -euo pipefail
+          if ! git clone --depth 1 "https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.wiki.git" wiki 2>clone.log; then
+            cat clone.log
+            echo "::error::Could not clone the wiki repo. Has the wiki been initialized yet? Create one page through the repo's Wiki tab, then re-run this workflow."
+            exit 1
+          fi
+
+      - name: Mirror docs/ into the wiki
+        run: |
+          set -euo pipefail
+          rsync -a --delete --exclude ".git" repo/docs/ wiki/
+
+          # docs/ has no top-level README/Home by convention, but a wiki with no Home.md renders
+          # GitHub's bare "no Home page" state instead of a landing page — generate one from what's
+          # actually there rather than requiring docs/ to carry a file that only the wiki needs.
+          if [ ! -f wiki/Home.md ]; then
+            {
+              echo "# ReleaseTwin Documentation"
+              echo
+              if [ -f wiki/engineering/overview.md ]; then
+                echo "## Engineering"
+                echo
+                echo "See [engineering/overview](engineering/overview) for the CLI, execution kernel, flag proof, and adapters."
+                echo
+              fi
+              echo "## All docs"
+              echo
+              find wiki -maxdepth 1 -name "*.md" ! -name "Home.md" -printf '%f\n' | sort | while IFS= read -r f; do
+                echo "- [${f%.md}](${f%.md})"
+              done
+            } > wiki/Home.md
+          fi
+
+          # Every synced page gets a short notice up top — the wiki is overwritten on every sync,
+          # so an edit made directly through the GitHub UI would otherwise vanish without warning.
+          notice='> Synced automatically from `docs/` in the main repo. Edit there, not here — this page is overwritten on every sync.'
+          find wiki -name "*.md" -print0 | while IFS= read -r -d "" f; do
+            printf '%s\n\n%s\n' "$notice" "$(cat "$f")" > "$f"
+          done
+
+      - name: Commit and push if changed
+        working-directory: wiki
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add -A
+          if git diff --cached --quiet; then
+            echo "No doc changes to sync."
+            exit 0
+          fi
+          git commit -m "Sync docs/ from ${{ github.sha }}"
+          git push
