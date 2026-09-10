@@ -7,8 +7,10 @@ your laptop or your CI runner. No account, no network call to any ReleaseTwin
 service, ever, unless you opt in.
 
 The **hosted dashboard** at [releasetwin.com](https://releasetwin.com) is an
-optional layer on top. It never runs your tests — execution always stays in
-your own infra — it just stores and displays what the CLI reports.
+optional layer on top. By default it never runs your tests — execution stays in
+your own infra and it just stores and displays what the CLI reports. The one
+opt-in exception is hosted evidence runners, a paid feature that executes a
+pinned journey on ReleaseTwin-operated compute.
 
 ## What each tier gets you
 
