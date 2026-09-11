@@ -15,6 +15,7 @@
 # The runnable React app is examples/apps/react-demo/ in the
 # `releasetwin-ci-examples` repo; this file is the copy-paste reference.
 id: SPA-REACT-JOURNEY-1
+release: "spa-demo/1.0"
 oracle:
   locator: docs/spa-testing.md
 fixture:

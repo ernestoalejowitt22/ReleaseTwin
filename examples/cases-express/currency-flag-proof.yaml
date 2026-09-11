@@ -19,6 +19,7 @@
 # Setup: run the express-demo app (releasetwin-ci-examples/apps/express-demo:
 #   `npm ci && npm start`) and set API_BASE_URL=http://localhost:4599
 id: EXPRESS-FLAGPROOF-CURRENCY-1
+release: "express-demo/1.0"
 oracle:
   locator: docs/express.md
 fixture:
