@@ -8,8 +8,8 @@ GitHub Action? See [`docs/install.md`](install.md).)
 ```bash
 mkdir my-release-proof && cd my-release-proof
 
-docker run --rm -v "$PWD:/workspace" -w /workspace \
-  ghcr.io/ernestoalejowitt22/releasetwin/cli:latest init
+docker run --rm -v "$PWD:/workspace" \
+  ghcr.io/ernestoalejowitt22/releasetwin/cli:0.3.0 init /workspace
 ```
 
 You now have:
@@ -24,8 +24,8 @@ releasetwin.yaml          project config (optional)
 ## 2. Run it
 
 ```bash
-docker run --rm -v "$PWD:/workspace" -w /workspace \
-  ghcr.io/ernestoalejowitt22/releasetwin/cli:latest run
+docker run --rm -v "$PWD:/workspace" \
+  ghcr.io/ernestoalejowitt22/releasetwin/cli:0.3.0 run /workspace/cases
 ```
 
 ```
@@ -112,9 +112,9 @@ pipeline:
 Pass the env vars into the container:
 
 ```bash
-docker run --rm -v "$PWD:/workspace" -w /workspace \
+docker run --rm -v "$PWD:/workspace" \
   -e API_BASE_URL -e API_TOKEN \
-  ghcr.io/ernestoalejowitt22/releasetwin/cli:latest run
+  ghcr.io/ernestoalejowitt22/releasetwin/cli:0.3.0 run /workspace/cases
 ```
 
 A non-zero exit code means a case failed — wire it straight into CI.

@@ -14,7 +14,7 @@ The zero-dependency path. Anything with Docker.
 
 ```bash
 docker run --rm -v "$PWD:/workspace:ro" \
-  ghcr.io/ernestoalejowitt22/releasetwin/cli:0.2.0 /workspace/cases
+  ghcr.io/ernestoalejowitt22/releasetwin/cli:0.3.0 /workspace/cases
 ```
 
 - Pin a released version (`:0.2.0`), not `:latest`, in CI.
