@@ -37,6 +37,23 @@ the container image's behavior.
 UI-journey cases drive a real browser via Playwright — run `playwright install`
 once. HTTP and flag-proof cases need nothing extra.
 
+## Already have a test suite?
+
+If your suite already writes JUnit XML — `pytest --junitxml`, `jest-junit`,
+Playwright's `junit` reporter — you can put its results on the dashboard without
+authoring a case file:
+
+```
+RELEASETWIN_API_TOKEN=... releasetwin upload-junit junit-results.xml
+```
+
+Add `--release <label>` to group the upload under a release. The file is
+uploaded exactly as written; the platform parses it, so any dialect your runner
+emits is its call to accept, and it reports how many test cases were recorded.
+
+Imported results give you run history, trends, and release roll-up. Authoring a
+case is what proves a flag.
+
 ## More
 
 - [Quickstart](https://github.com/ernestoalejowitt22/ReleaseTwin/blob/main/docs/quickstart.md)
