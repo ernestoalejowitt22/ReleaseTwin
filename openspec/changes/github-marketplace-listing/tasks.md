@@ -1,11 +1,14 @@
 ## 1. User setup (blocking — do before task 2 can run for real)
 
-- [ ] 1.1 **Needs the user to run this** — create
-      `ernestoalejowitt22/releasetwin-action` (empty is fine; the first release
-      populates it). Do not enable branch-protection rules that block force-pushes
-      or require PRs on `main` — the mirroring step force-pushes directly (see
-      design.md - Decisions).
-- [ ] 1.2 **Needs the user to run this** — generate a fine-grained personal access
+- [x] 1.1 **Done.** `releasetwin/releasetwin-action` exists, is public, and carries
+      tags `0.3.0` / `v0.3` / `v0`. Originally created under the personal account;
+      moved to the `releasetwin` org (commit `23fec43`, PR #141), which is why this
+      task's original text named the old path. Standing constraint: the mirror's
+      `main` must never get branch-protection rules that block force-pushes or
+      require PRs — the mirroring step force-pushes directly (see design.md -
+      Decisions).
+- [x] 1.2 **Done.** Repo secret `RELEASETWIN_ACTION_MIRROR_TOKEN` is present on
+      `ReleaseTwin` (added 2026-09-11). Original instructions kept for the record: generate a fine-grained personal access
       token (GitHub Settings → Developer settings → Fine-grained tokens),
       repository access limited to `releasetwin-action` only, permission
       Contents: Read and write, no expiry or a long one. Add it as a repo secret
@@ -22,7 +25,7 @@
       whose tree is exactly `LICENSE`, `README.md`, `action.yml`, `render.mjs`,
       `render.test.mjs` at root — nothing else.
 - [x] 2.2 Push that branch to `releasetwin-action`'s `main`
-      (`git push --force https://x-access-token:${RELEASETWIN_ACTION_MIRROR_TOKEN}@github.com/ernestoalejowitt22/releasetwin-action.git action-mirror:main`),
+      (`git push --force https://x-access-token:${RELEASETWIN_ACTION_MIRROR_TOKEN}@github.com/releasetwin/releasetwin-action.git action-mirror:main`),
       then tag the pushed commit with the release version and force-push that tag.
       The step is gated on `secrets.RELEASETWIN_ACTION_MIRROR_TOKEN != ''` so it's
       skipped (not failed) until task 1.2 is done, rather than breaking every
@@ -37,7 +40,7 @@
 ## 3. Documentation
 
 - [x] 3.1 Update `docs/ci.md`'s GitHub Action snippet to lead with
-      `uses: ernestoalejowitt22/releasetwin-action@v0.2.0`, keeping the
+      `uses: releasetwin/releasetwin-action@v0.2.0`, keeping the
       subdirectory form documented as an alternative.
 - [x] 3.2 Update `docs/install.md` the same way.
 - [x] 3.3 Update `integrations/github-action/README.md`'s usage snippet the same
@@ -46,7 +49,7 @@
 
 ## 4. One-time Marketplace listing (after the first successful mirror)
 
-- [ ] 4.1 **Needs the user to run this** — on `releasetwin-action`, "Draft a new
+- [ ] 4.1 **Needs the user to run this** — on `releasetwin/releasetwin-action`, "Draft a new
       release" in GitHub's UI (the tag the release job already pushed is
       available to pick), check "Publish this Action to the GitHub Marketplace,"
       choose a primary category, confirm the `branding:` icon/color from
@@ -55,11 +58,17 @@
 
 ## 5. Verification
 
-- [ ] 5.1 After task 1 is done and task 2 is merged, trigger a release (or a
-      manual `workflow_dispatch` test run if one is added) and confirm
-      `releasetwin-action`'s `main` matches `integrations/github-action/`'s
-      content exactly, and its version/floating tags point at the right commit.
-- [ ] 5.2 Confirm `releasetwin-action`'s license is detected as Apache-2.0 by
-      GitHub (`gh api repos/ernestoalejowitt22/releasetwin-action --jq '.license.spdx_id'`).
+- [ ] 5.1 Still open — needs the *next* tagged release to verify. Status as of
+      2026-09-11: the v0.3.0 release run (34180004553) failed at this step with
+      `Permission to ernestoalejowitt22/releasetwin-action.git denied to
+      github-actions[bot]`, so the mirror was seeded by hand instead. `release.yml`
+      has since been re-pointed at the org path and given the PAT plus the
+      `http.https://github.com/.extraheader=` workaround, so the cause is fixed but
+      unproven. A `diff -r` on 2026-09-11 shows the mirror lagging `main` by the
+      `local-evidence-viewer` changes (the `evidence` input, the export and upload
+      steps) — expected, since the mirror only advances on a tagged release. Re-run
+      that diff right after the next release; it should come back empty.
+- [x] 5.2 Confirmed — `gh api repos/releasetwin/releasetwin-action --jq '.license.spdx_id'`
+      returns `Apache-2.0`.
 - [x] 5.3 Run `openspec validate github-marketplace-listing --strict` and confirm
       it passes.
