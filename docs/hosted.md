@@ -27,7 +27,7 @@ pinned journey on ReleaseTwin-operated compute.
 | Trend analytics, release roll-up, regression diff, flag blast radius, merge gate | — | ✓ |
 | Ticket-tracker write-back (Jira, Linear, GitHub, Bitbucket, Azure Boards) | — | ✓ |
 | Programmatic API | — | ✓ |
-| SSO, audit log | — | Enterprise only |
+| SSO, audit log, flag-rollout re-verification | — | Enterprise only (planned — not built yet; see releasetwin.com/features) |
 
 Redaction — the built-in credential denylist plus your own per-case allow/deny rules — runs in the
 CLI before anything is uploaded, on every tier.

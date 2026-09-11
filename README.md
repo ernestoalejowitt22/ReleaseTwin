@@ -84,8 +84,16 @@ database** via a plain internal endpoint (no vendor needed at all).
 ### Via Docker (no .NET SDK)
 
 ```bash
-docker pull ghcr.io/ernestoalejowitt22/releasetwin/cli:0.1.0   # pin a version — avoid :latest in CI
-docker run --rm -v "$(pwd)/examples:/workspace:ro" ghcr.io/ernestoalejowitt22/releasetwin/cli:0.1.0
+docker pull ghcr.io/ernestoalejowitt22/releasetwin/cli:0.3.0   # pin a version — avoid :latest in CI
+
+# From an empty directory: scaffold a starter case, run it, then look at the evidence.
+docker run --rm -v "$PWD:/workspace" ghcr.io/ernestoalejowitt22/releasetwin/cli:0.3.0 init /workspace
+docker run --rm -v "$PWD:/workspace" -e RELEASETWIN_EVIDENCE=on -e RELEASETWIN_EVIDENCE_DIR=/workspace/evidence \
+  ghcr.io/ernestoalejowitt22/releasetwin/cli:0.3.0 run /workspace/cases
+docker run --rm -p 8080:8080 -v "$PWD:/workspace" ghcr.io/ernestoalejowitt22/releasetwin/cli:0.3.0 view /workspace/evidence
+
+# Already have a suite? Upload its JUnit XML as run history instead of authoring cases:
+#   releasetwin upload-junit results.xml   (needs RELEASETWIN_API_URL + RELEASETWIN_API_TOKEN; see docs/ci.md)
 ```
 
 The container expects a `cases/` directory with a sibling `fixtures/` directory

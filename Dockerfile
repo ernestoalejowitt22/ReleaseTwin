@@ -25,13 +25,17 @@ COPY flags.json flags.json
 RUN dotnet publish src/ReleaseTwin.Cli/ReleaseTwin.Cli.csproj -c Release -o /app --no-restore
 
 FROM mcr.microsoft.com/dotnet/runtime:8.0 AS final
-WORKDIR /app
-COPY --from=build /app .
+COPY --from=build /app /app
 
 # Bundled example cases/fixtures — `releasetwin init --from-examples` copies from here,
 # so image users get the full example set without a source checkout. (The UI adapter is
 # compiled in but needs a Chromium that isn't in this image; it degrades gracefully.)
 COPY examples/ /opt/releasetwin/examples/
 
-ENTRYPOINT ["dotnet", "ReleaseTwin.Cli.dll"]
-CMD ["/workspace/cases"]
+# The entrypoint names the DLL by absolute path and the working directory is the mount point,
+# so `docker run -v "$PWD:/workspace" <image> init` scaffolds into the mount, a bare `run` finds
+# `./cases`, and a user who adds `-w /workspace` no longer breaks the entrypoint (a relative DLL
+# path plus `-w` produced a misleading "No .NET SDKs were found").
+WORKDIR /workspace
+ENTRYPOINT ["dotnet", "/app/ReleaseTwin.Cli.dll"]
+CMD ["run", "/workspace/cases"]
