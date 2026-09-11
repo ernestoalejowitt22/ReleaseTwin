@@ -101,7 +101,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: ernestoalejowitt22/releasetwin-action@v0.2.0
+      - uses: releasetwin/releasetwin-action@v0.2.0
         with:
           cases-path: cases
           image: ghcr.io/ernestoalejowitt22/releasetwin/cli:0.2.0
@@ -128,7 +128,7 @@ than watching the PR — the Action can also post evidence directly onto the tic
 is meant to prove, using that case's `oracle.locator`:
 
 ```yaml
-- uses: ernestoalejowitt22/releasetwin-action@v0.2.0
+- uses: releasetwin/releasetwin-action@v0.2.0
   with:
     cases-path: cases
     ticket-write-back: "true"
