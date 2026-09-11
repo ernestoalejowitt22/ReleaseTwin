@@ -8,6 +8,7 @@
 #
 # Setup: SPA_BASE_URL points at either demo app.
 id: SPA-ADMIN-COOKIE-1
+release: "spa-demo/1.0"
 oracle:
   locator: docs/spa-testing.md
 fixture:

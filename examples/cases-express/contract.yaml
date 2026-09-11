@@ -8,6 +8,7 @@
 # Setup: run the express-demo app (releasetwin-ci-examples/apps/express-demo) and
 # set API_BASE_URL=http://localhost:4599 — or point API_BASE_URL at your own API.
 id: EXPRESS-CONTRACT-1
+release: "express-demo/1.0"
 oracle:
   locator: docs/express.md
 fixture:
