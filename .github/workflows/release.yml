@@ -200,7 +200,7 @@ jobs:
           major="v${version%%.*}"
           minor="v${version%.*}"
           target="${{ steps.pin.outputs.sha || github.sha }}"
-          mirror_repo="ernestoalejowitt22/releasetwin-action"
+          mirror_repo="releasetwin/releasetwin-action"
           mirror_url="https://x-access-token:${MIRROR_TOKEN}@github.com/${mirror_repo}.git"
 
           git config user.name  "github-actions[bot]"
