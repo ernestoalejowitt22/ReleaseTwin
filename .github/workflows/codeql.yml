@@ -1,15 +1,14 @@
 # SPDX-FileCopyrightText: 2026 Ernesto Alejo and the ReleaseTwin contributors
 # SPDX-License-Identifier: Apache-2.0
 #
-# supply-chain-and-ci-hardening (supply-chain-assurance): CodeQL SAST across the C# code (engine +
-# hosted) and the web sources, on every PR, every push to main, and a weekly full sweep. Advanced
-# setup (this file) rather than repo-settings "default setup" so the schedule, query suite, and build
-# steps are reviewable and diffable.
+# supply-chain-and-ci-hardening (supply-chain-assurance): CodeQL SAST across this repo's C# engine
+# code and its JavaScript (the GitHub Action's render script), on every PR, every push to main, and
+# a weekly full sweep. Advanced setup (this file) rather than repo-settings "default setup" so the
+# schedule, query suite, and build steps are reviewable and diffable.
 #
-# Uploading results to the Security tab needs code scanning enabled — GitHub Advanced Security on a
-# private repo, or a public repo. Until then the analysis still RUNS (findings appear in the job log
-# and the SARIF artifact) but the upload step is non-fatal, so this check never blocks a PR. Flip
-# `continue-on-error` on the Analyze step to `false` once code scanning is enabled.
+# Code scanning is enabled (the repository is public), so results upload to the Security tab and the
+# Analyze step is a hard gate: a failure here blocks the PR. Triage findings in the Security tab —
+# dismiss a false positive with a reason rather than reintroducing `continue-on-error`.
 name: CodeQL
 
 on:
@@ -55,7 +54,6 @@ jobs:
 
       - name: Analyze
         id: analyze
-        continue-on-error: true # non-fatal until code scanning is enabled (see header) — flip to false then
         uses: github/codeql-action/analyze@v3
         with:
           category: "/language:${{ matrix.language }}"

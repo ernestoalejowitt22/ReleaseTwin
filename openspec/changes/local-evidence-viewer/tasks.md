@@ -95,7 +95,8 @@
 - [x] 7.3 Run `openspec validate local-evidence-viewer --strict` and fix anything reported.
 - [x] 7.4 Confirm the fixtures here are byte-identical to the platform repo's copies
   (`diff` both pairs) and that the platform change's task 4.4 can be checked off.
-- [ ] 7.5 **Needs the user.** Branch before committing — this change was drafted while the repo
-  sat on `cursor/point-action-mirror-at-org`, which is unrelated work.
-- [ ] 7.6 **Needs the user.** Releasing this is what unblocks the platform repo's quickstart,
-  which already documents `releasetwin view`. Coordinate the two merges.
+- [x] 7.5 Done — the work went onto `local-evidence-viewer-impl`, not the unrelated
+  `cursor/point-action-mirror-at-org` branch, and landed as PR #144 (merged 2026-09-11).
+- [x] 7.6 Done — PR #144 merged to `main` on 2026-09-11, so the platform repo's quickstart
+  copy is no longer describing an unreleased verb. Note `releasetwin view` is on `main` but
+  not yet in a tagged release or a published container image; the next release tag ships it.
