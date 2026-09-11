@@ -37,6 +37,9 @@ public sealed class EvidenceReportServer : IDisposable
     /// <summary>The URL to open. Always printed — the report is reachable by URL, never by assuming a browser.</summary>
     public string Url { get; }
 
+    /// <summary>The prefixes actually bound, so a test can assert what this is exposed on.</summary>
+    public IReadOnlyList<string> Prefixes => _listener.Prefixes.ToList();
+
     /// <summary>
     /// Binds loopback normally and all interfaces when containerized (design D6): inside a container
     /// loopback is unreachable from the host even with <c>-p</c>, and the network exposure there is
@@ -44,13 +47,16 @@ public sealed class EvidenceReportServer : IDisposable
     /// </summary>
     public static EvidenceReportServer Start(EvidenceDirectoryView directory, string html, bool bindAllInterfaces, int preferredPort = DefaultPort)
     {
-        var host = bindAllInterfaces ? "+" : "localhost";
         HttpListenerException? last = null;
 
         for (var port = preferredPort; port < preferredPort + PortAttempts; port++)
         {
             var listener = new HttpListener();
-            listener.Prefixes.Add($"http://{host}:{port.ToString(System.Globalization.CultureInfo.InvariantCulture)}/");
+            foreach (var prefix in PrefixesFor(port, bindAllInterfaces))
+            {
+                listener.Prefixes.Add(prefix);
+            }
+
             try
             {
                 listener.Start();
@@ -66,6 +72,28 @@ public sealed class EvidenceReportServer : IDisposable
 
         throw new IOException(
             $"Could not bind a port for the evidence viewer between {preferredPort} and {preferredPort + PortAttempts - 1}.", last);
+    }
+
+    /// <summary>
+    /// A single <c>http://localhost:{port}/</c> prefix binds only the *first* address localhost
+    /// resolves to. On a dual-stack machine that is <c>[::1]</c>, so <c>http://127.0.0.1:{port}/</c>
+    /// refuses connections outright — measured, not theorized. Registering <c>127.0.0.1</c>
+    /// alongside <c>localhost</c> makes both families answer.
+    ///
+    /// An explicit <c>http://[::1]:{port}/</c> prefix is not an option: HttpListener rejects the
+    /// bracketed IPv6 literal with "Invalid port in prefix". <c>localhost</c> is what covers IPv6.
+    /// </summary>
+    private static IEnumerable<string> PrefixesFor(int port, bool bindAllInterfaces)
+    {
+        var p = port.ToString(System.Globalization.CultureInfo.InvariantCulture);
+        if (bindAllInterfaces)
+        {
+            yield return $"http://+:{p}/";
+            yield break;
+        }
+
+        yield return $"http://127.0.0.1:{p}/";
+        yield return $"http://localhost:{p}/";
     }
 
     /// <summary>Serves until <paramref name="cancellationToken"/> is signalled.</summary>
