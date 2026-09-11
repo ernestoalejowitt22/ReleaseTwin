@@ -82,6 +82,43 @@ public class EvidenceReportServerTests : IDisposable
         Assert.Contains(second.Port.ToString(System.Globalization.CultureInfo.InvariantCulture), second.Url);
     }
 
+    [Fact]
+    public async Task AnswersOnBothLoopbackFamiliesNotJustWhicheverLocalhostResolvesTo()
+    {
+        var html = EvidenceReportRenderer.Render(_directory, new ServedAssetLinks());
+        var port = FreePort();
+        using var server = EvidenceReportServer.Start(_directory, html, bindAllInterfaces: false, preferredPort: port);
+        using var cancellation = new CancellationTokenSource();
+        var serving = server.RunAsync(cancellation.Token);
+
+        // A lone `http://localhost:{port}/` prefix binds only the first address localhost resolves
+        // to — on a dual-stack machine that is [::1], and 127.0.0.1 then refuses outright, making the
+        // printed URL dead for anyone whose resolver prefers IPv4. Both must answer.
+        using var client = new HttpClient { Timeout = TimeSpan.FromSeconds(10) };
+        foreach (var host in new[] { "localhost", "127.0.0.1" })
+        {
+            var response = await client.GetAsync($"http://{host}:{server.Port.ToString(System.Globalization.CultureInfo.InvariantCulture)}/");
+            Assert.True(response.IsSuccessStatusCode, $"{host} did not answer: {response.StatusCode}");
+            Assert.Contains("tickets/CASE-1", await response.Content.ReadAsStringAsync());
+        }
+
+        await cancellation.CancelAsync();
+        await serving;
+    }
+
+    [Fact]
+    public void BindsLoopbackOnlyByDefaultAndAllInterfacesOnlyWhenContainerized()
+    {
+        // The report is deliberately unauthenticated, so the default must not be reachable off the
+        // machine. Asserted through the listener's own prefixes: "+" is the all-interfaces form.
+        using var loopback = EvidenceReportServer.Start(_directory, "<html></html>", bindAllInterfaces: false, preferredPort: FreePort());
+        Assert.All(loopback.Prefixes, prefix => Assert.DoesNotContain("+", prefix));
+        Assert.Contains(loopback.Prefixes, prefix => prefix.Contains("127.0.0.1", StringComparison.Ordinal));
+
+        using var everywhere = EvidenceReportServer.Start(_directory, "<html></html>", bindAllInterfaces: true, preferredPort: FreePort());
+        Assert.Contains(everywhere.Prefixes, prefix => prefix.Contains("+", StringComparison.Ordinal));
+    }
+
     /// <summary>A port the OS just handed out and released — far likelier to be free than a fixed one.</summary>
     private static int FreePort()
     {
