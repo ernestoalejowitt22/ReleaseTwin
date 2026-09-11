@@ -11,6 +11,9 @@
 
   <ItemGroup>
     <EmbeddedResource Include="Scaffolding\Templates\*" />
+    <!-- local-evidence-viewer: the report's CSS/JS ship inside the assembly, so `view` needs no
+         download and no Node build in either published form. -->
+    <EmbeddedResource Include="Evidence\Viewer\Assets\*" />
   </ItemGroup>
 
   <ItemGroup>

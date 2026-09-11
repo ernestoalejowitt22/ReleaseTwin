@@ -1,3 +1,4 @@
+using ReleaseTwin.Cli.Evidence.Viewer;
 using ReleaseTwin.Cli.Scaffolding;
 
 namespace ReleaseTwin.Cli;
@@ -8,6 +9,7 @@ namespace ReleaseTwin.Cli;
 /// <list type="bullet">
 ///   <item><c>init</c> / <c>new &lt;case-id&gt;</c> — scaffolding (never destructive)</item>
 ///   <item><c>run [dir] [--journey &lt;id&gt;@&lt;v&gt;]</c> — execute cases</item>
+///   <item><c>view [dir] [--export &lt;file&gt;] [--video-dir &lt;dir&gt;]</c> — render local evidence</item>
 ///   <item>no recognized subcommand — the pre-subcommand behaviour: a leading
 ///     <c>--journey &lt;id&gt;@&lt;v&gt;</c> runs that pinned journey, otherwise the first arg
 ///     (or <c>cases</c>) is the directory to execute</item>
@@ -52,6 +54,14 @@ public static class CliEntrypoint
             }
 
             return Task.FromResult(scaffolder.New(Directory.GetCurrentDirectory(), caseId));
+        }
+
+        // local-evidence-viewer: `view` must be matched *before* the fallthrough below, which treats
+        // any unrecognized head as a directory of cases to run — a missing branch here would make
+        // `view ./evidence` silently attempt a run against ./evidence instead of rendering it.
+        if (head == "view")
+        {
+            return EvidenceViewerCommand.RunAsync(args.Skip(1).ToArray(), environment, output);
         }
 
         // `run` — same behaviour as no subcommand, just with the leading `run` stripped.
@@ -172,12 +182,25 @@ public static class CliEntrypoint
               releasetwin new <case-id>            add one more case + fixture to this project
               releasetwin run [dir]                run cases (default: ./cases)
               releasetwin run --journey <id>@<v>   run a pinned hosted journey
+              releasetwin view [dir]               open this run's local evidence in a browser
+                                                   (default: $RELEASETWIN_EVIDENCE_DIR, else ./evidence)
 
             run options:
               --summary-json <path>               also write a machine-readable JSON run summary
                                                   (or set RELEASETWIN_SUMMARY_JSON)
               --junit-xml <path>                  also write a JUnit XML test report for CI test
                                                   widgets (or set RELEASETWIN_JUNIT_XML)
+
+            view options:
+              --export <file.html>                write one self-contained file instead of serving
+                                                  — no port to publish, opens straight off disk
+              --video-dir <dir>                   look for session recordings there (or set
+                                                  RELEASETWIN_UI_VIDEO_DIR); recordings are not in
+                                                  the evidence directory
+
+            In a container, publish the port and open the printed URL on your host — the image has
+            no browser of its own:
+              docker run --rm -p 8080:8080 -v "$PWD:/workspace" <image> view /workspace/evidence
 
             `releasetwin <dir>` and `releasetwin --journey <id>@<v>` still work without `run`.
             """);

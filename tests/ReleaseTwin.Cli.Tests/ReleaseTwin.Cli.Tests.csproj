@@ -21,6 +21,13 @@
   </ItemGroup>
 
   <ItemGroup>
+    <!-- local-evidence-viewer: the shared evidence-document fixtures, byte-identical twins of the
+         platform repo's copies. Read from the output directory so a test never depends on where the
+         repo is checked out. -->
+    <None Include="Fixtures\**" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+
+  <ItemGroup>
     <ProjectReference Include="..\..\src\ReleaseTwin.Cli\ReleaseTwin.Cli.csproj" />
     <ProjectReference Include="..\..\src\ReleaseTwin.Core\ReleaseTwin.Core.csproj" />
     <ProjectReference Include="..\..\src\ReleaseTwin.AdapterSdk\ReleaseTwin.AdapterSdk.csproj" />
