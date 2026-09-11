@@ -1,5 +1,6 @@
 using ReleaseTwin.Cli.Evidence.Viewer;
 using ReleaseTwin.Cli.Scaffolding;
+using ReleaseTwin.Cli.Upload;
 
 namespace ReleaseTwin.Cli;
 
@@ -62,6 +63,14 @@ public static class CliEntrypoint
         if (head == "view")
         {
             return EvidenceViewerCommand.RunAsync(args.Skip(1).ToArray(), environment, output);
+        }
+
+        // junit-upload-verb: like `view` above, `upload-junit` must be matched *before* the
+        // fallthrough below — otherwise `upload-junit results.xml` would be read as a request to run
+        // cases out of a directory named `upload-junit`.
+        if (head == "upload-junit")
+        {
+            return JUnitUploadCommand.RunAsync(args.Skip(1).ToArray(), environment, output);
         }
 
         // `run` — same behaviour as no subcommand, just with the leading `run` stripped.
@@ -184,12 +193,17 @@ public static class CliEntrypoint
               releasetwin run --journey <id>@<v>   run a pinned hosted journey
               releasetwin view [dir]               open this run's local evidence in a browser
                                                    (default: $RELEASETWIN_EVIDENCE_DIR, else ./evidence)
+              releasetwin upload-junit <file>      upload a JUnit XML report your existing suite
+                                                   already wrote (needs $RELEASETWIN_API_TOKEN)
 
             run options:
               --summary-json <path>               also write a machine-readable JSON run summary
                                                   (or set RELEASETWIN_SUMMARY_JSON)
               --junit-xml <path>                  also write a JUnit XML test report for CI test
                                                   widgets (or set RELEASETWIN_JUNIT_XML)
+
+            upload-junit options:
+              --release <label>                   group the uploaded run under a release label
 
             view options:
               --export <file.html>                write one self-contained file instead of serving

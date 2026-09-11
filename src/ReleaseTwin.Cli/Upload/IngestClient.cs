@@ -69,6 +69,60 @@ public sealed class IngestClient : IDisposable
         return await SendAsync("/api/ingest/flag-proof-report", payload, evidence, cancellationToken);
     }
 
+    /// <summary>
+    /// junit-upload-verb: uploads an existing JUnit XML document verbatim to the hosted JUnit ingest
+    /// endpoint. The bytes are sent exactly as read from disk — no parse, no re-serialize, no
+    /// encoding normalization — so the hosted parser stays the single place JUnit dialect differences
+    /// are interpreted (design D1/D3).
+    ///
+    /// Deliberately does NOT route through <see cref="SendAsync"/>: that builds a JSON/multipart body
+    /// from an object, which is the wrong shape here, and it calls
+    /// <see cref="HttpResponseMessage.EnsureSuccessStatusCode"/>, which throws with the status line
+    /// and discards the response body. The body is exactly where the platform explains *which* limit
+    /// or malformation caused a rejection, and the spec requires that explanation to reach the user.
+    /// </summary>
+    public async Task<JUnitUploadResult> UploadJUnitReportAsync(byte[] xml, string? release, CancellationToken cancellationToken)
+    {
+        var path = "/api/ingest/junit";
+        if (!string.IsNullOrWhiteSpace(release))
+        {
+            path += "?release=" + Uri.EscapeDataString(release);
+        }
+
+        var content = new ByteArrayContent(xml);
+        content.Headers.ContentType = new System.Net.Http.Headers.MediaTypeHeaderValue("application/xml");
+
+        using var response = await _client.PostAsync(path, content, cancellationToken);
+        var body = await response.Content.ReadAsStringAsync(cancellationToken);
+
+        if (!response.IsSuccessStatusCode)
+        {
+            // The platform's own text, verbatim. Falls back to the status line only when the response
+            // carried no body at all (a proxy timeout, say) — never swallowed in favour of a generic
+            // message.
+            var detail = string.IsNullOrWhiteSpace(body) ? $"HTTP {(int)response.StatusCode}" : body.Trim();
+            return JUnitUploadResult.Failed(detail);
+        }
+
+        try
+        {
+            var ack = Newtonsoft.Json.JsonConvert.DeserializeObject<JUnitAck>(body);
+            return JUnitUploadResult.Succeeded(ack?.Recorded ?? 0, ack?.RunUrl);
+        }
+        catch (Newtonsoft.Json.JsonException)
+        {
+            // Accepted, but the acknowledgement was unreadable — same tolerance the report-upload ack
+            // path already applies. The upload happened; report it as success with nothing to show.
+            return JUnitUploadResult.Succeeded(0, null);
+        }
+    }
+
+    private sealed class JUnitAck
+    {
+        public int Recorded { get; set; }
+        public string? RunUrl { get; set; }
+    }
+
     private async Task<IngestUploadResult> SendAsync(string path, object reportPayload, RedactionResult? evidence, CancellationToken cancellationToken)
     {
         HttpResponseMessage response;
@@ -145,3 +199,16 @@ public sealed class IngestClient : IDisposable
 /// that predates this, or when the response could not be parsed).
 /// </summary>
 public readonly record struct IngestUploadResult(bool EvidenceAccepted, string? ReportUrl, string? RunUrl);
+
+/// <summary>
+/// junit-upload-verb: the outcome of one JUnit upload. Unlike a report upload during a run — where a
+/// failure is a warning that leaves the run's own result alone — here the upload IS the command, so
+/// the failure detail is part of the result rather than an exception, and the caller exits non-zero
+/// on it (design D4).
+/// </summary>
+public readonly record struct JUnitUploadResult(bool Success, int Recorded, string? RunUrl, string? FailureDetail)
+{
+    public static JUnitUploadResult Succeeded(int recorded, string? runUrl) => new(true, recorded, runUrl, null);
+
+    public static JUnitUploadResult Failed(string detail) => new(false, 0, null, detail);
+}
