@@ -15,13 +15,20 @@ your own infra — it just stores and displays what the CLI reports.
 | | Free | Team / Enterprise |
 |---|---|---|
 | CLI, execution kernel, adapters | ✓ | ✓ |
+| CI integration (GitHub Action, Bitbucket Pipe, GitLab Component) | ✓ | ✓ |
 | Projects | 1 | Unlimited |
 | Uploaded run history + evidence viewer | ✓ | ✓ |
-| Evidence retention | 30 days | 12 months (Enterprise: custom) |
-| CI integration, run notifications, shareable evidence links | — | ✓ |
-| Custom redaction rules, hosted project secrets | — | ✓ |
-| Trend analytics, release roll-up | — | ✓ |
+| Evidence retention | 7 days | 12 months (Enterprise: custom) |
+| 14-day Team trial, starts with your first real run | ✓ | — |
+| Run notifications, shareable evidence links | — | ✓ |
+| Hosted project secrets | — | ✓ |
+| Trend analytics, release roll-up, regression diff, flag blast radius, merge gate | — | ✓ |
+| Ticket-tracker write-back (Jira, Linear, GitHub, Bitbucket, Azure Boards) | — | ✓ |
+| Programmatic API | — | ✓ |
 | SSO, audit log | — | Enterprise only |
+
+Redaction — the built-in credential denylist plus your own per-case allow/deny rules — runs in the
+CLI before anything is uploaded, on every tier.
 
 Full feature matrix and current pricing:
 [releasetwin.com/pricing](https://releasetwin.com/pricing).
