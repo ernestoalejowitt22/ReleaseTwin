@@ -309,7 +309,7 @@ internal sealed class ClosePageCleanup : ICleanupOperation
                     continue;
                 }
 
-                var target = Path.Combine(Path.GetDirectoryName(source)!, $"{Sanitize(caseId)}.webm");
+                var target = SessionRecordingFile.PathFor(Path.GetDirectoryName(source)!, caseId);
                 if (string.Equals(source, target, StringComparison.Ordinal))
                 {
                     continue;
@@ -324,7 +324,4 @@ internal sealed class ClosePageCleanup : ICleanupOperation
             }
         }
     }
-
-    private static string Sanitize(string caseId) =>
-        new(caseId.Select(c => char.IsLetterOrDigit(c) || c is '-' or '_' or '.' ? c : '-').ToArray());
 }

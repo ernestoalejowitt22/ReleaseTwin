@@ -1,0 +1,71 @@
+{
+  "caseId": "CASE-1",
+  "oracleLocator": "tickets/CASE-1",
+  "legs": [
+    {
+      "steps": [
+        {
+          "index": 0,
+          "operationName": "http.request",
+          "outcome": "Passed",
+          "durationMs": 142,
+          "adapter": {
+            "request": {
+              "method": "POST",
+              "url": "https://api.example.test/orders",
+              "headers": {
+                "authorization": "«redacted»",
+                "content-type": "application/json"
+              }
+            },
+            "response": {
+              "statusCode": 201,
+              "durationMs": 138
+            }
+          }
+        },
+        {
+          "index": 1,
+          "operationName": "http.assertJsonPath",
+          "outcome": "Passed",
+          "durationMs": 3,
+          "assertion": {
+            "expression": "$.status",
+            "expected": "confirmed",
+            "observed": "confirmed"
+          }
+        },
+        {
+          "index": 2,
+          "operationName": "ui.screenshot",
+          "outcome": "Passed",
+          "durationMs": 612,
+          "screenshots": [
+            {
+              "id": "3f1a9c2e4b5d6f708192a3b4c5d6e7f8",
+              "bestEffortRedacted": true
+            }
+          ]
+        },
+        {
+          "index": 3,
+          "operationName": "http.assertJsonPath",
+          "outcome": "Failed",
+          "durationMs": 4,
+          "assertion": {
+            "expression": "$.total",
+            "expected": "49.99",
+            "observed": "0.00"
+          }
+        },
+        {
+          "index": 4,
+          "operationName": "http.request",
+          "outcome": "NotExecuted",
+          "durationMs": 0
+        }
+      ]
+    }
+  ],
+  "redactionNote": "Redacted by your CLI before upload. Screenshots are best-effort-redacted."
+}

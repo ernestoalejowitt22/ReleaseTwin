@@ -36,7 +36,50 @@ PASS starter
 The starter case hits a public test API (`jsonplaceholder.typicode.com`) and asserts on the
 JSON — it needs no credentials, so this works on the first try.
 
-## 3. Point it at your own API
+## 3. Look at the evidence
+
+A pass/fail line is the verdict; the evidence is the product. Set two environment variables
+and the CLI writes a redacted record of every case to disk — then `view` serves it as a
+browsable report. No account, no sign-up, and no network call of any kind.
+
+```bash
+docker run --rm -v "$PWD:/workspace" -w /workspace \
+  -e RELEASETWIN_EVIDENCE=on \
+  -e RELEASETWIN_EVIDENCE_DIR=/workspace/evidence \
+  ghcr.io/ernestoalejowitt22/releasetwin/cli:latest run
+
+docker run --rm -p 8080:8080 -v "$PWD:/workspace" \
+  ghcr.io/ernestoalejowitt22/releasetwin/cli:latest view /workspace/evidence
+```
+
+`view` always prints the URL to open. Publishing the port with `-p` is what makes the served
+report reachable from your host, and the image has no browser of its own to launch — so open
+the printed URL yourself. Installed as a `dotnet tool` instead? `releasetwin view ./evidence`
+opens your browser for you.
+
+What you get on disk, one directory per case id:
+
+```
+evidence/
+  CASE-1/
+    evidence.json        # the redacted step-by-step record
+    <screenshot-id>.png  # one per captured screenshot, best-effort redacted
+```
+
+- Redaction runs in your CLI as the evidence is produced — auth headers, credential-shaped
+  fields, and resolved `${ENV_VAR}` values are stripped before anything is written.
+- **No port to publish?** `view <dir> --export evidence.html` writes one self-contained file
+  instead of serving — screenshots inlined, no server, no network — which is what to attach
+  to a pull request or a ticket. It is also the form that needs nothing published out of a
+  container. The GitHub Action can upload it for you: see [`docs/ci.md`](ci.md).
+- Recording UI cases with `RELEASETWIN_UI_VIDEO_DIR`? Point `view` at that directory too
+  (`--video-dir`, or the same environment variable) and each case's session plays alongside
+  its evidence. Recordings live outside the evidence directory, so the viewer has to be told
+  where they are.
+- Cases with a failed step are listed first, so the reason a run failed is the first thing
+  you see.
+
+## 4. Point it at your own API
 
 Open `cases/starter.yaml` and change the `http.request` URL and the `http.assertJsonPath`
 lines. Real URLs and tokens go in as `${ENV_VAR}` — resolved at run time, never committed.
@@ -96,6 +139,8 @@ mistake, not a silent skip. Credentials themselves never go in this file.
 - `releasetwin new ORDERS-2` — add another case + fixture.
 - `releasetwin init --from-examples` — start from the full bundled `examples/` set instead of
   the single starter (Azure DevOps, LaunchDarkly flag-proof, a browser journey).
+- `releasetwin view [dir] [--export <file.html>] [--video-dir <dir>]` — render a local
+  evidence directory (default: `$RELEASETWIN_EVIDENCE_DIR`, else `./evidence`).
 - `releasetwin --help` — all commands.
 - The bundled example cases and the [README](../README.md) cover flag proof (the paired
   known-bad / known-good run that tells a broken build from a fixed one) and the hosted

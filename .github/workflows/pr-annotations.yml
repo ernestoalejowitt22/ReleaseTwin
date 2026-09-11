@@ -40,3 +40,6 @@ jobs:
         with:
           cases-path: examples/cases-http-only
           image: releasetwin-cli:ci
+          # local-evidence-viewer: exercises capture -> `view --export` -> upload on every PR, so
+          # the evidence artifact path is tested rather than assumed.
+          evidence: "true"

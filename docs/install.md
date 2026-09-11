@@ -20,6 +20,17 @@ docker run --rm -v "$PWD:/workspace:ro" \
 - Pin a released version (`:0.2.0`), not `:latest`, in CI.
 - Mount the directory that holds `cases/` and its sibling `fixtures/` at `/workspace`.
 - The image bundles `examples/` at `/opt/releasetwin/examples` for offline `init`.
+- To read a run's evidence, publish the viewer's port — the container has no browser of its
+  own, so it prints the URL and you open it on your host:
+
+  ```bash
+  docker run --rm -p 8080:8080 -v "$PWD:/workspace" \
+    ghcr.io/ernestoalejowitt22/releasetwin/cli:0.2.0 view /workspace/evidence
+  ```
+
+  No port to publish (CI, a locked-down runner)? `view /workspace/evidence --export
+  /workspace/evidence.html` writes one self-contained file instead of serving, with the
+  screenshots inlined — open it straight off disk, or attach it to a pull request.
 
 ## .NET global tool — you already have .NET
 
@@ -32,6 +43,9 @@ releasetwin ./cases
   CLI's target framework).
 - UI-journey cases drive a real browser — run `playwright install` once. HTTP
   and flag-proof cases need nothing extra.
+- `releasetwin view ./evidence` renders a run's evidence in your browser. It needs no
+  additional install: the report's assets ship inside the tool, so this adds no runtime
+  prerequisite to the ones above.
 - Update with `dotnet tool update --global releasetwin`.
 
 ## GitHub Action — in CI, with PR feedback

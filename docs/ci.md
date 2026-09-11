@@ -171,6 +171,14 @@ No hosted account was used to capture this — just `RELEASETWIN_EVIDENCE=on` an
 `RELEASETWIN_EVIDENCE_DIR=<path>` (see Credentials, below), which writes each case's
 redacted evidence document and screenshots straight to disk.
 
+To read it, `releasetwin view <dir>` serves that directory as a browsable report and prints
+the URL; from a container, publish the port (`-p 8080:8080`) since the image has no browser
+of its own. In CI there is usually no port to reach, so use the no-port form instead:
+`releasetwin view <dir> --export evidence.html` writes one self-contained file with the
+screenshots inlined. Set the GitHub Action's `evidence: true` input and it does exactly that
+and uploads the file as a workflow artifact — the evidence never leaves the runner except as
+that artifact.
+
 ## Other CI platforms
 
 The GitHub Action's PR comment + check run are GitHub-specific. Every other major CI
