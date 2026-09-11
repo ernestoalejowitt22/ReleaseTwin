@@ -19,16 +19,16 @@ jobs:
 
       # A — the container image (no .NET on the runner)
       - run: docker run --rm -v "$PWD:/workspace:ro"
-          ghcr.io/ernestoalejowitt22/releasetwin/cli:0.2.0 /workspace/cases
+          ghcr.io/ernestoalejowitt22/releasetwin/cli:0.3.0 /workspace/cases
 
       # B — the .NET global tool (the runner has .NET)
-      # - run: dotnet tool install -g releasetwin --version 0.2.0
+      # - run: dotnet tool install -g releasetwin --version 0.3.0
       # - run: releasetwin ./cases
 
       # C — the GitHub Action (adds a PR comment + check run) — see "PR annotations" below
 ```
 
-Pin a released version (`cli:0.2.0`, `--version 0.2.0`, `@v0.2.0`) in CI. A non-zero exit
+Pin a released version (`cli:0.3.0`, `--version 0.3.0`, `@v0.2.0` for the Action) in CI. A non-zero exit
 fails the job, fails the check, blocks the merge — the same gate you trust for unit tests.
 
 Both packages are real and publicly pullable — screenshots below, captured
@@ -104,7 +104,7 @@ jobs:
       - uses: releasetwin/releasetwin-action@v0.2.0
         with:
           cases-path: cases
-          image: ghcr.io/ernestoalejowitt22/releasetwin/cli:0.2.0
+          image: ghcr.io/ernestoalejowitt22/releasetwin/cli:0.3.0
 ```
 
 Pin a full version (`@v0.2.0`) in CI. `@v0` is a floating tag that tracks the latest 0.x
@@ -260,7 +260,7 @@ pipelines:
     '**':
       - step:
           name: Release-proof gate
-          image: ghcr.io/ernestoalejowitt22/releasetwin/cli:0.2.0
+          image: ghcr.io/ernestoalejowitt22/releasetwin/cli:0.3.0
           script:
             - dotnet /app/ReleaseTwin.Cli.dll ./cases --junit-xml test-results/junit.xml
 ```
@@ -271,7 +271,7 @@ pipelines:
 jobs:
   release-proof:
     docker:
-      - image: ghcr.io/ernestoalejowitt22/releasetwin/cli:0.2.0
+      - image: ghcr.io/ernestoalejowitt22/releasetwin/cli:0.3.0
     steps:
       - checkout
       - run: dotnet /app/ReleaseTwin.Cli.dll ./cases --junit-xml /tmp/test-results/junit.xml

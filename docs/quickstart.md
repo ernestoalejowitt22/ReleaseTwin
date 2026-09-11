@@ -43,13 +43,13 @@ and the CLI writes a redacted record of every case to disk — then `view` serve
 browsable report. No account, no sign-up, and no network call of any kind.
 
 ```bash
-docker run --rm -v "$PWD:/workspace" -w /workspace \
+docker run --rm -v "$PWD:/workspace" \
   -e RELEASETWIN_EVIDENCE=on \
   -e RELEASETWIN_EVIDENCE_DIR=/workspace/evidence \
-  ghcr.io/ernestoalejowitt22/releasetwin/cli:latest run
+  ghcr.io/ernestoalejowitt22/releasetwin/cli:0.3.0 run /workspace/cases
 
 docker run --rm -p 8080:8080 -v "$PWD:/workspace" \
-  ghcr.io/ernestoalejowitt22/releasetwin/cli:latest view /workspace/evidence
+  ghcr.io/ernestoalejowitt22/releasetwin/cli:0.3.0 view /workspace/evidence
 ```
 
 `view` always prints the URL to open. Publishing the port with `-p` is what makes the served
