@@ -46,7 +46,7 @@ normal human output:
 
 ```jsonc
 {
-  "schemaVersion": 3,
+  "schemaVersion": 4,
   "overall": "failed",
   "totals": { "passed": 12, "failed": 1, "cases": 13 },
   "flagProof": { "proven": 3, "ineligible": 1, "regressed": 0 },
@@ -56,7 +56,8 @@ normal human output:
     { "id": "CLM-042", "outcome": "failed", "classification": "infrastructure", "flagProof": null, "release": null,
       "evidenceUrl": "https://app.releasetwin.com/dashboard/reports/…/evidence?projectId=…" }
   ],
-  "runUrl": "https://app.releasetwin.com/dashboard?projectId=…"
+  "runUrl": "https://app.releasetwin.com/dashboard?projectId=…",
+  "upload": { "mode": "oidc" }
 }
 ```
 
@@ -64,7 +65,10 @@ It carries only metadata the CLI already prints — ids, outcomes, classificatio
 flag-proof results, the `release` label, and each case's oracle locator. No bodies, no
 secrets. With no flag set, no file is written and behavior is unchanged.
 
-`runUrl` (top level) and a case's `evidenceUrl` are **optional** and appear only when the run
+`upload.mode` says how the run authenticated its hosted upload — `oidc` (the job's GitHub
+identity), `token` (a stored `RELEASETWIN_API_TOKEN`), `none`, or `oidc-exchange-failed` with a
+`reason` when a job named a project and the exchange could not complete (the run then stops
+before executing cases). `runUrl` (top level) and a case's `evidenceUrl` are **optional** and appear only when the run
 uploaded to a hosted project (see Credentials) — `runUrl` links the project dashboard;
 `evidenceUrl` is present for a case whose evidence was uploaded and accepted. A case's
 `oracleLocator` is carried straight through from its case file's `oracle.locator` whenever
