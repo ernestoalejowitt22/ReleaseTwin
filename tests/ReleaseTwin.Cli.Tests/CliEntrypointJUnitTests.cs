@@ -37,7 +37,7 @@ public class CliEntrypointJUnitTests
         var junitPath = Path.Combine(ws, "junit.xml");
 
         var exit = await CliEntrypoint.RunAsync(
-            new[] { "run", Path.Combine(ws, "cases"), "--junit-xml", junitPath }, new Dictionary<string, string?>(), new StringWriter());
+            new[] { "run", Path.Combine(ws, "cases"), "--junit-xml", junitPath }, new Dictionary<string, string?>(), new StringWriter(), httpAdapterHandlerForTesting: new FakePublicHttpHandler());
 
         Assert.Equal(0, exit);
         Assert.True(File.Exists(junitPath));
@@ -53,7 +53,7 @@ public class CliEntrypointJUnitTests
         var exit = await CliEntrypoint.RunAsync(
             new[] { Path.Combine(ws, "cases") },
             new Dictionary<string, string?> { ["RELEASETWIN_JUNIT_XML"] = junitPath },
-            new StringWriter());
+            new StringWriter(), httpAdapterHandlerForTesting: new FakePublicHttpHandler());
 
         Assert.Equal(0, exit);
         Assert.True(File.Exists(junitPath));
@@ -69,7 +69,7 @@ public class CliEntrypointJUnitTests
         var exit = await CliEntrypoint.RunAsync(
             new[] { "run", Path.Combine(ws, "cases"), "--junit-xml", fromArg },
             new Dictionary<string, string?> { ["RELEASETWIN_JUNIT_XML"] = fromEnv },
-            new StringWriter());
+            new StringWriter(), httpAdapterHandlerForTesting: new FakePublicHttpHandler());
 
         Assert.Equal(0, exit);
         Assert.True(File.Exists(fromArg));
@@ -83,7 +83,7 @@ public class CliEntrypointJUnitTests
         var output = new StringWriter();
 
         var exit = await CliEntrypoint.RunAsync(
-            new[] { Path.Combine(ws, "cases") }, new Dictionary<string, string?>(), output);
+            new[] { Path.Combine(ws, "cases") }, new Dictionary<string, string?>(), output, httpAdapterHandlerForTesting: new FakePublicHttpHandler());
 
         Assert.Equal(0, exit);
         Assert.Empty(Directory.GetFiles(ws, "*.xml"));
@@ -98,7 +98,7 @@ public class CliEntrypointJUnitTests
         var output = new StringWriter();
 
         var exit = await CliEntrypoint.RunAsync(
-            new[] { "run", Path.Combine(ws, "cases"), "--junit-xml", bad }, new Dictionary<string, string?>(), output);
+            new[] { "run", Path.Combine(ws, "cases"), "--junit-xml", bad }, new Dictionary<string, string?>(), output, httpAdapterHandlerForTesting: new FakePublicHttpHandler());
 
         Assert.Equal(1, exit);
         Assert.Contains("--junit-xml", output.ToString());

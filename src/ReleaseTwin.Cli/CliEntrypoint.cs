@@ -24,7 +24,8 @@ public static class CliEntrypoint
         IReadOnlyDictionary<string, string?> environment,
         TextWriter output,
         CliRunner? runner = null,
-        ScaffoldWriter? scaffolder = null)
+        ScaffoldWriter? scaffolder = null,
+        HttpMessageHandler? httpAdapterHandlerForTesting = null)
     {
         runner ??= new CliRunner();
 
@@ -112,7 +113,7 @@ public static class CliEntrypoint
             effectiveEnvironment = mutable;
         }
 
-        return ExecuteAsync(finalArgs, effectiveEnvironment, output, runner);
+        return ExecuteAsync(finalArgs, effectiveEnvironment, output, runner, httpAdapterHandlerForTesting);
     }
 
     private static (string[] Args, string? Path, string? Error) ExtractReportPath(
@@ -164,7 +165,8 @@ public static class CliEntrypoint
         string[] args,
         IReadOnlyDictionary<string, string?> environment,
         TextWriter output,
-        CliRunner runner)
+        CliRunner runner,
+        HttpMessageHandler? httpAdapterHandlerForTesting)
     {
         if (args.Length >= 2 && args[0] == "--journey")
         {
@@ -179,7 +181,7 @@ public static class CliEntrypoint
         }
 
         var casesDirectory = args.Length > 0 && !args[0].StartsWith('-') ? args[0] : "cases";
-        return runner.RunAsync(casesDirectory, environment, output);
+        return runner.RunAsync(casesDirectory, environment, output, httpAdapterHandlerForTesting: httpAdapterHandlerForTesting);
     }
 
     private static void PrintUsage(TextWriter output)
