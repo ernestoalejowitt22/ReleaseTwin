@@ -4,6 +4,9 @@ oracle:
 fixture:
   locator: example-auth-chain.json
   sha256: 7b79d0ff51b8b4b8e9db2b318e7fff765e1f66e1bd33fb64695fef89f1780e92
+# Note for maintainers: the test suite sweeps this directory offline — tests/ReleaseTwin.Cli.Tests/
+# FakePublicHttpHandler.cs answers the httpbin.org calls below, so this example never needs the
+# public internet to pass. Run it with the real CLI to see it hit httpbin for real.
 pipeline:
   # Stands in for a real login endpoint (e.g. NAHA's /v1/e2e/login) that returns a token in its
   # JSON body — httpbin.org/uuid is used here only because it's a public, credential-free endpoint

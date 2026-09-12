@@ -36,10 +36,10 @@ public class CliEntrypointTests
         var cases = Path.Combine(ws, "cases");
 
         var withRun = new StringWriter();
-        var a = await CliEntrypoint.RunAsync(new[] { "run", cases }, Env(), withRun);
+        var a = await CliEntrypoint.RunAsync(new[] { "run", cases }, Env(), withRun, httpAdapterHandlerForTesting: new FakePublicHttpHandler());
 
         var bare = new StringWriter();
-        var b = await CliEntrypoint.RunAsync(new[] { cases }, Env(), bare);
+        var b = await CliEntrypoint.RunAsync(new[] { cases }, Env(), bare, httpAdapterHandlerForTesting: new FakePublicHttpHandler());
 
         Assert.Equal(a, b);
         Assert.Equal(0, a);

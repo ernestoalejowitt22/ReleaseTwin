@@ -23,6 +23,11 @@ public class ExampleCaseEndToEndTests
     {
         var casesDirectory = FindExamplesDirectory();
         var output = new StringWriter();
+        // The sweep also runs the http.request examples (AUTH-CHAIN-DEMO-1, HTTP-DEMO-1), which
+        // point at public endpoints for readers' sake. Those are answered by a fake here so the
+        // test does not depend on httpbin.org / jsonplaceholder being reachable (it flaked on a
+        // httpbin 503 on 2026-09-11).
+        var publicHttp = new FakePublicHttpHandler();
 
         var exitCode = await new CliRunner().RunAsync(
             casesDirectory,
@@ -35,10 +40,18 @@ public class ExampleCaseEndToEndTests
                 ["AZDO_VARIABLE_GROUP_ID"] = "1",
             },
             output,
-            azureDevOpsHandlerForTesting: new FakeAzureDevOpsHandler());
+            azureDevOpsHandlerForTesting: new FakeAzureDevOpsHandler(),
+            httpAdapterHandlerForTesting: publicHttp);
 
         Assert.Equal(0, exitCode);
         Assert.Contains("PASS CLM-042", output.ToString());
+        Assert.Contains("PASS HTTP-DEMO-1", output.ToString());
+        Assert.Contains("PASS AUTH-CHAIN-DEMO-1", output.ToString());
+
+        // The auth-chain example's whole point: the uuid captured from step 1 reaches step 2 as a bearer token.
+        var bearerCall = Assert.Single(publicHttp.Requests, r => r.RequestUri!.AbsolutePath == "/bearer");
+        Assert.Equal("Bearer", bearerCall.Headers.Authorization?.Scheme);
+        Assert.Equal(FakePublicHttpHandler.IssuedUuid, bearerCall.Headers.Authorization?.Parameter);
     }
 
     [Theory]

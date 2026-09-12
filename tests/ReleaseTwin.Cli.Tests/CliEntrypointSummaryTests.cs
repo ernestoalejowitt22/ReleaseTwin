@@ -38,7 +38,7 @@ public class CliEntrypointSummaryTests
         var summaryPath = Path.Combine(ws, "summary.json");
 
         var exit = await CliEntrypoint.RunAsync(
-            new[] { "run", cases, "--summary-json", summaryPath }, new Dictionary<string, string?>(), new StringWriter());
+            new[] { "run", cases, "--summary-json", summaryPath }, new Dictionary<string, string?>(), new StringWriter(), httpAdapterHandlerForTesting: new FakePublicHttpHandler());
 
         Assert.Equal(0, exit);
         Assert.True(File.Exists(summaryPath));
@@ -55,7 +55,7 @@ public class CliEntrypointSummaryTests
         var exit = await CliEntrypoint.RunAsync(
             new[] { cases },
             new Dictionary<string, string?> { ["RELEASETWIN_SUMMARY_JSON"] = summaryPath },
-            new StringWriter());
+            new StringWriter(), httpAdapterHandlerForTesting: new FakePublicHttpHandler());
 
         Assert.Equal(0, exit);
         Assert.True(File.Exists(summaryPath));
@@ -70,7 +70,7 @@ public class CliEntrypointSummaryTests
         var output = new StringWriter();
 
         var exit = await CliEntrypoint.RunAsync(
-            new[] { "run", cases, "--summary-json", bad }, new Dictionary<string, string?>(), output);
+            new[] { "run", cases, "--summary-json", bad }, new Dictionary<string, string?>(), output, httpAdapterHandlerForTesting: new FakePublicHttpHandler());
 
         Assert.Equal(1, exit);
         Assert.Contains("--summary-json", output.ToString());

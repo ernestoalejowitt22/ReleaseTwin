@@ -43,7 +43,7 @@ public class CliRunnerConfigTests
         WritePassingHttpCase(root);
         var output = new StringWriter();
 
-        var code = await new CliRunner().RunAsync(Path.Combine(root, "cases"), new Dictionary<string, string?>(), output);
+        var code = await new CliRunner().RunAsync(Path.Combine(root, "cases"), new Dictionary<string, string?>(), output, httpAdapterHandlerForTesting: new FakePublicHttpHandler());
 
         Assert.Equal(0, code);
         Assert.Contains("PASS HTTP-CFG-1", output.ToString());
@@ -56,7 +56,7 @@ public class CliRunnerConfigTests
         WritePassingHttpCase(root);
         var output = new StringWriter();
 
-        var code = await new CliRunner().RunAsync(Path.Combine(root, "cases"), new Dictionary<string, string?>(), output);
+        var code = await new CliRunner().RunAsync(Path.Combine(root, "cases"), new Dictionary<string, string?>(), output, httpAdapterHandlerForTesting: new FakePublicHttpHandler());
 
         Assert.NotEqual(0, code);
         Assert.Contains("releasetwin.yaml lists 'launchdarkly'", output.ToString());
@@ -104,7 +104,7 @@ public class CliRunnerConfigTests
         var env = new Dictionary<string, string?> { ["AZDO_ORG"] = "only-one-of-five" };
         var output = new StringWriter();
 
-        var code = await new CliRunner().RunAsync(Path.Combine(root, "cases"), env, output);
+        var code = await new CliRunner().RunAsync(Path.Combine(root, "cases"), env, output, httpAdapterHandlerForTesting: new FakePublicHttpHandler());
 
         Assert.NotEqual(0, code);
         Assert.Contains("Azure DevOps is partially configured", output.ToString());
@@ -117,7 +117,7 @@ public class CliRunnerConfigTests
         WritePassingHttpCase(root);
         var output = new StringWriter();
 
-        var code = await new CliRunner().RunAsync(Path.Combine(root, "cases"), new Dictionary<string, string?>(), output);
+        var code = await new CliRunner().RunAsync(Path.Combine(root, "cases"), new Dictionary<string, string?>(), output, httpAdapterHandlerForTesting: new FakePublicHttpHandler());
 
         Assert.NotEqual(0, code);
         Assert.Contains("bogus-adapter", output.ToString());

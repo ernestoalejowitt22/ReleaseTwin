@@ -55,7 +55,8 @@ public class ScaffoldingTests
         var code = await CliEntrypoint.RunAsync(
             new[] { "run", Path.Combine(dir, "cases") },
             new Dictionary<string, string?>(),
-            runOutput);
+            runOutput,
+            httpAdapterHandlerForTesting: new FakePublicHttpHandler());
 
         Assert.Equal(0, code);
         Assert.Contains("PASS starter", runOutput.ToString());
