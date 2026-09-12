@@ -14,10 +14,10 @@ The zero-dependency path. Anything with Docker.
 
 ```bash
 docker run --rm -v "$PWD:/workspace:ro" \
-  ghcr.io/ernestoalejowitt22/releasetwin/cli:0.3.0 /workspace/cases
+  ghcr.io/ernestoalejowitt22/releasetwin/cli:0.4.0 /workspace/cases
 ```
 
-- Pin a released version (`:0.3.0`), not `:latest`, in CI.
+- Pin a released version (`:0.4.0`), not `:latest`, in CI.
 - Mount the directory that holds `cases/` and its sibling `fixtures/` at `/workspace`.
 - The image bundles `examples/` at `/opt/releasetwin/examples` for offline `init`.
 - To read a run's evidence, publish the viewer's port — the container has no browser of its
@@ -25,7 +25,7 @@ docker run --rm -v "$PWD:/workspace:ro" \
 
   ```bash
   docker run --rm -p 8080:8080 -v "$PWD:/workspace" \
-    ghcr.io/ernestoalejowitt22/releasetwin/cli:0.3.0 view /workspace/evidence
+    ghcr.io/ernestoalejowitt22/releasetwin/cli:0.4.0 view /workspace/evidence
   ```
 
   No port to publish (CI, a locked-down runner)? `view /workspace/evidence --export
@@ -35,7 +35,7 @@ docker run --rm -v "$PWD:/workspace:ro" \
 ## .NET global tool — you already have .NET
 
 ```bash
-dotnet tool install --global releasetwin --version 0.3.0
+dotnet tool install --global releasetwin --version 0.4.0
 releasetwin ./cases
 ```
 
@@ -63,7 +63,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: releasetwin/releasetwin-action@v0.2.0
+      - uses: releasetwin/releasetwin-action@v0.4.0
         with:
           cases-path: cases
 ```

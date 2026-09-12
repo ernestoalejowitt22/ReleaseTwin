@@ -37,8 +37,10 @@ Full feature matrix and current pricing:
 
 ## What gets uploaded
 
-Only if you set an API token does the CLI talk to the hosted API at all. By
-default it uploads report *metadata* only — case ID, oracle reference, fixture
+Only if you set an API token — or, on GitHub Actions, name a project and grant the
+job `id-token: write`, which trades the job's own OIDC identity for a short-lived
+credential with no secret stored anywhere — does the CLI talk to the hosted API at
+all. By default it uploads report *metadata* only — case ID, oracle reference, fixture
 hash, pass/fail, classification — never fixture content, response bodies, or
 secrets. The optional evidence document (screenshots, redacted request/response
 text) is opt-in per project and is redacted locally by the CLI before upload;

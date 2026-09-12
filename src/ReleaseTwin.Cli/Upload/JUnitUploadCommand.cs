@@ -30,16 +30,9 @@ public static class JUnitUploadCommand
             return 1;
         }
 
-        var apiToken = Get(environment, "RELEASETWIN_API_TOKEN");
-        if (string.IsNullOrWhiteSpace(apiToken))
-        {
-            // Deliberately an error, not a silent no-op: a run without a token simply skips its
-            // optional upload, but this command has nothing else to do.
-            output.WriteLine("upload-junit requires RELEASETWIN_API_TOKEN to be set.");
-            return 1;
-        }
-
         // Read before any network call, so a wrong path fails locally and names what the user typed.
+        // (github-oidc-upload: the credential resolver below may call GitHub and the platform, so
+        // the file checks stay ahead of it — spec: "making no network call".)
         if (!File.Exists(options!.FilePath))
         {
             output.WriteLine($"upload-junit: file not found: {options.FilePath}");
@@ -62,9 +55,25 @@ public static class JUnitUploadCommand
             return 1;
         }
 
-        var baseUrl = Get(environment, "RELEASETWIN_API_URL") is { Length: > 0 } url
-            ? url
-            : "https://api.releasetwin.example";
+        // github-oidc-upload: same resolver as a run — stored token first, then a GitHub OIDC
+        // exchange when a project is named. Deliberately an error when nothing resolves: a run
+        // without a credential simply skips its optional upload, but this command has nothing else
+        // to do.
+        var credential = await UploadCredentialResolver.ResolveAsync(key => Get(environment, key), handlerForTesting, cancellationToken);
+        if (credential.Failed)
+        {
+            output.WriteLine($"upload-junit could not authenticate: {credential.FailureReason}");
+            return 1;
+        }
+
+        if (!credential.HasCredential)
+        {
+            output.WriteLine("upload-junit requires RELEASETWIN_API_TOKEN to be set, or RELEASETWIN_PROJECT_ID on a GitHub Actions job with `permissions: id-token: write`.");
+            return 1;
+        }
+
+        var apiToken = credential.Token!;
+        var baseUrl = credential.ApiUrl;
 
         using var client = new IngestClient(baseUrl, apiToken, handlerForTesting);
 

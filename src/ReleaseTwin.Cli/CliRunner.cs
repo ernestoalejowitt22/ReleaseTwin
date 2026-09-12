@@ -41,7 +41,7 @@ public sealed class CliRunner
         HttpMessageHandler? evidenceConfigHandlerForTesting = null) =>
         RunWithConfigAsync(
             () => ReleaseTwinConfig.LoadFor(casesDirectory),
-            environment, output, cancellationToken,
+            WithManifestProjectId(environment, casesDirectory), output, cancellationToken,
             LoadLocalCasesAsync(casesDirectory),
             azureDevOpsHandlerForTesting, httpAdapterHandlerForTesting, uploadHandlerForTesting, launchDarklyHandlerForTesting, adapterCredentialsHandlerForTesting, projectSecretsHandlerForTesting, evidenceConfigHandlerForTesting);
 
@@ -100,6 +100,59 @@ public sealed class CliRunner
         return await RunCoreAsync(
             config, environment, output, cancellationToken, loadCasesAsync,
             azureDevOpsHandlerForTesting, httpAdapterHandlerForTesting, uploadHandlerForTesting, launchDarklyHandlerForTesting, adapterCredentialsHandlerForTesting, projectSecretsHandlerForTesting, evidenceConfigHandlerForTesting);
+    }
+
+    /// <summary>
+    /// github-oidc-upload: a `project:` in the cases directory's <c>releasetwin.yml</c> supplies
+    /// <c>RELEASETWIN_PROJECT_ID</c> when the environment does not — a committed, non-secret id, so a
+    /// workflow needs no env var at all. The environment wins when both are set. Folded into the
+    /// environment here so credential resolution has one input regardless of where the id came from.
+    /// </summary>
+    /// <summary>
+    /// github-oidc-upload: a run that stops before executing anything still leaves a summary when one
+    /// was requested, so the Action's PR comment can say *why* nothing landed instead of showing an
+    /// empty run. Zero cases, overall "failed", and the upload block carrying the reason.
+    /// </summary>
+    private static void WriteFailedUploadSummary(string? summaryPath, UploadCredentialResolution credential, TextWriter output)
+    {
+        if (string.IsNullOrWhiteSpace(summaryPath))
+        {
+            return;
+        }
+
+        var summary = new RunSummary(
+            RunSummary.CurrentSchemaVersion,
+            "failed",
+            new RunSummaryTotals(0, 0, 0),
+            new RunSummaryFlagProof(0, 0, 0),
+            [],
+            null,
+            new RunSummaryUpload(credential.Mode, credential.FailureReason));
+        try
+        {
+            RunSummaryWriter.Write(summaryPath, summary);
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            output.WriteLine($"WARN: failed to write run summary to {summaryPath}: {ex.Message}");
+        }
+    }
+
+    private static IReadOnlyDictionary<string, string?> WithManifestProjectId(IReadOnlyDictionary<string, string?> environment, string casesDirectory)
+    {
+        if (environment.TryGetValue("RELEASETWIN_PROJECT_ID", out var fromEnv) && !string.IsNullOrWhiteSpace(fromEnv))
+        {
+            return environment;
+        }
+
+        var fromManifest = CaseFileLoader.ReadManifestProjectId(casesDirectory);
+        if (string.IsNullOrWhiteSpace(fromManifest))
+        {
+            return environment;
+        }
+
+        var merged = new Dictionary<string, string?>(environment) { ["RELEASETWIN_PROJECT_ID"] = fromManifest };
+        return merged;
     }
 
     // hosted-project-secrets: takes the effective environment-variable resolver (local environment
@@ -200,11 +253,22 @@ public sealed class CliRunner
 
         // cli-runner (hosted-self-serve-platform delta): upload is entirely optional. No token, no
         // upload attempt, no error — the CLI behaves exactly as it did before this capability existed.
-        var apiToken = Get("RELEASETWIN_API_TOKEN");
-        var apiUrl = Get("RELEASETWIN_API_URL") is { Length: > 0 } configuredUrl ? configuredUrl : "https://api.releasetwin.example";
+        // github-oidc-upload: unless the job named a project, in which case a GitHub Actions OIDC
+        // token is exchanged for a short-lived credential, and a failure there is loud (design D5).
+        var credential = await UploadCredentialResolver.ResolveAsync(Get, uploadHandlerForTesting, cancellationToken);
+        if (credential.Failed)
+        {
+            output.WriteLine($"ERROR: hosted upload could not authenticate: {credential.FailureReason}");
+            WriteFailedUploadSummary(Get("RELEASETWIN_SUMMARY_JSON"), credential, output);
+            return 1;
+        }
+
+        var apiToken = credential.Token;
+        var apiUrl = credential.ApiUrl;
         IngestClient? ingestClient = apiToken is { Length: > 0 }
             ? new IngestClient(apiUrl, apiToken, uploadHandlerForTesting)
             : null;
+        var uploadSummary = new RunSummaryUpload(credential.Mode, null);
 
         // evidence-capture (cli-runner delta): capture is opt-in and off by default. An explicit
         // RELEASETWIN_EVIDENCE=on|off wins over the hosted per-project default and applies regardless
@@ -609,7 +673,7 @@ public sealed class CliRunner
             {
                 // Written on pass or fail (design.md D-A / D2). The destination directories were
                 // validated up front in CliEntrypoint, so these only fail on a genuine I/O fault.
-                var built = summary.Build(runUrl);
+                var built = summary.Build(runUrl, uploadSummary);
 
                 if (summaryPath is not null)
                 {

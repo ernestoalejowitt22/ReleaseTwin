@@ -19,10 +19,21 @@ public sealed record RunSummary(
     // upload succeeded. Omitted (not null) when there was no upload — a no-upload summary differs
     // from schema v1 only by the version integer.
     [property: JsonPropertyName("runUrl")]
-    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] string? RunUrl = null)
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] string? RunUrl = null,
+    // github-oidc-upload: how the run authenticated its hosted upload ("token", "oidc", "none") or
+    // why it could not ("oidc-exchange-failed" + reason), so a CI integration can show a
+    // misconfigured permission on the PR instead of only in the job log. Omitted when null (v3 shape).
+    [property: JsonPropertyName("upload")]
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] RunSummaryUpload? Upload = null)
 {
-    public const int CurrentSchemaVersion = 3;
+    public const int CurrentSchemaVersion = 4;
 }
+
+/// <summary>github-oidc-upload: see <see cref="RunSummary.Upload"/>. <c>reason</c> is set only for <c>oidc-exchange-failed</c>.</summary>
+public sealed record RunSummaryUpload(
+    [property: JsonPropertyName("mode")] string Mode,
+    [property: JsonPropertyName("reason")]
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] string? Reason);
 
 public sealed record RunSummaryTotals(
     [property: JsonPropertyName("passed")] int Passed,
@@ -71,7 +82,7 @@ public sealed class RunSummaryBuilder
     /// pr-annotation-evidence-link: the project-dashboard URL returned by a successful report upload,
     /// or null when no upload happened.
     /// </param>
-    public RunSummary Build(string? runUrl = null)
+    public RunSummary Build(string? runUrl = null, RunSummaryUpload? upload = null)
     {
         var passed = _cases.Count(c => c.Outcome == "passed");
         var failed = _cases.Count - passed;
@@ -86,7 +97,8 @@ public sealed class RunSummaryBuilder
             new RunSummaryTotals(passed, failed, _cases.Count),
             new RunSummaryFlagProof(proven, ineligible, regressed),
             _cases,
-            string.IsNullOrWhiteSpace(runUrl) ? null : runUrl);
+            string.IsNullOrWhiteSpace(runUrl) ? null : runUrl,
+            upload);
     }
 }
 

@@ -41,6 +41,36 @@ public sealed class CaseFileLoader
         _strictDeserializer = BuildDeserializer(strict: true);
     }
 
+    /// <summary>
+    /// github-oidc-upload: the manifest's <c>project:</c>, or null when there is no manifest or it
+    /// names none. Read leniently on purpose — an unrelated problem in the manifest is reported by
+    /// the strict load that follows, not by credential resolution.
+    /// </summary>
+    public static string? ReadManifestProjectId(string casesDirectory)
+    {
+        var path = ManifestFileNames
+            .Select(name => Path.Combine(casesDirectory, name))
+            .FirstOrDefault(File.Exists);
+        if (path is null)
+        {
+            return null;
+        }
+
+        try
+        {
+            var manifest = BuildDeserializer(strict: false).Deserialize<ProjectManifestDto>(File.ReadAllText(path));
+            return string.IsNullOrWhiteSpace(manifest?.Project) ? null : manifest.Project.Trim();
+        }
+        catch (YamlException)
+        {
+            return null;
+        }
+        catch (IOException)
+        {
+            return null;
+        }
+    }
+
     private static IDeserializer BuildDeserializer(bool strict)
     {
         var builder = new DeserializerBuilder().WithNamingConvention(UnderscoredNamingConvention.Instance);

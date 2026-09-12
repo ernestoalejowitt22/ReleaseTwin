@@ -19,16 +19,16 @@ jobs:
 
       # A — the container image (no .NET on the runner)
       - run: docker run --rm -v "$PWD:/workspace:ro"
-          ghcr.io/ernestoalejowitt22/releasetwin/cli:0.3.0 /workspace/cases
+          ghcr.io/ernestoalejowitt22/releasetwin/cli:0.4.0 /workspace/cases
 
       # B — the .NET global tool (the runner has .NET)
-      # - run: dotnet tool install -g releasetwin --version 0.3.0
+      # - run: dotnet tool install -g releasetwin --version 0.4.0
       # - run: releasetwin ./cases
 
       # C — the GitHub Action (adds a PR comment + check run) — see "PR annotations" below
 ```
 
-Pin a released version (`cli:0.3.0`, `--version 0.3.0`, `@v0.2.0` for the Action) in CI. A non-zero exit
+Pin a released version (`cli:0.4.0`, `--version 0.4.0`, `@v0.4.0` for the Action) in CI. A non-zero exit
 fails the job, fails the check, blocks the merge — the same gate you trust for unit tests.
 
 Both packages are real and publicly pullable — screenshots below, captured
@@ -46,7 +46,7 @@ normal human output:
 
 ```jsonc
 {
-  "schemaVersion": 3,
+  "schemaVersion": 4,
   "overall": "failed",
   "totals": { "passed": 12, "failed": 1, "cases": 13 },
   "flagProof": { "proven": 3, "ineligible": 1, "regressed": 0 },
@@ -56,7 +56,8 @@ normal human output:
     { "id": "CLM-042", "outcome": "failed", "classification": "infrastructure", "flagProof": null, "release": null,
       "evidenceUrl": "https://app.releasetwin.com/dashboard/reports/…/evidence?projectId=…" }
   ],
-  "runUrl": "https://app.releasetwin.com/dashboard?projectId=…"
+  "runUrl": "https://app.releasetwin.com/dashboard?projectId=…",
+  "upload": { "mode": "oidc" }
 }
 ```
 
@@ -64,7 +65,10 @@ It carries only metadata the CLI already prints — ids, outcomes, classificatio
 flag-proof results, the `release` label, and each case's oracle locator. No bodies, no
 secrets. With no flag set, no file is written and behavior is unchanged.
 
-`runUrl` (top level) and a case's `evidenceUrl` are **optional** and appear only when the run
+`upload.mode` says how the run authenticated its hosted upload — `oidc` (the job's GitHub
+identity), `token` (a stored `RELEASETWIN_API_TOKEN`), `none`, or `oidc-exchange-failed` with a
+`reason` when a job named a project and the exchange could not complete (the run then stops
+before executing cases). `runUrl` (top level) and a case's `evidenceUrl` are **optional** and appear only when the run
 uploaded to a hosted project (see Credentials) — `runUrl` links the project dashboard;
 `evidenceUrl` is present for a case whose evidence was uploaded and accepted. A case's
 `oracleLocator` is carried straight through from its case file's `oracle.locator` whenever
@@ -101,18 +105,18 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: releasetwin/releasetwin-action@v0.2.0
+      - uses: releasetwin/releasetwin-action@v0.4.0
         with:
           cases-path: cases
-          image: ghcr.io/ernestoalejowitt22/releasetwin/cli:0.3.0
+          image: ghcr.io/ernestoalejowitt22/releasetwin/cli:0.4.0
 ```
 
-Pin a full version (`@v0.2.0`) in CI. `@v0` is a floating tag that tracks the latest 0.x
+Pin a full version (`@v0.4.0`) in CI. `@v0` is a floating tag that tracks the latest 0.x
 release if you want patches automatically. The `image` input must be a publicly pullable
 tag. `releasetwin-action` is a release-time mirror of
 [`integrations/github-action/`](../integrations/github-action/) published at a repo root
 so it's Marketplace-eligible — same code, same versioning; the subdirectory form
-(`ernestoalejowitt22/ReleaseTwin/integrations/github-action@v0.2.0`) still works too.
+(`ernestoalejowitt22/ReleaseTwin/integrations/github-action@v0.4.0`) still works too.
 
 **Run-only gate** (no PR comment, just the check): pass `comment: false`. The `ReleaseTwin`
 check run still reports pass/fail — make it a required status check on the protected branch
@@ -128,7 +132,7 @@ than watching the PR — the Action can also post evidence directly onto the tic
 is meant to prove, using that case's `oracle.locator`:
 
 ```yaml
-- uses: releasetwin/releasetwin-action@v0.2.0
+- uses: releasetwin/releasetwin-action@v0.4.0
   with:
     cases-path: cases
     ticket-write-back: "true"
@@ -260,7 +264,7 @@ pipelines:
     '**':
       - step:
           name: Release-proof gate
-          image: ghcr.io/ernestoalejowitt22/releasetwin/cli:0.3.0
+          image: ghcr.io/ernestoalejowitt22/releasetwin/cli:0.4.0
           script:
             - dotnet /app/ReleaseTwin.Cli.dll ./cases --junit-xml test-results/junit.xml
 ```
@@ -271,7 +275,7 @@ pipelines:
 jobs:
   release-proof:
     docker:
-      - image: ghcr.io/ernestoalejowitt22/releasetwin/cli:0.3.0
+      - image: ghcr.io/ernestoalejowitt22/releasetwin/cli:0.4.0
     steps:
       - checkout
       - run: dotnet /app/ReleaseTwin.Cli.dll ./cases --junit-xml /tmp/test-results/junit.xml
@@ -323,8 +327,29 @@ Jenkins consumes the same file with the built-in `junit 'junit.xml'` step.
 - A flag-proof leg needs its flag source's credentials as job env
   (`LAUNCHDARKLY_API_TOKEN`, the `AZDO_*` set, …); pass them via the Action's `env-vars` or
   `env-file` input.
-- To also land run history + evidence on the hosted dashboard, set `RELEASETWIN_API_TOKEN`
-  and `RELEASETWIN_API_URL`. This additionally turns the PR annotation into a link into the
+- To also land run history + evidence on the hosted dashboard from **GitHub Actions**, no
+  secret is needed <a id="github-oidc"></a>: give the job `permissions: id-token: write` and
+  name the project. The CLI exchanges the job's GitHub OIDC token for a short-lived,
+  ingest-only credential at `api.releasetwin.com`; the project must be bound to this
+  repository on its Settings page (the two-sided check that stops anyone else's repository
+  from uploading into your project, and your repository from being captured by someone
+  else's project).
+
+  ```yaml
+  permissions:
+    contents: read
+    id-token: write
+  env:
+    RELEASETWIN_PROJECT_ID: <project id from the dashboard URL>   # or `project:` in releasetwin.yml
+  ```
+
+  Naming a project is treated as intent: if the permission is missing or the exchange is
+  refused, the run stops with one line naming the fix, and `--summary-json` records
+  `upload.mode = "oidc-exchange-failed"` with the reason. Fork pull requests get no OIDC
+  token from GitHub, so they upload nothing, exactly as before.
+- **Other CI systems, or no OIDC:** set `RELEASETWIN_API_TOKEN` (issued on the project's
+  Settings page) and `RELEASETWIN_API_URL`. A stored token always wins when both are
+  configured. Either way the upload turns the PR annotation into a link into the
   dashboard — a "View run" link in the comment and check, and a per-case link to the
   evidence for any case whose evidence was uploaded and accepted.
 - No hosted account needed to get evidence at all: set `RELEASETWIN_EVIDENCE=on` and
