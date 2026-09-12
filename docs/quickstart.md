@@ -9,7 +9,7 @@ GitHub Action? See [`docs/install.md`](install.md).)
 mkdir my-release-proof && cd my-release-proof
 
 docker run --rm -v "$PWD:/workspace" \
-  ghcr.io/ernestoalejowitt22/releasetwin/cli:0.3.0 init /workspace
+  ghcr.io/ernestoalejowitt22/releasetwin/cli:0.4.0 init /workspace
 ```
 
 You now have:
@@ -25,7 +25,7 @@ releasetwin.yaml          project config (optional)
 
 ```bash
 docker run --rm -v "$PWD:/workspace" \
-  ghcr.io/ernestoalejowitt22/releasetwin/cli:0.3.0 run /workspace/cases
+  ghcr.io/ernestoalejowitt22/releasetwin/cli:0.4.0 run /workspace/cases
 ```
 
 ```
@@ -46,10 +46,10 @@ browsable report. No account, no sign-up, and no network call of any kind.
 docker run --rm -v "$PWD:/workspace" \
   -e RELEASETWIN_EVIDENCE=on \
   -e RELEASETWIN_EVIDENCE_DIR=/workspace/evidence \
-  ghcr.io/ernestoalejowitt22/releasetwin/cli:0.3.0 run /workspace/cases
+  ghcr.io/ernestoalejowitt22/releasetwin/cli:0.4.0 run /workspace/cases
 
 docker run --rm -p 8080:8080 -v "$PWD:/workspace" \
-  ghcr.io/ernestoalejowitt22/releasetwin/cli:0.3.0 view /workspace/evidence
+  ghcr.io/ernestoalejowitt22/releasetwin/cli:0.4.0 view /workspace/evidence
 ```
 
 `view` always prints the URL to open. Publishing the port with `-p` is what makes the served
@@ -114,7 +114,7 @@ Pass the env vars into the container:
 ```bash
 docker run --rm -v "$PWD:/workspace" \
   -e API_BASE_URL -e API_TOKEN \
-  ghcr.io/ernestoalejowitt22/releasetwin/cli:0.3.0 run /workspace/cases
+  ghcr.io/ernestoalejowitt22/releasetwin/cli:0.4.0 run /workspace/cases
 ```
 
 A non-zero exit code means a case failed — wire it straight into CI.
