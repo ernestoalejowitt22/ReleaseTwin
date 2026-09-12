@@ -93,7 +93,8 @@ docker run --rm -v "$PWD:/workspace" -e RELEASETWIN_EVIDENCE=on -e RELEASETWIN_E
 docker run --rm -p 8080:8080 -v "$PWD:/workspace" ghcr.io/ernestoalejowitt22/releasetwin/cli:0.3.0 view /workspace/evidence
 
 # Already have a suite? Upload its JUnit XML as run history instead of authoring cases:
-#   releasetwin upload-junit results.xml   (needs RELEASETWIN_API_URL + RELEASETWIN_API_TOKEN; see docs/ci.md)
+#   releasetwin upload-junit results.xml   (GitHub Actions: `id-token: write` + RELEASETWIN_PROJECT_ID, no secret;
+#                                           elsewhere: RELEASETWIN_API_URL + RELEASETWIN_API_TOKEN — see docs/ci.md)
 ```
 
 The container expects a `cases/` directory with a sibling `fixtures/` directory

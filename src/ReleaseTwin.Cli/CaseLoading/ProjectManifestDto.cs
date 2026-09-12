@@ -8,6 +8,13 @@ namespace ReleaseTwin.Cli.CaseLoading;
 /// </summary>
 internal sealed class ProjectManifestDto
 {
+    /// <summary>
+    /// github-oidc-upload: the hosted project this cases directory uploads to, so a workflow needs no
+    /// <c>RELEASETWIN_PROJECT_ID</c> env var. A non-secret id, safe to commit. The env var wins when
+    /// both are set.
+    /// </summary>
+    public string? Project { get; set; }
+
     public ProjectManifestFlagProofDto? FlagProof { get; set; }
 }
 

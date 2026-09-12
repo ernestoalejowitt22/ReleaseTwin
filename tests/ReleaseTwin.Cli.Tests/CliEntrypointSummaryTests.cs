@@ -42,7 +42,7 @@ public class CliEntrypointSummaryTests
 
         Assert.Equal(0, exit);
         Assert.True(File.Exists(summaryPath));
-        Assert.Equal(3, JsonDocument.Parse(File.ReadAllText(summaryPath)).RootElement.GetProperty("schemaVersion").GetInt32());
+        Assert.Equal(4, JsonDocument.Parse(File.ReadAllText(summaryPath)).RootElement.GetProperty("schemaVersion").GetInt32());
     }
 
     [Fact]

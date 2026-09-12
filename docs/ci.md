@@ -323,8 +323,29 @@ Jenkins consumes the same file with the built-in `junit 'junit.xml'` step.
 - A flag-proof leg needs its flag source's credentials as job env
   (`LAUNCHDARKLY_API_TOKEN`, the `AZDO_*` set, …); pass them via the Action's `env-vars` or
   `env-file` input.
-- To also land run history + evidence on the hosted dashboard, set `RELEASETWIN_API_TOKEN`
-  and `RELEASETWIN_API_URL`. This additionally turns the PR annotation into a link into the
+- To also land run history + evidence on the hosted dashboard from **GitHub Actions**, no
+  secret is needed <a id="github-oidc"></a>: give the job `permissions: id-token: write` and
+  name the project. The CLI exchanges the job's GitHub OIDC token for a short-lived,
+  ingest-only credential at `api.releasetwin.com`; the project must be bound to this
+  repository on its Settings page (the two-sided check that stops anyone else's repository
+  from uploading into your project, and your repository from being captured by someone
+  else's project).
+
+  ```yaml
+  permissions:
+    contents: read
+    id-token: write
+  env:
+    RELEASETWIN_PROJECT_ID: <project id from the dashboard URL>   # or `project:` in releasetwin.yml
+  ```
+
+  Naming a project is treated as intent: if the permission is missing or the exchange is
+  refused, the run stops with one line naming the fix, and `--summary-json` records
+  `upload.mode = "oidc-exchange-failed"` with the reason. Fork pull requests get no OIDC
+  token from GitHub, so they upload nothing, exactly as before.
+- **Other CI systems, or no OIDC:** set `RELEASETWIN_API_TOKEN` (issued on the project's
+  Settings page) and `RELEASETWIN_API_URL`. A stored token always wins when both are
+  configured. Either way the upload turns the PR annotation into a link into the
   dashboard — a "View run" link in the comment and check, and a per-case link to the
   evidence for any case whose evidence was uploaded and accepted.
 - No hosted account needed to get evidence at all: set `RELEASETWIN_EVIDENCE=on` and
