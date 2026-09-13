@@ -41,7 +41,7 @@ jobs:
           dotnet-version: "8.0.x"
 
       - name: Initialize CodeQL
-        uses: github/codeql-action/init@v3
+        uses: github/codeql-action/init@v4
         with:
           languages: ${{ matrix.language }}
           # Default (`security`) query suite for now — keeps PR noise low. `security-extended` is the
@@ -54,7 +54,7 @@ jobs:
 
       - name: Analyze
         id: analyze
-        uses: github/codeql-action/analyze@v3
+        uses: github/codeql-action/analyze@v4
         with:
           category: "/language:${{ matrix.language }}"
           output: sarif-results
