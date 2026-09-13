@@ -22,11 +22,14 @@ pinned journey on ReleaseTwin-operated compute.
 | Uploaded run history + evidence viewer | ✓ | ✓ |
 | Evidence retention | 7 days | 12 months (Enterprise: custom) |
 | 14-day Team trial, starts with your first real run | ✓ | — |
-| Run notifications, shareable evidence links | — | ✓ |
+| Release roll-up + regression diff, flag-proof merge gate | ✓ | ✓ |
+| Shareable evidence links | 1 active link per run | Unlimited |
+| Run notifications (Slack, Teams, webhook) | — | ✓ |
 | Hosted project secrets | — | ✓ |
-| Trend analytics, release roll-up, regression diff, flag blast radius, merge gate | — | ✓ |
-| Ticket-tracker write-back (Jira, Linear, GitHub, Bitbucket, Azure Boards) | — | ✓ |
-| Programmatic API | — | ✓ |
+| Trend analytics, flag blast radius | — | ✓ |
+| Ticket-tracker write-back (Jira, Linear, GitHub, Bitbucket, Azure Boards) + verification-driven ticket transitions | — | ✓ |
+| Programmatic API + MCP server | — | ✓ |
+| Hosted evidence runners | — | planned — not built yet; see releasetwin.com/features |
 | SSO, audit log, flag-rollout re-verification | — | Enterprise only (planned — not built yet; see releasetwin.com/features) |
 
 Redaction — the built-in credential denylist plus your own per-case allow/deny rules — runs in the
