@@ -42,8 +42,8 @@
     <PackageId>releasetwin</PackageId>
     <Title>ReleaseTwin CLI</Title>
     <Authors>Ernesto Alejo and the ReleaseTwin contributors</Authors>
-    <Description>Release-proof testing for integration-heavy, feature-flagged systems: evidence-linked cases, immutable fixtures, and paired known-bad/known-good "flag proof". Runs entirely in your own infrastructure; exits non-zero on any case failure so it drops into CI as a required check. UI-journey cases additionally need `playwright install`.</Description>
-    <PackageProjectUrl>https://github.com/ernestoalejowitt22/ReleaseTwin</PackageProjectUrl>
+    <Description>Look at a real case file (no account) at https://releasetwin.com/proof. Then install this CLI for release-proof testing of integration-heavy, feature-flagged systems: evidence-linked cases, immutable fixtures, and paired known-bad/known-good "flag proof". Runs entirely in your own infrastructure; exits non-zero on any case failure so it drops into CI as a required check. UI-journey cases additionally need `playwright install`.</Description>
+    <PackageProjectUrl>https://releasetwin.com/proof</PackageProjectUrl>
     <RepositoryUrl>https://github.com/ernestoalejowitt22/ReleaseTwin</RepositoryUrl>
     <RepositoryType>git</RepositoryType>
     <!-- NuGet's PackageLicenseExpression only accepts SPDX-listed ids, so it can't carry the

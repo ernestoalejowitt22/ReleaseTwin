@@ -14,8 +14,10 @@ depend on it. See [docs/hosted.md](docs/hosted.md) for what the free CLI vs.
 paid hosted tiers each include, or [releasetwin.com/pricing](https://releasetwin.com/pricing)
 for current pricing.
 
-**New here?** [docs/quickstart.md](docs/quickstart.md) — test your first API in
-10 minutes with `docker run`, no account, no clone.
+**New here?** See a real case file (no account):
+[releasetwin.com/proof](https://releasetwin.com/proof). Then
+[docs/quickstart.md](docs/quickstart.md) — test your first API in 10 minutes
+with `docker run`, no account, no clone.
 
 ## Licence
 
