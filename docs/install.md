@@ -51,7 +51,8 @@ releasetwin ./cases
 ## GitHub Action — in CI, with PR feedback
 
 Runs the CLI and renders the result as a PR comment + a `ReleaseTwin` check run.
-Uses only the workflow's `GITHUB_TOKEN` — no ReleaseTwin account.
+Uses only the workflow's `GITHUB_TOKEN` — no ReleaseTwin account, unless you set
+`project-id` to upload the run to a hosted project.
 
 ```yaml
 permissions:
