@@ -86,8 +86,9 @@ CLI with `--summary-json` and renders the summary onto the pull request:
 - a **check run** named `ReleaseTwin` with the same outcome, which you can make a required
   status check to block the merge
 
-It uses only the workflow's `GITHUB_TOKEN` and GitHub's REST API — no ReleaseTwin account,
-no hosted call.
+Out of the box it uses only the workflow's `GITHUB_TOKEN` and GitHub's REST API — no
+ReleaseTwin account, no hosted call. Setting `project-id` opts into uploading the run to a
+hosted project, using the job's own GitHub OIDC identity rather than a stored secret.
 
 A real one, from this repo's own dogfooded run
 (`.github/workflows/pr-annotations.yml`, [PR #124](https://github.com/ernestoalejowitt22/ReleaseTwin/pull/124#issuecomment-5529871690)):

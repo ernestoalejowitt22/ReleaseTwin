@@ -14,8 +14,11 @@ Runs your ReleaseTwin case suite on a pull request and renders the result as:
   marker), showing pass/fail totals, the flag-proof verdict, and a table of the notable cases
 - a **check run** named `ReleaseTwin` reporting the same outcome
 
-It uses only the workflow's own `GITHUB_TOKEN` and GitHub's REST API. **No ReleaseTwin
-account, API token, or hosted call is involved.** Execution stays entirely in your CI.
+Out of the box it uses only the workflow's own `GITHUB_TOKEN` and GitHub's REST API:
+**no ReleaseTwin account, API token, or hosted call is involved**, and execution stays
+entirely in your CI. Setting [`project-id`](#usage) opts into uploading the run to a
+hosted project — still with no stored secret, using the job's own GitHub OIDC identity.
+Leave it unset and nothing leaves your runner.
 
 This Action is **Apache-2.0** licensed (see `LICENSE`), independently of the ReleaseTwin
 engine's copyleft license — fork and adapt it freely.
