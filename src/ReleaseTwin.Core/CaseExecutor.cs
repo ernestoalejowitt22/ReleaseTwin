@@ -92,74 +92,137 @@ public sealed class CaseExecutor
         }
     }
 
+    private sealed record PipelineHalt(FailureClassification Classification, string? Detail);
+
+    /// <summary>
+    /// Per-run walk state: the flattened step slots (evidence index = slot position) and the
+    /// evidence recorded so far. A slot left unrecorded when the walk ends is <c>NotExecuted</c> —
+    /// which is how both a halted pipeline's remaining steps and an untaken branch's steps are
+    /// reported, so every run of a pipeline records the same fixed set of step positions.
+    /// </summary>
+    private sealed class PipelineWalk
+    {
+        public required IReadOnlyList<PipelineStep> Slots { get; init; }
+        public required StepEvidence?[]? Evidence { get; init; }
+        public int NextIndex { get; set; }
+    }
+
     private async Task<(bool Passed, FailureClassification? Classification, string? Detail, List<StepEvidence>? Steps)> RunPipelineAsync(
         TestCase testCase, CaseExecutionContext context, bool capture, CancellationToken cancellationToken)
     {
-        var steps = capture ? new List<StepEvidence>() : null;
+        var slots = testCase.Pipeline.FlattenSteps();
+        var walk = new PipelineWalk { Slots = slots, Evidence = capture ? new StepEvidence?[slots.Count] : null };
 
-        for (var i = 0; i < testCase.Pipeline.Count; i++)
-        {
-            var step = testCase.Pipeline[i];
-            _operations.TryGet(step.OperationName, out var operation);
-
-            IReadOnlyDictionary<string, object?> resolvedParameters;
-            try
-            {
-                resolvedParameters = CaptureReferenceResolver.Resolve(step.Parameters, (IReadOnlyDictionary<string, string>)context.Captures);
-            }
-            catch (MissingCaptureException ex)
-            {
-                RecordStep(steps, i, step, StepEvidenceOutcome.Failed, TimeSpan.Zero, operation, capture);
-                MarkRemainingNotExecuted(steps, testCase, i + 1, capture);
-                return (false, FailureClassification.Infrastructure, $"missing-capture:{ex.CaptureName}", steps);
-            }
-
-            var stepStopwatch = capture ? Stopwatch.StartNew() : null;
-            var (succeeded, stepDetail, isTimeout, stepCaptures) =
-                await ExecuteStepWithRetryAsync(operation!, context, step, resolvedParameters, cancellationToken);
-            stepStopwatch?.Stop();
-
-            if (succeeded)
-            {
-                foreach (var (name, value) in stepCaptures)
-                {
-                    context.Captures[name] = value;
-                }
-            }
-
-            var effectivelyPassed = step.ExpectFailure ? !succeeded : succeeded;
-
-            var outcome = effectivelyPassed
-                ? (step.ExpectFailure ? StepEvidenceOutcome.ExpectedFailure : StepEvidenceOutcome.Passed)
-                : isTimeout ? StepEvidenceOutcome.Timeout
-                : step.ExpectFailure ? StepEvidenceOutcome.Failed
-                : StepEvidenceOutcome.Failed;
-            RecordStep(steps, i, step, outcome, stepStopwatch?.Elapsed ?? TimeSpan.Zero, operation, capture);
-
-            if (effectivelyPassed)
-            {
-                continue;
-            }
-
-            MarkRemainingNotExecuted(steps, testCase, i + 1, capture);
-
-            if (step.ExpectFailure)
-            {
-                // The declared-to-fail operation unexpectedly succeeded: a distinct classification
-                // from an ordinary assertion failure, since it signals the oracle didn't behave as declared.
-                return (false, FailureClassification.Unstable, "expected-failure-did-not-occur", steps);
-            }
-
-            var classification = isTimeout ? FailureClassification.Infrastructure : FailureClassification.Product;
-            return (false, classification, stepDetail, steps);
-        }
-
-        return (true, null, null, steps);
+        var halt = await RunEntriesAsync(testCase.Pipeline, walk, context, capture, cancellationToken);
+        var steps = FinishEvidence(walk);
+        return halt is null
+            ? (true, null, null, steps)
+            : (false, halt.Classification, halt.Detail, steps);
     }
 
-    private static void RecordStep(List<StepEvidence>? steps, int index, PipelineStep step, StepEvidenceOutcome outcome, TimeSpan duration, IOperation? operation, bool capture)
+    /// <summary>
+    /// journey-branching: walks a list of entries in order. A choice evaluates its condition, runs
+    /// the taken branch through this same walk, and advances past the untaken branch's slots without
+    /// recording them (they finish as <c>NotExecuted</c>). Returns the halt that stopped the
+    /// pipeline, or null when every entry completed.
+    /// </summary>
+    private async Task<PipelineHalt?> RunEntriesAsync(
+        IReadOnlyList<IPipelineEntry> entries, PipelineWalk walk, CaseExecutionContext context, bool capture, CancellationToken cancellationToken)
     {
-        if (!capture || steps is null)
+        foreach (var entry in entries)
+        {
+            PipelineHalt? halt;
+            switch (entry)
+            {
+                case PipelineStep step:
+                    halt = await RunStepAsync(step, walk.NextIndex++, walk, context, capture, cancellationToken);
+                    break;
+                case ChoiceStep choice:
+                    var takeThen = ConditionEvaluator.Evaluate(choice.When, (IReadOnlyDictionary<string, string>)context.Captures);
+                    var thenStart = walk.NextIndex;
+                    var elseStart = thenStart + choice.Then.Count;
+                    var afterChoice = elseStart + choice.Else.Count;
+
+                    walk.NextIndex = takeThen ? thenStart : elseStart;
+                    halt = await RunEntriesAsync(takeThen ? choice.Then : choice.Else, walk, context, capture, cancellationToken);
+                    walk.NextIndex = afterChoice;
+                    break;
+                default:
+                    throw new UnknownReferenceException($"Unsupported pipeline entry type '{entry?.GetType().Name}'");
+            }
+
+            if (halt is not null)
+            {
+                return halt;
+            }
+        }
+
+        return null;
+    }
+
+    private async Task<PipelineHalt?> RunStepAsync(
+        PipelineStep step, int index, PipelineWalk walk, CaseExecutionContext context, bool capture, CancellationToken cancellationToken)
+    {
+        // journey-branching: a guarded-off step records NotExecuted (its slot is simply left
+        // unrecorded) and the run continues with the next entry.
+        if (step.When is { } guard && !ConditionEvaluator.Evaluate(guard, (IReadOnlyDictionary<string, string>)context.Captures))
+        {
+            return null;
+        }
+
+        _operations.TryGet(step.OperationName, out var operation);
+
+        IReadOnlyDictionary<string, object?> resolvedParameters;
+        try
+        {
+            resolvedParameters = CaptureReferenceResolver.Resolve(step.Parameters, (IReadOnlyDictionary<string, string>)context.Captures);
+        }
+        catch (MissingCaptureException ex)
+        {
+            RecordStep(walk.Evidence, index, step, StepEvidenceOutcome.Failed, TimeSpan.Zero, operation, capture);
+            return new PipelineHalt(FailureClassification.Infrastructure, $"missing-capture:{ex.CaptureName}");
+        }
+
+        var stepStopwatch = capture ? Stopwatch.StartNew() : null;
+        var (succeeded, stepDetail, isTimeout, stepCaptures) =
+            await ExecuteStepWithRetryAsync(operation!, context, step, resolvedParameters, cancellationToken);
+        stepStopwatch?.Stop();
+
+        if (succeeded)
+        {
+            foreach (var (name, value) in stepCaptures)
+            {
+                context.Captures[name] = value;
+            }
+        }
+
+        var effectivelyPassed = step.ExpectFailure ? !succeeded : succeeded;
+
+        var outcome = effectivelyPassed
+            ? (step.ExpectFailure ? StepEvidenceOutcome.ExpectedFailure : StepEvidenceOutcome.Passed)
+            : isTimeout ? StepEvidenceOutcome.Timeout
+            : StepEvidenceOutcome.Failed;
+        RecordStep(walk.Evidence, index, step, outcome, stepStopwatch?.Elapsed ?? TimeSpan.Zero, operation, capture);
+
+        if (effectivelyPassed)
+        {
+            return null;
+        }
+
+        if (step.ExpectFailure)
+        {
+            // The declared-to-fail operation unexpectedly succeeded: a distinct classification
+            // from an ordinary assertion failure, since it signals the oracle didn't behave as declared.
+            return new PipelineHalt(FailureClassification.Unstable, "expected-failure-did-not-occur");
+        }
+
+        var classification = isTimeout ? FailureClassification.Infrastructure : FailureClassification.Product;
+        return new PipelineHalt(classification, stepDetail);
+    }
+
+    private static void RecordStep(StepEvidence?[]? evidence, int index, PipelineStep step, StepEvidenceOutcome outcome, TimeSpan duration, IOperation? operation, bool capture)
+    {
+        if (!capture || evidence is null)
         {
             return;
         }
@@ -170,26 +233,29 @@ public sealed class CaseExecutor
             contribution = emitter.DrainEvidence();
         }
 
-        steps.Add(new StepEvidence(
+        evidence[index] = new StepEvidence(
             index,
             step.OperationName,
             outcome,
             duration,
             contribution?.Assertion,
-            contribution?.Adapter));
+            contribution?.Adapter);
     }
 
-    private static void MarkRemainingNotExecuted(List<StepEvidence>? steps, TestCase testCase, int fromIndex, bool capture)
+    private static List<StepEvidence>? FinishEvidence(PipelineWalk walk)
     {
-        if (!capture || steps is null)
+        if (walk.Evidence is null)
         {
-            return;
+            return null;
         }
 
-        for (var i = fromIndex; i < testCase.Pipeline.Count; i++)
+        var steps = new List<StepEvidence>(walk.Evidence.Length);
+        for (var i = 0; i < walk.Evidence.Length; i++)
         {
-            steps.Add(new StepEvidence(i, testCase.Pipeline[i].OperationName, StepEvidenceOutcome.NotExecuted, TimeSpan.Zero));
+            steps.Add(walk.Evidence[i] ?? new StepEvidence(i, walk.Slots[i].OperationName, StepEvidenceOutcome.NotExecuted, TimeSpan.Zero));
         }
+
+        return steps;
     }
 
     private static List<StepEvidence>? AllNotExecuted(TestCase testCase, bool capture)
@@ -199,9 +265,8 @@ public sealed class CaseExecutor
             return null;
         }
 
-        var steps = new List<StepEvidence>();
-        MarkRemainingNotExecuted(steps, testCase, 0, capture: true);
-        return steps;
+        var slots = testCase.Pipeline.FlattenSteps();
+        return FinishEvidence(new PipelineWalk { Slots = slots, Evidence = new StepEvidence?[slots.Count] });
     }
 
     private static readonly IReadOnlyDictionary<string, string> EmptyCaptures = new Dictionary<string, string>();
@@ -278,7 +343,7 @@ public sealed class CaseExecutor
             }
         }
 
-        foreach (var step in testCase.Pipeline)
+        foreach (var step in testCase.Pipeline.FlattenSteps())
         {
             if (!_operations.TryGet(step.OperationName, out _))
             {

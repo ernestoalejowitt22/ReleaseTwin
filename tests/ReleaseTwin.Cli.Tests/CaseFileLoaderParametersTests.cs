@@ -1,3 +1,4 @@
+using ReleaseTwin.Core;
 using ReleaseTwin.Cli.CaseLoading;
 
 namespace ReleaseTwin.Cli.Tests;
@@ -35,7 +36,7 @@ public class CaseFileLoaderParametersTests
         var loader = new CaseFileLoader(Path.Combine(root, "cases"), Path.Combine(root, "fixtures"));
         var testCase = loader.LoadAll().Single().Case;
 
-        var parameters = testCase.Pipeline[0].Parameters;
+        var parameters = testCase.Pipeline.FlattenSteps()[0].Parameters;
         Assert.Equal("POST", parameters["method"]);
         Assert.Equal("https://example.com/orders", parameters["url"]);
         var headers = Assert.IsType<Dictionary<string, object?>>(parameters["headers"]);
@@ -64,7 +65,7 @@ public class CaseFileLoaderParametersTests
             var loader = new CaseFileLoader(Path.Combine(root, "cases"), Path.Combine(root, "fixtures"));
             var testCase = loader.LoadAll().Single().Case;
 
-            Assert.Equal("https://real-api.example.com/orders", testCase.Pipeline[0].Parameters["url"]);
+            Assert.Equal("https://real-api.example.com/orders", testCase.Pipeline.FlattenSteps()[0].Parameters["url"]);
         }
         finally
         {
@@ -123,7 +124,7 @@ public class CaseFileLoaderParametersTests
         var loader = new CaseFileLoader(Path.Combine(root, "cases"), Path.Combine(root, "fixtures"));
         var testCase = loader.LoadAll().Single().Case;
 
-        var capture = Assert.Single(testCase.Pipeline[0].Captures);
+        var capture = Assert.Single(testCase.Pipeline.FlattenSteps()[0].Captures);
         Assert.Equal("token", capture.Name);
         Assert.Equal("json:$.token", capture.From);
     }
@@ -149,7 +150,7 @@ public class CaseFileLoaderParametersTests
         var loader = new CaseFileLoader(Path.Combine(root, "cases"), Path.Combine(root, "fixtures"));
         var testCase = loader.LoadAll().Single().Case;
 
-        var headers = Assert.IsType<Dictionary<string, object?>>(testCase.Pipeline[0].Parameters["headers"]);
+        var headers = Assert.IsType<Dictionary<string, object?>>(testCase.Pipeline.FlattenSteps()[0].Parameters["headers"]);
         Assert.Equal("Bearer {{token}}", headers["Authorization"]);
     }
 

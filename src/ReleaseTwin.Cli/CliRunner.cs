@@ -752,7 +752,7 @@ public sealed class CliRunner
     private static TestCase WithEffectiveCapabilities(TestCase testCase)
     {
         var referencedNames = testCase.Prerequisites.Select(p => p.CheckName)
-            .Concat(testCase.Pipeline.Select(p => p.OperationName))
+            .Concat(testCase.Pipeline.FlattenSteps().Select(p => p.OperationName))
             .Concat(testCase.Cleanup.Select(c => c.OperationName))
             .ToList();
 

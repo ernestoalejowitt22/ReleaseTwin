@@ -1,3 +1,4 @@
+using ReleaseTwin.Core;
 using ReleaseTwin.Cli.CaseLoading;
 
 namespace ReleaseTwin.Cli.Tests;
@@ -36,7 +37,7 @@ public class CaseFileLoaderEnvironmentSeamTests
             resolveEnvironmentVariable: name => name == "SOME_NAME" ? "https://from-the-seam.example.com" : null);
         var testCase = loader.LoadAll().Single().Case;
 
-        Assert.Equal("https://from-the-seam.example.com/orders", testCase.Pipeline[0].Parameters["url"]);
+        Assert.Equal("https://from-the-seam.example.com/orders", testCase.Pipeline.FlattenSteps()[0].Parameters["url"]);
     }
 
     [Fact]
@@ -49,7 +50,7 @@ public class CaseFileLoaderEnvironmentSeamTests
             var loader = new CaseFileLoader(Path.Combine(root, "cases"), Path.Combine(root, "fixtures"));
             var testCase = loader.LoadAll().Single().Case;
 
-            Assert.Equal("https://from-the-real-environment.example.com/orders", testCase.Pipeline[0].Parameters["url"]);
+            Assert.Equal("https://from-the-real-environment.example.com/orders", testCase.Pipeline.FlattenSteps()[0].Parameters["url"]);
         }
         finally
         {

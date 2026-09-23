@@ -218,38 +218,10 @@ public sealed class CaseFileLoader
             })
             .ToList();
 
-        var pipeline = (dto.Pipeline ?? new List<PipelineStepDto>())
-            .Select(p =>
-            {
-                if (string.IsNullOrWhiteSpace(p.Operation))
-                {
-                    throw new CaseFileException(fileName, "a pipeline step is missing 'operation'");
-                }
-
-                var parameters = ConvertParameters(p.With) is { } converted
-                    ? (IReadOnlyDictionary<string, object?>)InterpolateEnvVars(fileName, converted)!
-                    : null;
-
-                var captures = (p.Capture ?? new List<CaptureDto>())
-                    .Select(c =>
-                    {
-                        if (string.IsNullOrWhiteSpace(c.Name))
-                        {
-                            throw new CaseFileException(fileName, "a pipeline step's capture is missing 'name'");
-                        }
-
-                        if (string.IsNullOrWhiteSpace(c.From))
-                        {
-                            throw new CaseFileException(fileName, "a pipeline step's capture is missing 'from'");
-                        }
-
-                        return new CaptureDeclaration(c.Name, c.From);
-                    })
-                    .ToList();
-
-                return new PipelineStep(p.Operation, With: parameters, Capture: captures.Count > 0 ? captures : null);
-            })
-            .ToList();
+        var pipeline = PipelineEntryLoader.Load(fileName, dto.Pipeline, with =>
+            ConvertParameters(with) is { } converted
+                ? (IReadOnlyDictionary<string, object?>)InterpolateEnvVars(fileName, converted)!
+                : null);
 
         var cleanup = (dto.Cleanup ?? new List<CleanupDto>())
             .Select(c =>

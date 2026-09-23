@@ -46,7 +46,7 @@ public class CaseFileLoaderTests
         Assert.Equal("CLM-042", testCase.CaseId);
         Assert.Equal("tickets/CLM-042", testCase.Oracle.Locator);
         Assert.Equal(2, testCase.Pipeline.Count);
-        Assert.Equal("azdo.createWorkItem", testCase.Pipeline[0].OperationName);
+        Assert.Equal("azdo.createWorkItem", testCase.Pipeline.FlattenSteps()[0].OperationName);
         Assert.Single(testCase.Prerequisites);
         Assert.Equal("QA", testCase.Prerequisites[0].Owner);
         Assert.Single(testCase.Cleanup);

@@ -78,6 +78,121 @@ public class CliRunnerJourneyTests
         Assert.Equal("Bearer rtw_test", handler.LastRequest.Headers.Authorization!.ToString());
     }
 
+    private sealed class RecordingStateHandler : HttpMessageHandler
+    {
+        public List<string> Paths { get; } = new();
+
+        protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
+        {
+            Paths.Add(request.RequestUri!.AbsolutePath);
+            return Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK)
+            {
+                Content = new StringContent("{\"state\":\"applied\"}", Encoding.UTF8, "application/json"),
+            });
+        }
+    }
+
+    // journey-branching: a pinned hosted journey with a choice and a guard runs through the same
+    // loader + executor as a local case — only the taken branch's requests are sent.
+    [Fact]
+    public async Task AFetchedJourneyWithAChoiceRunsOnlyTheTakenBranch()
+    {
+        var fixturesRoot = CreateFixturesRoot();
+        var journeyId = Guid.NewGuid();
+        var yaml = """
+            id: HOSTED-BRANCH
+            oracle:
+              locator: t/HOSTED-BRANCH
+            fixture:
+              locator: f.json
+            pipeline:
+              - operation: http.request
+                with:
+                  url: https://example.com/state
+                capture:
+                  - name: promoState
+                    from: json:$.state
+              - kind: "choice"
+                when:
+                  ref: "promoState"
+                  op: "=="
+                  value: "applied"
+                then:
+                  - operation: http.request
+                    with:
+                      url: https://example.com/applied
+                else:
+                  - operation: http.request
+                    with:
+                      url: https://example.com/pending
+              - operation: http.request
+                when:
+                  ref: "promoState"
+                  op: "!="
+                  value: "applied"
+                with:
+                  url: https://example.com/guarded
+              - operation: http.request
+                with:
+                  url: https://example.com/after
+            """;
+        var fetch = new FakeJourneyHandler(HttpStatusCode.OK, System.Text.Json.JsonSerializer.Serialize(new
+        {
+            journeyId,
+            version = 7,
+            yamlContent = yaml,
+        }));
+        var http = new RecordingStateHandler();
+        var env = new Dictionary<string, string?>(ValidEnvironment()) { ["RELEASETWIN_FIXTURES_ROOT"] = fixturesRoot };
+        var output = new StringWriter();
+
+        var exitCode = await new CliRunner().RunJourneyAsync(
+            journeyId, 7, env, output,
+            httpAdapterHandlerForTesting: http,
+            journeyFetchHandlerForTesting: fetch);
+
+        Assert.Equal(0, exitCode);
+        Assert.Contains("PASS HOSTED-BRANCH", output.ToString());
+        Assert.Equal(new[] { "/state", "/applied", "/after" }, http.Paths);
+    }
+
+    [Fact]
+    public async Task AFetchedJourneyWithANestedChoiceIsAClearParseErrorAndRunsNothing()
+    {
+        var journeyId = Guid.NewGuid();
+        var yaml = """
+            id: HOSTED-NESTED
+            oracle:
+              locator: t/HOSTED-NESTED
+            fixture:
+              locator: f.json
+            pipeline:
+              - operation: http.request
+                with: { url: "https://example.com/state" }
+                capture: [{ name: s, from: "json:$.state" }]
+              - kind: choice
+                when: { ref: s, op: exists }
+                then:
+                  - kind: choice
+                    when: { ref: s, op: exists }
+                    then: []
+                    else: []
+                else: []
+            """;
+        var fetch = new FakeJourneyHandler(HttpStatusCode.OK, System.Text.Json.JsonSerializer.Serialize(new { journeyId, version = 2, yamlContent = yaml }));
+        var http = new RecordingStateHandler();
+        var env = new Dictionary<string, string?>(ValidEnvironment()) { ["RELEASETWIN_FIXTURES_ROOT"] = CreateFixturesRoot() };
+        var output = new StringWriter();
+
+        var exitCode = await new CliRunner().RunJourneyAsync(
+            journeyId, 2, env, output, httpAdapterHandlerForTesting: http, journeyFetchHandlerForTesting: fetch);
+
+        Assert.Equal(1, exitCode);
+        Assert.Contains($"Failed to parse fetched journey {journeyId} version 2", output.ToString());
+        Assert.Contains("cannot be nested", output.ToString());
+        Assert.Empty(http.Paths);
+    }
+
     // Scenario: A fetch failure is a clear error, not a silent no-op
     [Fact]
     public async Task AFailedFetchIsAClearErrorNotASilentNoOp()
