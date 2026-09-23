@@ -91,11 +91,26 @@ internal sealed class PreconditionDto
     public string? Owner { get; set; }
 }
 
+/// <summary>
+/// One pipeline entry. journey-branching: an entry with <c>kind: choice</c> is a choice
+/// (<c>when</c>/<c>then</c>/<c>else</c>); any other entry is a step, optionally guarded by <c>when</c>.
+/// </summary>
 internal sealed class PipelineStepDto
 {
+    public string? Kind { get; set; }
     public string? Operation { get; set; }
     public object? With { get; set; }
     public List<CaptureDto>? Capture { get; set; }
+    public ConditionDto? When { get; set; }
+    public List<PipelineStepDto>? Then { get; set; }
+    public List<PipelineStepDto>? Else { get; set; }
+}
+
+internal sealed class ConditionDto
+{
+    public string? Ref { get; set; }
+    public string? Op { get; set; }
+    public string? Value { get; set; }
 }
 
 internal sealed class CaptureDto
