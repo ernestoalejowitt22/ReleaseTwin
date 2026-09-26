@@ -265,8 +265,12 @@ public sealed class CliRunner
 
         var apiToken = credential.Token;
         var apiUrl = credential.ApiUrl;
+        // evidence-integrity: explicit-value-wins/absent-falls-back, the same convention every
+        // other RELEASETWIN_* env var here follows — absent means every uploaded manifest is
+        // digest-only (still valid), never a signing failure.
+        var signingKeyPem = Get("RELEASETWIN_SIGNING_KEY") is { Length: > 0 } key ? key : null;
         IngestClient? ingestClient = apiToken is { Length: > 0 }
-            ? new IngestClient(apiUrl, apiToken, uploadHandlerForTesting)
+            ? new IngestClient(apiUrl, apiToken, uploadHandlerForTesting, signingKeyPem)
             : null;
         var uploadSummary = new RunSummaryUpload(credential.Mode, null);
 

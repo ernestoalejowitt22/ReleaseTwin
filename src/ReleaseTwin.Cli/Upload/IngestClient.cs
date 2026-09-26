@@ -19,13 +19,19 @@ public sealed class IngestClient : IDisposable
 {
     private readonly HttpClient _client;
 
-    public IngestClient(string baseUrl, string apiToken, HttpMessageHandler? handler = null)
+    private readonly string? _signingKeyPem;
+
+    /// <param name="signingKeyPem">evidence-integrity: a PEM-encoded ECDSA P-256 private key read
+    /// from <c>RELEASETWIN_SIGNING_KEY</c>, or null to produce an unsigned (still valid) manifest.
+    /// Never logged, never sent anywhere except as a signature (design.md - "Signing").</param>
+    public IngestClient(string baseUrl, string apiToken, HttpMessageHandler? handler = null, string? signingKeyPem = null)
     {
         _client = new HttpClient(handler ?? new HttpClientHandler(), disposeHandler: true)
         {
             BaseAddress = new Uri(baseUrl),
         };
         _client.DefaultRequestHeaders.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", apiToken);
+        _signingKeyPem = signingKeyPem;
     }
 
     /// <summary>
@@ -50,7 +56,10 @@ public sealed class IngestClient : IDisposable
             release,
         };
 
-        return await SendAsync("/api/ingest/case-report", payload, evidence, cancellationToken);
+        // evidence-integrity: identity binding uses the fixture hash a case report already carries
+        // (design.md - "Identity binding").
+        var identity = $"{report.CaseId}\n{report.FixtureSha256}";
+        return await SendAsync("/api/ingest/case-report", payload, evidence, identity, cancellationToken);
     }
 
     public async Task<IngestUploadResult> UploadFlagProofReportAsync(FlagProofResult result, RedactionResult? evidence, CancellationToken cancellationToken, string? release = null)
@@ -66,7 +75,10 @@ public sealed class IngestClient : IDisposable
             release,
         };
 
-        return await SendAsync("/api/ingest/flag-proof-report", payload, evidence, cancellationToken);
+        // evidence-integrity: flag-proof reports carry no fixture hash, so identity binding uses the
+        // build identity instead (design.md - "Identity binding").
+        var identity = $"{result.CaseId}\n{result.BuildIdentity}";
+        return await SendAsync("/api/ingest/flag-proof-report", payload, evidence, identity, cancellationToken);
     }
 
     /// <summary>
@@ -123,7 +135,8 @@ public sealed class IngestClient : IDisposable
         public string? RunUrl { get; set; }
     }
 
-    private async Task<IngestUploadResult> SendAsync(string path, object reportPayload, RedactionResult? evidence, CancellationToken cancellationToken)
+    private async Task<IngestUploadResult> SendAsync(
+        string path, object reportPayload, RedactionResult? evidence, string identity, CancellationToken cancellationToken)
     {
         HttpResponseMessage response;
 
@@ -132,33 +145,45 @@ public sealed class IngestClient : IDisposable
             // No evidence: unchanged JSON POST, byte-for-byte as before this capability.
             response = await _client.PostAsJsonAsync(path, reportPayload, cancellationToken);
         }
-        else if (evidence.Screenshots.Count == 0)
-        {
-            // The evidence document rides as an `evidence` property on the report object itself.
-            var body = JObject.FromObject(reportPayload);
-            body["evidence"] = JObject.FromObject(evidence.Document, CamelCase);
-            response = await _client.PostAsync(path,
-                new StringContent(body.ToString(), Encoding.UTF8, "application/json"),
-                cancellationToken);
-        }
         else
         {
-            var reportJson = JObject.FromObject(reportPayload);
-            reportJson["evidence"] = JObject.FromObject(evidence.Document, CamelCase);
+            // evidence-integrity: BuildDocumentJson's output is embedded via JRaw below *and* hashed
+            // here — the same exact text, never two separate serializations of "the same" document.
+            // A digest computed from a different serialization than what's actually sent would show
+            // as a false mismatch on every upload (see EvidenceManifestBuilder's doc comment).
+            var documentJson = EvidenceManifestBuilder.BuildDocumentJson(evidence.Document);
+            var manifest = EvidenceManifestBuilder.Build(documentJson, evidence.Screenshots, identity, _signingKeyPem);
 
-            using var multipart = new MultipartFormDataContent
+            if (evidence.Screenshots.Count == 0)
             {
-                { new StringContent(reportJson.ToString(), Encoding.UTF8, "application/json"), "report" },
-            };
-
-            foreach (var screenshot in evidence.Screenshots)
-            {
-                var part = new ByteArrayContent(screenshot.PngBytes);
-                part.Headers.ContentType = new System.Net.Http.Headers.MediaTypeHeaderValue("image/png");
-                multipart.Add(part, $"screenshot:{screenshot.Id}", $"{screenshot.Id}.png");
+                // The evidence document rides as an `evidence` property on the report object itself.
+                var body = JObject.FromObject(reportPayload);
+                body["evidence"] = new JRaw(documentJson);
+                body["manifest"] = JObject.FromObject(manifest, CamelCase);
+                response = await _client.PostAsync(path,
+                    new StringContent(body.ToString(Newtonsoft.Json.Formatting.None), Encoding.UTF8, "application/json"),
+                    cancellationToken);
             }
+            else
+            {
+                var reportJson = JObject.FromObject(reportPayload);
+                reportJson["evidence"] = new JRaw(documentJson);
+                reportJson["manifest"] = JObject.FromObject(manifest, CamelCase);
 
-            response = await _client.PostAsync(path, multipart, cancellationToken);
+                using var multipart = new MultipartFormDataContent
+                {
+                    { new StringContent(reportJson.ToString(Newtonsoft.Json.Formatting.None), Encoding.UTF8, "application/json"), "report" },
+                };
+
+                foreach (var screenshot in evidence.Screenshots)
+                {
+                    var part = new ByteArrayContent(screenshot.PngBytes);
+                    part.Headers.ContentType = new System.Net.Http.Headers.MediaTypeHeaderValue("image/png");
+                    multipart.Add(part, $"screenshot:{screenshot.Id}", $"{screenshot.Id}.png");
+                }
+
+                response = await _client.PostAsync(path, multipart, cancellationToken);
+            }
         }
 
         using (response)
