@@ -74,6 +74,13 @@ public static class CliEntrypoint
             return JUnitUploadCommand.RunAsync(args.Skip(1).ToArray(), environment, output);
         }
 
+        // evidence-integrity task 1.2: like `view`/`upload-junit` above, must be matched before the
+        // fallthrough below.
+        if (head == "generate-signing-keypair")
+        {
+            return GenerateSigningKeypairCommand.RunAsync(output);
+        }
+
         // `run` — same behaviour as no subcommand, just with the leading `run` stripped.
         var runArgs = head == "run" ? args.Skip(1).ToArray() : args;
 
@@ -197,6 +204,8 @@ public static class CliEntrypoint
                                                    (default: $RELEASETWIN_EVIDENCE_DIR, else ./evidence)
               releasetwin upload-junit <file>      upload a JUnit XML report your existing suite
                                                    already wrote (needs $RELEASETWIN_API_TOKEN)
+              releasetwin generate-signing-keypair generate an evidence-manifest signing keypair
+                                                   (the private key never leaves your machine)
 
             run options:
               --summary-json <path>               also write a machine-readable JSON run summary
